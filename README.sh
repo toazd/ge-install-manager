@@ -60,7 +60,8 @@ sHELP="
 "
 sUSAGE="
     USAGE:        - Acceptable formats for <version>:
-                      5.9-GE-3-ST, Proton-5.9-GE-3-ST, 5.9-GE-3-ST.tar.gz, or Proton-5.9-GE-3-ST.tar.gz
+                      Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz, 5.9-GE-3-ST, 5.9-GE-3-ST.tar.gz,
+                      proton-5.9-GE-3-ST, proton-5.9-GE-3-ST.tar.gz
 
                   - The order of parameters is not significant except,
                     > If during invocation multiple identical parameters are supplied.

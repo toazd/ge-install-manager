@@ -122,7 +122,7 @@ GetLatestGEVersionInfo() {
 
     # if name is used instead of tag_name
     #echo "Package URL: $sGE_LATEST_VERSION_DOWNLOAD_URL"
-    #sGE_VERSION=${sGE_VERSION#*"Proton-"}
+    #sGE_VERSION=$(CleanUpVersion "$sGE_VERSION")
 
     return 0
 }
@@ -369,7 +369,8 @@ ReportGEDiskUsage() {
             sFILE_COUNT=$(find "$sPATH" -type f | wc -l)
             printf "%s\n%s\n%s\n" "Path: $sPATH" "Files: $sFILE_COUNT" "Disk usage: ${sSIZE%%[[:blank:]]*}"
         else
-            "$sPATH does not exist"
+            [ "$iDEBUG" = 1 ] && echo "Path: $sPATH"
+            echo "Version \"$sREPORT_VERSION\" not found"
             return 1
         fi
     # if any check failed
@@ -482,6 +483,33 @@ IsSteamRunning() {
 
 ###############################################################################
 
+CleanUpVersion() {
+
+    [ -z "$1" ] && { printf "%s\n" "CleanUpVersion() requires one parameter" 1>/dev/stderr; printf "%s" "CleanUpVersion internal error"; return 1; }
+
+    sVERSION=$1
+
+    [ "$iDEBUG" = 1 ] && {
+        iLENGTH=${#sVERSION}
+        echo "CleanUpVersion before: $sVERSION" 1>/dev/stderr
+    }
+
+    sVERSION=${sVERSION#*"Proton-"}
+    sVERSION=${sVERSION#*"proton-"}
+    sVERSION=${sVERSION%".tar.gz"*}
+
+    [ "$iDEBUG" = 1 ] && {
+        echo "CleanUpVersion after: $sVERSION" 1>/dev/stderr
+        echo "CleanUpVersion: removed $(( iLENGTH - ${#sVERSION} )) characters" 1>/dev/stderr
+    }
+
+    printf "%s" "$sVERSION"
+
+    return 0
+}
+
+###############################################################################
+
 CleanUp() {
 
     [ -d "$sTMP_DIR" ] && {
@@ -502,6 +530,7 @@ CleanUp() {
 
 Main() {
 
+    # show help and/or usage
     if [ "$iSHOW_HELP" = 1 ] && [ "$iSHOW_USAGE" = 0 ]; then
         ShowHelp
         exit
@@ -548,14 +577,12 @@ Main() {
             echo "Please close steam before removing an installed version"
         else
             # NOTE sREMOVE_VERSION and sREMOVE_PACKAGE are set in getops
-            sREMOVE_VERSION=${sREMOVE_VERSION#*"Proton-"}
-            sREMOVE_VERSION=${sREMOVE_VERSION%".tar.gz"*}
+            sREMOVE_VERSION=$(CleanUpVersion "$sREMOVE_VERSION")
             RemoveGEVersion
         fi
     elif [ "$iREMOVE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 0 ] && [ -n "$sREMOVE_PACKAGE" ] && [ "$iREMOVE_SAVED_PACKAGES" = 0 ]; then
         # NOTE sREMOVE_VERSION and sREMOVE_PACKAGE are set in getops
-        sREMOVE_VERSION=${sREMOVE_VERSION#*"Proton-"}
-        sREMOVE_VERSION=${sREMOVE_VERSION%".tar.gz"*}
+        sREMOVE_VERSION=$(CleanUpVersion "$sREMOVE_VERSION")
         RemoveGEVersion
     elif [ "$iREMOVE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 1 ]; then
         [ "$iDEBUG" = 1 ] && {
@@ -567,8 +594,7 @@ Main() {
     # downlaod a package
     if [ "$iDOWNLOAD" = 1 ]; then
         # NOTE sDOWNLOAD_VERSION is set in getops
-        sDOWNLOAD_VERSION=${sDOWNLOAD_VERSION#*"Proton-"}
-        sDOWNLOAD_VERSION=${sDOWNLOAD_VERSION%".tar.gz"*}
+        sDOWNLOAD_VERSION=$(CleanUpVersion "$sDOWNLOAD_VERSION")
         DownloadGEPackage
     fi
 
@@ -607,8 +633,7 @@ Main() {
     # install a package
     if [ "$iINSTALL" = 1 ] && [ "$iUPDATE" = 0 ]; then
         # NOTE sINSTALL_VERSION is set in getops
-        sINSTALL_VERSION=${sINSTALL_VERSION#*"Proton-"}
-        sINSTALL_VERSION=${sINSTALL_VERSION%".tar.gz"*}
+        sINSTALL_VERSION=$(CleanUpVersion "$sINSTALL_VERSION")
         InstallGEVersion
     fi
 
@@ -621,14 +646,12 @@ Main() {
     # NOTE combining -s and -S is currently not supported
     # invocation Report with no RemoveInstall
     if [ "$iREPORT_USAGE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 0 ]; then
-        sREPORT_VERSION=${sREPORT_VERSION#*"Proton-"}
-        sREPORT_VERSION=${sREPORT_VERSION%".tar.gz"*}
+        sREPORT_VERSION=$(CleanUpVersion "$sREPORT_VERSION")
         ReportGEDiskUsage
     # invocation RemoveInstall + Install + Report
     # NOTE if the report path/reqeuested version does not exist that function handles error reporting
     elif [ "$iREPORT_USAGE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 1 ] && [ -n "$iINSTALL" ]; then
-        sREPORT_VERSION=${sREPORT_VERSION#*"Proton-"}
-        sREPORT_VERSION=${sREPORT_VERSION%".tar.gz"*}
+        sREPORT_VERSION=$(CleanUpVersion "$sREPORT_VERSION")
         ReportGEDiskUsage
     elif [ "$iREPORT_USAGE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 1 ] && [ -z "$iINSTALL" ]; then
         [ "$iDEBUG" = 1 ] && {
@@ -640,23 +663,31 @@ Main() {
     # TODO is there a better way?
     # NOTE ignore iFORCE and iDEBUG flags
     if [ "$iREMOVE_INSTALL_PATH" = 0 ] && \
-       [ "$iREMOVE_SAVED_PACKAGES" = 0 ] && \
-       [ "$iREMOVE" = 0 ] && \
-       [ "$iLIST_INSTALLED_GE_VERSIONS" = 0 ] && \
-       [ "$iREPORT_USAGE" = 0 ] && \
-       [ "$iDOWNLOAD" = 0 ] && \
-       [ "$iINSTALL" = 0 ] && \
-       [ "$iUPDATE" = 0 ]; then
+        [ "$iREMOVE_SAVED_PACKAGES" = 0 ] && \
+        [ "$iREMOVE" = 0 ] && \
+        [ "$iLIST_INSTALLED_GE_VERSIONS" = 0 ] && \
+        [ "$iREPORT_USAGE" = 0 ] && \
+        [ "$iDOWNLOAD" = 0 ] && \
+        [ "$iINSTALL" = 0 ] && \
+        [ "$iUPDATE" = 0 ]; then
 
-       if ! GetLatestGEVersionInfo; then
-           echo "Unable to retrieve latest release information"
-       fi
+        [ "$iDEBUG" = 1 ] && {
+            if IsSteamRunning; then
+                echo "Steam is running"
+            else
+                echo "Steam is not running"
+            fi
+        }
+
+        if ! GetLatestGEVersionInfo; then
+            echo "Unable to retrieve latest release information"
+        fi
     fi
 }
 
 ###############################################################################
 
-trap '[ "$iDEBUG" = 1 ] && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; [ "$iDEBUG" = 1 ] && echo "Exit status (after CleanUp): $?"' EXIT
+trap '[ "$iDEBUG" = 1 ] && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; [ "$iDEBUG" = 1 ] && echo "Exit status (CleanUp): $?"' EXIT
 
 ###############################################################################
 
