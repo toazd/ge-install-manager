@@ -66,7 +66,8 @@ sUSAGE="
                     > If during invocation multiple identical parameters are supplied
                         For example: -s 5.11-GE-1-MF -s 5.9-GE-3-ST
                       Only the right-most parameter will be processed (-s 5.9-GE-3-ST)
-                    > And/or if during invocation a parameter and it's capital counter-part are both included
+                    > And/or if during invocation a parameter and it's capital/lowercase counter-part are
+                      both included
                         For example: -s 5.11-GE-1-MF -S
                       Only the right-most parameter will be processed (-S)
 
