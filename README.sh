@@ -62,21 +62,20 @@ sUSAGE="
     USAGE:        - Acceptable formats for <version>:
                       5.9-GE-3-ST, Proton-5.9-GE-3-ST, 5.9-GE-3-ST.tar.gz, or Proton-5.9-GE-3-ST.tar.gz
 
-                  - The order of parameters is not significant except
-                    > If during invocation multiple identical parameters are supplied
+                  - The order of parameters is not significant except,
+                    > If during invocation multiple identical parameters are supplied.
                         For example: -s 5.11-GE-1-MF -s 5.9-GE-3-ST
-                      Only the right-most parameter will be processed (-s 5.9-GE-3-ST)
-                    > And/or if during invocation a parameter and it's capital/lowercase counter-part are
-                      both included
+                      Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
+                    > If during invocation a parameter and it's capital/lowercase counter-part are both included.
                         For example: -s 5.11-GE-1-MF -S
-                      Only the right-most parameter will be processed (-S)
+                      Only the right-most parameter will be processed (-S).
 
                   - Most options (except -hH, -rR, and -sS) can be combined to
-                    perform several actions in one invocation.
+                    perform more than one action in one invocation.
                       For example: Assuming the latest version is 5.9-GE-3-ST
                         ./$(basename "$0") -f -X -i Proton-5.11-GE-1-MF -z -u
                       will enable debug mode, remove the installation path,
-                      update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF
+                      update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
 
                   - Order of operations if multiple unique parameters are supplied:
                       Show help, Show usage, Force toggle, Debug toggle, Remove install path,
