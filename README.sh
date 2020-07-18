@@ -26,34 +26,20 @@ sHELP="
     Latest version URL:    $sGE_LATEST_VERSION_URL
 
     -h            - Show this help
-                      All other parameters except -H will be ignored
-
     -H            - Show usage notes, formats, and examples
-
     -l            - List installed versions and saved packages
-
     -S            - Report file count and disk usage of install path
-
     -s <version>  - Report file count and disk usage of <version>
-
     -u            - Check for and install the latest release if it is not installed
-
     -i <version>  - Download and install <version>
-
     -R <version>  - Remove installed <version>
-
     -r <version>  - Remove saved package <version>
-
     -d <version>  - Download the package for <version> and save it to the install path
-
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
-
     -X            - Remove the entire install path
                       -f is also required to confirm that you are sure
-
     -f            - Force install, upgrade, or remove
                       Combined with -u and/or -i, remove saved package and download a new copy
-
     -z            - Enable debug mode
                       Enable extra output messages and preserve any temporary files created
 
