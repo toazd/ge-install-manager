@@ -1,3 +1,20 @@
+###############################################################################
+#                                                                             #
+#      Toazd 2020 Unlicense https://unlicense.org/                            #
+#                                                                             #
+#      GloriousEggroll installation manager                                   #
+#       Manage proton-ge-custom installations                                 #
+#       https://github.com/GloriousEggroll/proton-ge-custom                   #
+#                                                                             #
+#      NOTE shellcheck should be invoked with the -x parameter                #
+#      "-x, --external-sources                                                #
+#        Follow source statements even when the file is not specified         #
+#        as input.  By default, shellcheck will only follow files             #
+#        specified on the command line (plus /dev/null). This                 #
+#        option allows following any file the script may source."             #
+#                                                                             #
+###############################################################################
+
 sHELP="
     $(basename "$0" .sh)  v$sSCRIPT_VER
 
