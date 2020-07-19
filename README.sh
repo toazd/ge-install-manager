@@ -44,30 +44,39 @@ sHELP="
                       Enable extra output messages and preserve any temporary files created
 
 "
+
+###############################################################################
+
 sUSAGE="
-    USAGE:        - Acceptable formats for <version>:
-                      Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz, 5.9-GE-3-ST, 5.9-GE-3-ST.tar.gz,
-                      proton-5.9-GE-3-ST, proton-5.9-GE-3-ST.tar.gz
+ Usage:
 
-                  - The order of parameters is not significant except,
-                    > If during invocation multiple identical parameters are supplied.
-                        For example: -s 5.11-GE-1-MF -s 5.9-GE-3-ST
-                      Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
-                    > If during invocation a parameter and it's capital/lowercase counter-part are both included.
-                        For example: -s 5.11-GE-1-MF -S
-                      Only the right-most parameter will be processed (-S).
+  - Acceptable formats for <version>:
+      Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz, 5.9-GE-3-ST, 5.9-GE-3-ST.tar.gz,
+      proton-5.9-GE-3-ST, proton-5.9-GE-3-ST.tar.gz
+  - Parameters that do not require arguments can be combined
+      For example: ./$(basename "$0") -hH
+                   ./$(basename "$0") -lSu -i 5.9-GE-3-ST
 
-                  - Most options (except -hH, -rR, and -sS) can be combined to
-                    perform more than one action in one invocation.
-                      For example: Assuming the latest version is 5.9-GE-3-ST
-                        ./$(basename "$0") -f -X -i Proton-5.11-GE-1-MF -z -u
-                      will enable debug mode, remove the installation path,
-                      update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
+  - The order of parameters is not significant except,
+    > If during invocation multiple identical parameters are supplied.
+          For example: -s 5.11-GE-1-MF -s 5.9-GE-3-ST
+        Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
+    > If during invocation a parameter and it's capital/lowercase counter-part are both included.
+          For example: -s 5.11-GE-1-MF -S
+        Only the right-most parameter will be processed (-S).
 
-                  - Order of operations if multiple unique parameters are supplied:
-                      Show help, Show usage, Force toggle, Debug toggle, Remove install path,
-                      Remove saved packages (if remove install path is not active),
-                      Remove installed version (if remove install path is not active),
-                      Download specific, Update, Install specific, List installed, Report usage
+  - Most options (except -hH, -rR, and -sS) can be combined to
+    perform more than one action in one invocation.
+      For example: assuming the latest version is 5.9-GE-3-ST,
+        ./$(basename "$0") -f -X -i Proton-5.11-GE-1-MF -z -u
+      will enable debug mode, remove the installation path,
+      update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
+
+  - Order of operations if multiple unique parameters are supplied:
+      Show help, Show usage, Force toggle, Debug toggle, Remove install path,
+      Remove saved packages (if remove install path is not active),
+      Remove installed version (if remove install path is not active),
+      Download specific, Update, Install specific, List installed, Report usage
 
 "
+###############################################################################

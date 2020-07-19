@@ -110,11 +110,11 @@ GetLatestGEVersionInfo() {
     sGE_LATEST_VERSION=${sGE_RELEASE_HTML#*"\"tag_name\": \""}
     sGE_LATEST_VERSION=${sGE_LATEST_VERSION%%"\","*}
 
-    if IsInstalled "$sGE_LATEST_VERSION"; then
-        echo "Latest version: $sGE_LATEST_VERSION (installed)"
-    else
-        echo "Latest version: $sGE_LATEST_VERSION (not installed)"
-    fi
+    #if IsInstalled "$sGE_LATEST_VERSION"; then
+    #    echo "Latest version: $sGE_LATEST_VERSION (installed)"
+    #else
+    #    echo "Latest version: $sGE_LATEST_VERSION (not installed)"
+    #fi
 
     # Get the download url from the release file html
     #sGE_DOWNLOAD_BASE_URL=${sGE_RELEASE_HTML#*"\"browser_download_url\": \""}
@@ -169,22 +169,17 @@ DownloadGEPackage() {
 
 InstallGEVersion() {
 
-    sVERSION=""
-
-    # NOTE iUPDATE is reset back to 0 after an update is run in Main
-    #      this is used to enable an install to run after an update
     if [ "$iUPDATE" = 1 ]; then
         sVERSION=$sGE_LATEST_VERSION
     elif [ "$iUPDATE" = 0 ]; then
         sVERSION=$sINSTALL_VERSION
     fi
 
-    # no need to run twice
-    if [ "$sGE_LATEST_VERSION" = "$sINSTALL_VERSION" ]; then
-        echo "Requested version and latest version are the same"
-        [ "$iDEBUG" = 1 ] && echo "Disabling update via iUPDATE=0"
-        iINSTALL=0 # turn off the subsequent update
-        sVERSION=$sGE_LATEST_VERSION # $sINSTALL_VERSION works too
+    if IsInstalled "$sVERSION" && [ "$iFORCE" = 0 ]; then
+        echo "Version $sVERSION already installed"
+        return 0
+    elif IsInstalled "$sVERSION" && [ "$iFORCE" = 1 ]; then
+        echo "Forcing re-install of version $sVERSION"
     fi
 
     # if a saved package exists and -f is not included
@@ -485,7 +480,7 @@ IsSteamRunning() {
 
 CleanUpVersion() {
 
-    [ -z "$1" ] && { printf "%s\n" "CleanUpVersion() requires one parameter" 1>/dev/stderr; printf "%s" "CleanUpVersion internal error"; return 1; }
+    [ -z "$1" ] && { printf "%s\n" "Internal error: CleanUpVersion() requires one parameter" 1>/dev/stderr; return 1; }
 
     sVERSION=$1
 
@@ -613,7 +608,7 @@ Main() {
                 fi
             # Latest version is installed and -f was not supplied
             elif IsInstalled "$sGE_LATEST_VERSION" && [ "$iFORCE" = 0 ]; then
-                : #echo "Update not needed"
+                echo "Latest version is installed"
             # Latest version is not installed
             elif ! IsInstalled "$sGE_LATEST_VERSION"; then
                 if InstallGEVersion; then
@@ -626,8 +621,8 @@ Main() {
             # GetLatestGEVersionInfo failed
             echo "Update failed"
         fi
-        # reset iUPDATE so iINSTALL can run properly if needed
-        iUPDATE=0
+        # TODO this hack will haunt you
+        [ "$iINSTALL" = 1 ] && iUPDATE=0
     fi
 
     # install a package
@@ -643,20 +638,11 @@ Main() {
     fi
 
     # report install path usage
-    # NOTE combining -s and -S is currently not supported
-    # invocation Report with no RemoveInstall
-    if [ "$iREPORT_USAGE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 0 ]; then
+    if [ "$iREPORT_USAGE" = 1 ] && [ -n "$sREPORT_VERSION" ]; then
         sREPORT_VERSION=$(CleanUpVersion "$sREPORT_VERSION")
         ReportGEDiskUsage
-    # invocation RemoveInstall + Install + Report
-    # NOTE if the report path/reqeuested version does not exist that function handles error reporting
-    elif [ "$iREPORT_USAGE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 1 ] && [ -n "$iINSTALL" ]; then
-        sREPORT_VERSION=$(CleanUpVersion "$sREPORT_VERSION")
+    elif [ "$iREPORT_USAGE" = 1 ] && [ -z "$sREPORT_VERSION" ]; then
         ReportGEDiskUsage
-    elif [ "$iREPORT_USAGE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 1 ] && [ -z "$iINSTALL" ]; then
-        [ "$iDEBUG" = 1 ] && {
-            echo "Not reporting usage because the install path was removed and no install was requested in the same invocation"
-        }
     fi
 
     # if no parameters were supplied, check for latest version and report if it is installed or not
@@ -679,9 +665,7 @@ Main() {
             fi
         }
 
-        if ! GetLatestGEVersionInfo; then
-            echo "Unable to retrieve latest release information"
-        fi
+        ShowHelp
     fi
 }
 
