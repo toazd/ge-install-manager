@@ -19,7 +19,7 @@
 set +e # WARNING DO NOT set -e
 
 ###############################################################################
-sSCRIPT_VER="0.6.5 \"Intrepid voyager\""                                      #
+sSCRIPT_VER="0.6.7 \"Intrepid voyager\""                                      #
 #                                             ________                        #
 #                                   __.------'--------`---.___                #
 #                              _.--'  _.-' /==================`--.___         #
@@ -52,6 +52,7 @@ iLIST_INSTALLED_GE_VERSIONS=0
 iREPORT_USAGE=0
 iSHOW_HELP=0
 iSHOW_USAGE=0
+OPTERR=1 # make sure it's on
 
 ###############################################################################
 
@@ -343,7 +344,7 @@ ReportGEDiskUsage() {
     iFAILED=0
 
     # check for commands required by this optional feature and report any missing
-    # NOTE Arch only - coreutils: du, wc - required by base: find
+    # NOTE Arch - coreutils: du, wc - required by base: find
     # TODO are there any platforms that can run Steam that don't have du, find, and wc?
     if ! command -v du >/dev/null; then
         iFAILED=1
@@ -532,6 +533,22 @@ CleanUpVersion() {
 
 ###############################################################################
 
+ReportSystemInformation() {
+
+    printf "\n%s\n" "#### set ####"
+    if ! set; then echo "set failed"; fi
+
+    printf "\n%s\n" "#### stty -a ####"
+    if ! stty -a; then echo "stty failed"; fi
+
+    printf "\n%s\n" "#### env -v --list-signal-handling 2>/dev/stdout ####"
+    if ! env -v --list-signal-handling 2>/dev/stdout; then echo "env failed"; fi
+
+    exit 0
+}
+
+###############################################################################
+
 CleanUp() {
 
     [ -d "$sTMP_DIR" ] && {
@@ -550,7 +567,34 @@ CleanUp() {
 
 ###############################################################################
 
+ParseParameters() {
+    while getopts 'zZhHflSs:i:d:R:r:NuX' sOPT; do
+        case "$sOPT" in
+            ("h") iSHOW_HELP=1 ;;
+            ("H") iSHOW_USAGE=1 ;;
+            ("f") iFORCE=1 ;;
+            ("z") iDEBUG=1 ;;
+            ("Z") if [ "$iFORCE" = 1 ] && [ "$iDEBUG" = 1 ]; then ReportSystemInformation; fi ;; # -fzZ
+            ("X") iREMOVE_INSTALL_PATH=1 ;;
+            ("N") iREMOVE_SAVED_PACKAGES=1 ;;
+            ("r") iREMOVE=1 sREMOVE_VERSION=$OPTARG sREMOVE_PACKAGE="";;
+            ("R") iREMOVE=1 sREMOVE_PACKAGE=${OPTARG:-""} sREMOVE_VERSION="" ;;
+            ("l") iLIST_INSTALLED_GE_VERSIONS=1 ;;
+            ("s") iREPORT_USAGE=1 sREPORT_VERSION=${OPTARG:-""} ;;
+            ("S") iREPORT_USAGE=1 sREPORT_VERSION="" ;;
+            ("d") iDOWNLOAD=1 sDOWNLOAD_VERSION=$OPTARG ;;
+            ("i") iINSTALL=1 sINSTALL_VERSION=$OPTARG ;;
+            ("u") iUPDATE=1 ;;
+            (":"|"?") exit 1 ;;
+        esac
+    done
+}
+
+###############################################################################
+
 Main() {
+
+    if ! ParseParameters "$@"; then exit 1; fi
 
     # show help and/or usage
     if [ "$iSHOW_HELP" = 1 ] && [ "$iSHOW_USAGE" = 0 ]; then
@@ -567,7 +611,7 @@ Main() {
 
     # debug mode
     if [ "$iDEBUG" = 1 ]; then
-        echo "Debug mode enabled"
+        echo "Main: Debug mode enabled"
     fi
 
     if [ "$iDEBUG" = 1 ]; then
@@ -600,7 +644,7 @@ Main() {
         RemoveGEVersion
     elif [ "$iREMOVE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 1 ]; then
         echo "Skipping remove version/package because remove install path was requested in the same invocation"
-        [ "$iDEBUG" = 1 ] && printf "%s\n%s\n" "iREMOVE_INSTALL_PATH: $iREMOVE_INSTALL_PATH" "iREMOVE_SAVED_PACKAGES: $iREMOVE_SAVED_PACKAGES"
+        [ "$iDEBUG" = 1 ] && printf "%s\n%s\n" "Main: Remove: iREMOVE_INSTALL_PATH: $iREMOVE_INSTALL_PATH" "iREMOVE_SAVED_PACKAGES: $iREMOVE_SAVED_PACKAGES"
     fi
 
     # downlaod a package
@@ -625,23 +669,23 @@ Main() {
                 fi
             # Latest version is installed and -f was not supplied
             elif IsInstalled "$sGE_LATEST_VERSION" && [ "$iFORCE" = 0 ]; then
-                [ "$iDEBUG" = 1 ] && printf "%s" "Update: "
+                [ "$iDEBUG" = 1 ] && printf "%s" "Main: Update: "
                 echo "Latest version is installed"
             # Latest version is not installed
             elif ! IsInstalled "$sGE_LATEST_VERSION"; then
-                [ "$iDEBUG" = 1 ] && printf "%s" "Update: "
+                [ "$iDEBUG" = 1 ] && printf "%s" "Main: Update: "
                 echo "Latest version is not installed"
                 if InstallGEVersion; then
-                    [ "$iDEBUG" = 1 ] && printf "%s" "Update: "
+                    [ "$iDEBUG" = 1 ] && printf "%s" "Main: Update: "
                     echo "Update succeeded"
                 else
-                    [ "$iDEBUG" = 1 ] && printf "%s" "Update: "
+                    [ "$iDEBUG" = 1 ] && printf "%s" "Main: Update: "
                     echo "Update failed"
                 fi
             fi
         else
             # GetLatestGEVersionInfo failed
-            [ "$iDEBUG" = 1 ] && printf "%s\n" "Update: GetLatestGEVersionInfo returned failure status"
+            [ "$iDEBUG" = 1 ] && printf "%s\n" "Main: Update: GetLatestGEVersionInfo returned failure status"
             echo "Update failed"
         fi
         # WARNING like purchasing a tribble, this is probably a bad idea
@@ -682,13 +726,14 @@ Main() {
 
         [ "$iDEBUG" = 1 ] && {
             if IsSteamRunning; then
-                echo "Steam is running"
+                echo "Main: Steam is running"
             else
-                echo "Steam is not running"
+                echo "Main: Steam is not running"
             fi
+            echo "Main: Nothing to do - showing help"
         }
 
-        echo "Nothing to do - showing help"
+
         ShowHelp
     fi
 }
@@ -698,28 +743,13 @@ Main() {
 trap '[ "$iDEBUG" = 1 ] && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; [ "$iDEBUG" = 1 ] && echo "Exit status (CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT
 
 ###############################################################################
+#     cKKKKK  oKKl  KKd   kWMMXl    0KKKKl    xWMMXl   OKKKKK
+#     dMMMWN  kMMN  MMk  WMMOXMM0   MMMMMK   NMM0KMMK  NMMMNN
+#     dMM     kMMMO MMk  MMM  MMM   MMXNMM   MMM  MMM  NMM
+#     dMMMOk  kMMMMXMMk  MMM        MMd0MM   MMM       NMMWkk
+#     dMMMkx  kMM MMMMk  MMM NMMM  WMM  MMW  MMM NMMM  NMMWxx
+#     dMM     kMM KMMMk  MMM  MMM  MMMWWMMW  MMM  MMM  NMM
+#     dMMMK0  kMM  MMMk  MMMx0MMM  MMM  MMM  MMMkOMMM  NMMW00
 
-OPTERR=1 # make sure it's on
-while getopts 'zhHflSs:i:d:R:r:NuX' sOPT; do
-    case "$sOPT" in
-        ("h") iSHOW_HELP=1 ;;
-        ("H") iSHOW_USAGE=1 ;;
-        ("f") iFORCE=1 ;;
-        ("z") iDEBUG=1 ;;
-        ("X") iREMOVE_INSTALL_PATH=1 ;;
-        ("N") iREMOVE_SAVED_PACKAGES=1 ;;
-        ("r") iREMOVE=1 sREMOVE_VERSION=$OPTARG sREMOVE_PACKAGE="";;
-        ("R") iREMOVE=1 sREMOVE_PACKAGE=${OPTARG:-""} sREMOVE_VERSION="" ;;
-        ("l") iLIST_INSTALLED_GE_VERSIONS=1 ;;
-        ("s") iREPORT_USAGE=1 sREPORT_VERSION=${OPTARG:-""} ;;
-        ("S") iREPORT_USAGE=1 sREPORT_VERSION="" ;;
-        ("d") iDOWNLOAD=1 sDOWNLOAD_VERSION=$OPTARG ;;
-        ("i") iINSTALL=1 sINSTALL_VERSION=$OPTARG ;;
-        ("u") iUPDATE=1 ;;
-        (":"|"?") exit 1 ;;
-    esac
-done
+Main "$@"
 
-###############################################################################
-
-Main
