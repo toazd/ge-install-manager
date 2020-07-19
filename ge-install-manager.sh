@@ -533,7 +533,7 @@ CleanUpVersion() {
 
 ###############################################################################
 
-ReportSystemInformation() {
+ReportEnvironmentInfo() {
 
     printf "\n%s\n" "#### set ####"
     if ! set; then echo "set failed"; fi
@@ -574,7 +574,7 @@ ParseParameters() {
             ("H") iSHOW_USAGE=1 ;;
             ("f") iFORCE=1 ;;
             ("z") iDEBUG=1 ;;
-            ("Z") if [ "$iFORCE" = 1 ] && [ "$iDEBUG" = 1 ]; then ReportSystemInformation; fi ;; # -fzZ
+            ("Z") if [ "$iFORCE" = 1 ] && [ "$iDEBUG" = 1 ]; then ReportEnvironmentInfo; fi ;; # -fzZ
             ("X") iREMOVE_INSTALL_PATH=1 ;;
             ("N") iREMOVE_SAVED_PACKAGES=1 ;;
             ("r") iREMOVE=1 sREMOVE_VERSION=$OPTARG sREMOVE_PACKAGE="";;
