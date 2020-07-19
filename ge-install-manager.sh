@@ -175,11 +175,18 @@ InstallGEVersion() {
         sVERSION=$sINSTALL_VERSION
     fi
 
-    if IsInstalled "$sVERSION" && [ "$iFORCE" = 0 ]; then
-        echo "Install: $sVERSION already installed"
-        return 0
-    elif IsInstalled "$sVERSION" && [ "$iFORCE" = 1 ]; then
-        echo "Install: Forcing re-install of version $sVERSION"
+    if IsInstalled "$sVERSION"; then
+        if [ "$iFORCE" = 0 ]; then
+            echo "Install: $sVERSION already installed"
+            return 0
+        elif [ "$iFORCE" = 1 ]; then
+            if IsSteamRunning; then
+                echo "Please close steam before installing a version that is already installed"
+                return 1
+            else
+                echo "Install: Forcing re-install of version $sVERSION"
+            fi
+        fi
     fi
 
     # if a saved package exists and -f is not included
@@ -192,6 +199,7 @@ InstallGEVersion() {
             return 1
         fi
     # if a saved package exists and -f is included
+    # NOTE doesn't matter if steam is running
     elif [ -f "${sGE_INSTALL_PATH}/Proton-${sVERSION}.tar.gz" ] && [ "$iFORCE" = 1 ]; then
         echo "Removing saved package ${sGE_INSTALL_PATH}/Proton-${sVERSION}.tar.gz"
         if rm -f "${sGE_INSTALL_PATH}/Proton-${sVERSION}.tar.gz"; then
@@ -228,12 +236,16 @@ RemoveGEVersion() {
     # remove installed path
     if [ -z "$sREMOVE_PACKAGE" ]; then
         if [ -d "$sREMOVE_PATH" ]; then
-            echo "Removing $sREMOVE_PATH"
-            if rm -rf "$sREMOVE_PATH"; then
-                echo "Removed version $sREMOVE_VERSION"
+            [ "$iDEBUG" = 1 ] && echo "Removing $sREMOVE_PATH"
+            if IsSteamRunning; then
+                echo "Please close steam before removing a version"
             else
-                echo "Removal of \"$sREMOVE_PATH\" failed"
-                iFAILED=1
+                if rm -rf "$sREMOVE_PATH"; then
+                    echo "Removed version $sREMOVE_VERSION"
+                else
+                    echo "Removal of \"$sREMOVE_PATH\" failed"
+                    iFAILED=1
+                fi
             fi
         else
             if [ "$iFORCE" = 0 ]; then
