@@ -96,7 +96,7 @@ GetLatestGEVersionInfo() {
             sGE_RELEASE_HTML=$(cat "$sGE_INSTALL_PATH"/latest 2>/dev/null)
         fi
     elif [ -n "$sGE_RELEASE_HTML" ]; then
-        # TODO if new version is recevied, show release info from html file?
+        # TODO if new version is received, show release info from json file?
         [ "$iDEBUG" = 1 ] && echo "GetLatestGEVersionInfo: Saving latest release information to ${sGE_INSTALL_PATH}/latest"
         printf "%s" "$sGE_RELEASE_HTML" > "$sGE_INSTALL_PATH"/latest
     fi
@@ -107,7 +107,7 @@ GetLatestGEVersionInfo() {
         return 1
     }
 
-    # Get the latest release from the html
+    # Get the latest release from the json
     sGE_LATEST_VERSION=${sGE_RELEASE_HTML#*"\"tag_name\": \""}
     sGE_LATEST_VERSION=${sGE_LATEST_VERSION%%"\","*}
 
@@ -117,7 +117,7 @@ GetLatestGEVersionInfo() {
     #    echo "Latest version: $sGE_LATEST_VERSION (not installed)"
     #fi
 
-    # Get the download url from the release file html
+    # Get the download url from the release file json
     #sGE_DOWNLOAD_BASE_URL=${sGE_RELEASE_HTML#*"\"browser_download_url\": \""}
     #sGE_LATEST_VERSION_DOWNLOAD_URL=${sGE_LATEST_VERSION_DOWNLOAD_URL%%"\""*}
 
