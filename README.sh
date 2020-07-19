@@ -53,6 +53,7 @@ sUSAGE="
   - Acceptable formats for <version>:
       Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz, 5.9-GE-3-ST, 5.9-GE-3-ST.tar.gz,
       proton-5.9-GE-3-ST, proton-5.9-GE-3-ST.tar.gz
+
   - Parameters that do not require arguments can be combined
       For example: ./$(basename "$0") -hH
                    ./$(basename "$0") -lSu -i 5.9-GE-3-ST

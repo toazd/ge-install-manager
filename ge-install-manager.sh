@@ -176,10 +176,10 @@ InstallGEVersion() {
     fi
 
     if IsInstalled "$sVERSION" && [ "$iFORCE" = 0 ]; then
-        echo "Version $sVERSION already installed"
+        echo "Install: $sVERSION already installed"
         return 0
     elif IsInstalled "$sVERSION" && [ "$iFORCE" = 1 ]; then
-        echo "Forcing re-install of version $sVERSION"
+        echo "Install: Forcing re-install of version $sVERSION"
     fi
 
     # if a saved package exists and -f is not included
@@ -608,9 +608,10 @@ Main() {
                 fi
             # Latest version is installed and -f was not supplied
             elif IsInstalled "$sGE_LATEST_VERSION" && [ "$iFORCE" = 0 ]; then
-                echo "Latest version is installed"
+                echo "Update: Latest version is installed"
             # Latest version is not installed
             elif ! IsInstalled "$sGE_LATEST_VERSION"; then
+                echo "Update: Latest version is not installed"
                 if InstallGEVersion; then
                     echo "Update succeeded"
                 else
@@ -621,7 +622,7 @@ Main() {
             # GetLatestGEVersionInfo failed
             echo "Update failed"
         fi
-        # TODO this hack will haunt you
+        # WARNING this hack will haunt you
         [ "$iINSTALL" = 1 ] && iUPDATE=0
     fi
 
