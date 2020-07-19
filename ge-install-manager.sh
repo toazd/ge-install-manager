@@ -237,7 +237,7 @@ RemoveGEVersion() {
     if [ -z "$sREMOVE_PACKAGE" ]; then
         if [ -d "$sREMOVE_PATH" ]; then
             [ "$iDEBUG" = 1 ] && echo "Removing $sREMOVE_PATH"
-            if IsSteamRunning; then
+            if IsSteamRunning && IsInstalled "$sREMOVE_VERSION"; then
                 echo "Please close steam before removing a version"
             else
                 if rm -rf "$sREMOVE_PATH"; then
@@ -254,6 +254,7 @@ RemoveGEVersion() {
             fi
         fi
     # remove saved package
+    # NOTE doesn't matter if steam is installed
     elif [ -n "$sREMOVE_PACKAGE" ]; then
         if [ -f "$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz" ]; then
             if rm -f "$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz"; then
@@ -579,23 +580,13 @@ Main() {
     fi
 
     # remove an installed version or package
-    if [ "$iREMOVE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 0 ] && [ -z "$sREMOVE_PACKAGE" ] && [ "$iREMOVE_SAVED_PACKAGES" = 0 ]; then
-        if IsSteamRunning; then
-            echo "Please close steam before removing an installed version"
-        else
-            # NOTE sREMOVE_VERSION and sREMOVE_PACKAGE are set in getops
-            sREMOVE_VERSION=$(CleanUpVersion "$sREMOVE_VERSION")
-            RemoveGEVersion
-        fi
-    elif [ "$iREMOVE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 0 ] && [ -n "$sREMOVE_PACKAGE" ] && [ "$iREMOVE_SAVED_PACKAGES" = 0 ]; then
+    if [ "$iREMOVE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 0 ] && [ "$iREMOVE_SAVED_PACKAGES" = 0 ]; then
         # NOTE sREMOVE_VERSION and sREMOVE_PACKAGE are set in getops
         sREMOVE_VERSION=$(CleanUpVersion "$sREMOVE_VERSION")
         RemoveGEVersion
     elif [ "$iREMOVE" = 1 ] && [ "$iREMOVE_INSTALL_PATH" = 1 ]; then
-        [ "$iDEBUG" = 1 ] && {
-            echo "Skipping remove version/package because remove install path and/or remove saved packages were requested in the same invocation"
-            printf "%s\n%s\n" "iREMOVE_INSTALL_PATH: $iREMOVE_INSTALL_PATH" "iREMOVE_SAVED_PACKAGES: $iREMOVE_SAVED_PACKAGES"
-        }
+        echo "Skipping remove version/package because remove install path was requested in the same invocation"
+        [ "$iDEBUG" = 1 ] && printf "%s\n%s\n" "iREMOVE_INSTALL_PATH: $iREMOVE_INSTALL_PATH" "iREMOVE_SAVED_PACKAGES: $iREMOVE_SAVED_PACKAGES"
     fi
 
     # downlaod a package
