@@ -18,7 +18,7 @@
 sHELP="
     $(basename "$0" .sh)  v$sSCRIPT_VER
 
-    Required:       curl, tar, gzip, pgrep
+    Required:       curl, tar, gzip, pgrep, stat
     Optional:       du, find, wc (for -s|-S)
 
     Install path:          $sGE_INSTALL_PATH
@@ -51,12 +51,15 @@ sUSAGE="
  Usage:
 
   - Acceptable formats for <version>:
-      Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz, 5.9-GE-3-ST, 5.9-GE-3-ST.tar.gz,
-      proton-5.9-GE-3-ST, proton-5.9-GE-3-ST.tar.gz
+      5.9-GE-3-ST, Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz (case-insensitive)
 
   - Parameters that do not require arguments can be combined
       For example: ./$(basename "$0") -hH
+                     Result: Show help followed directly by usage
                    ./$(basename "$0") -lSu -i 5.9-GE-3-ST
+                     Result: Check for the latest version and install it,
+                       install version 5.9-GE-3-ST, list installed versions, then
+                       report file and disk usage for the install path
 
   - The order of parameters is not significant except,
     > If during invocation multiple identical parameters are supplied.

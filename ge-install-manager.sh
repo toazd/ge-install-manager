@@ -19,7 +19,7 @@
 set +e # WARNING DO NOT set -e
 
 ###############################################################################
-sSCRIPT_VER="0.6.4 \"Intrepid voyager\""                                      #
+sSCRIPT_VER="0.6.5 \"Intrepid voyager\""                                      #
 #                                             ________                        #
 #                                   __.------'--------`---.___                #
 #                              _.--'  _.-' /==================`--.___         #
@@ -81,23 +81,23 @@ ShowUsage() {
 
 GetLatestGEVersionInfo() {
 
-    sGE_RELEASE_HTML=$(curl -sz "$sGE_INSTALL_PATH/latest" -L "$sGE_LATEST_VERSION_URL" -o -)
+    sGE_RELEASE_HTML=$(curl -sz "$sGE_INSTALL_PATH"/latest -L "$sGE_LATEST_VERSION_URL" -o -)
 
-    [ "$iDEBUG" = 1 ] && echo "Latest release URL: $sGE_LATEST_VERSION_URL"
+    [ "$iDEBUG" = 1 ] && echo "GetLatestGEVersionInfo: Using URL \"$sGE_LATEST_VERSION_URL\" for latest release information"
 
     # if curl returned NULL (remote file not newer) fill the var with the contents of the saved file 'latest'
     if [ -z "$sGE_RELEASE_HTML" ]; then
-        [ "$iDEBUG" = 1 ] && echo "Remote file not newer, using saved ${sGE_INSTALL_PATH}/latest"
-        if [ ! -f "${sGE_INSTALL_PATH}/latest" ]; then
+        [ "$iDEBUG" = 1 ] && echo "GetLatestGEVersionInfo: Remote file not newer, using saved ${sGE_INSTALL_PATH}/latest"
+        if [ ! -f "$sGE_INSTALL_PATH"/latest ]; then
             printf "%s\n%sn" "Server return NULL and no saved release information found in $sGE_INSTALL_PATH" "Is $sGE_LATEST_VERSION_URL valid?"
             return 1
         else
-            sGE_RELEASE_HTML=$(cat "${sGE_INSTALL_PATH}/latest" 2>/dev/null)
+            sGE_RELEASE_HTML=$(cat "$sGE_INSTALL_PATH"/latest 2>/dev/null)
         fi
     elif [ -n "$sGE_RELEASE_HTML" ]; then
         # TODO if new version is recevied, show release info from html file?
-        [ "$iDEBUG" = 1 ] && echo "Saving latest release information to ${sGE_INSTALL_PATH}/latest"
-        printf "%s" "$sGE_RELEASE_HTML" > "${sGE_INSTALL_PATH}/latest"
+        [ "$iDEBUG" = 1 ] && echo "GetLatestGEVersionInfo: Saving latest release information to ${sGE_INSTALL_PATH}/latest"
+        printf "%s" "$sGE_RELEASE_HTML" > "$sGE_INSTALL_PATH"/latest
     fi
 
     # TODO check hash and/or length / might need a config file
@@ -131,7 +131,7 @@ GetLatestGEVersionInfo() {
 
 DownloadGEPackage() {
 
-    sTMP_DIR=$(mktemp -qd --tmpdir "$(basename "$0" .sh).tmp.XXXXXXXXXX")
+    sTMP_DIR=$(mktemp -qd --tmpdir "$(basename "$0" .sh)".tmp.XXXXXXXXXX)
     sTMP_PACKAGE=${sTMP_DIR}/Proton-${sDOWNLOAD_VERSION}.tar.gz
     sGE_DOWNLOAD_URL=${sGE_DOWNLOAD_BASE_URL}/${sDOWNLOAD_VERSION}/Proton-${sDOWNLOAD_VERSION}.tar.gz
     sSIZE_BYTES=""
@@ -139,19 +139,19 @@ DownloadGEPackage() {
     echo "Downloading $sGE_DOWNLOAD_URL"
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
         sSIZE_BYTES=$(stat -c "%s" "$sTMP_PACKAGE")
-        [ "$iDEBUG" = 1 ] && echo "Package size in bytes: $sSIZE_BYTES"
+        [ "$iDEBUG" = 1 ] && echo "DownloadGEPackage: Package size in bytes: $sSIZE_BYTES"
         if [ "$sSIZE_BYTES" = 9 ] && [ "$(cat "$sTMP_PACKAGE" 2>/dev/null)" = "Not Found" ]; then
             echo "Package not found"
             CleanUp
             return 1
         fi
-        [ "$iDEBUG" = 1 ] && echo "Copying package $sTMP_PACKAGE to $sGE_INSTALL_PATH"
+        [ "$iDEBUG" = 1 ] && echo "DownloadGEPackage: Copying package $sTMP_PACKAGE to $sGE_INSTALL_PATH"
         if cp "$sTMP_PACKAGE" "$sGE_INSTALL_PATH"; then
-            [ "$iDEBUG" = 1 ] && echo "Package copied successfully"
+            [ "$iDEBUG" = 1 ] && echo "DownloadGEPackage: Package copied successfully"
             echo "Download succeeded"
             CleanUp
         else
-            [ "$iDEBUG" = 1 ] && echo "Copy package $sTMP_PACKAGE to $sGE_INSTALL_PATH failed"
+            [ "$iDEBUG" = 1 ] && echo "DownloadGEPackage: Copy package $sTMP_PACKAGE to $sGE_INSTALL_PATH failed"
             echo "Download failed"
             CleanUp
             return 1
@@ -236,7 +236,7 @@ RemoveGEVersion() {
     # remove installed path
     if [ -z "$sREMOVE_PACKAGE" ]; then
         if [ -d "$sREMOVE_PATH" ]; then
-            [ "$iDEBUG" = 1 ] && echo "Removing $sREMOVE_PATH"
+            [ "$iDEBUG" = 1 ] && echo "RemoveGEVersion: Removing $sREMOVE_PATH"
             if IsSteamRunning && IsInstalled "$sREMOVE_VERSION"; then
                 echo "Please close steam before removing a version"
             else
@@ -248,10 +248,11 @@ RemoveGEVersion() {
                 fi
             fi
         else
-            if [ "$iFORCE" = 0 ]; then
+            # TODO does checking for -f really matter here?
+            #if [ "$iFORCE" = 0 ]; then
                 echo "Version not found at: \"$sREMOVE_PATH\""
                 iFAILED=1
-            fi
+            #fi
         fi
     # remove saved package
     # NOTE doesn't matter if steam is installed
@@ -280,16 +281,14 @@ ExtractGEPackage() {
     else
         printf "\n%s\n" "Package extraction failed"
         [ -d "${sGE_INSTALL_PATH}/Proton-${sEXTRACT_PACKAGE_VERSION}" ] && {
-            [ "$iDEBUG" = 1 ] && echo "Removing failed extraction path ${sGE_INSTALL_PATH}/Proton-${sEXTRACT_PACKAGE_VERSION}"
-            [ -d "${sGE_INSTALL_PATH}/Proton-${sEXTRACT_PACKAGE_VERSION}" ] && {
-                if ! rm -rf "${sGE_INSTALL_PATH}/Proton-${sEXTRACT_PACKAGE_VERSION}"; then
-                    echo "Failed to remove partial extraction path at: ${sGE_INSTALL_PATH}/Proton-${sEXTRACT_PACKAGE_VERSION}"
-                    # TODO update/remove message if install verification is updated
-                    echo "Manual removal is required or this script may interpret it as a valid install"
-                else
-                    [ "$iDEBUG" = 1 ] && echo "Removal succeeded"
-                fi
-            }
+            [ "$iDEBUG" = 1 ] && echo "ExtractGEPackage: Removing failed extraction path ${sGE_INSTALL_PATH}/Proton-${sEXTRACT_PACKAGE_VERSION}"
+            if rm -rf "${sGE_INSTALL_PATH}/Proton-${sEXTRACT_PACKAGE_VERSION}"; then
+                [ "$iDEBUG" = 1 ] && echo "ExtractGEPackage: Removal succeeded"
+            else
+                echo "Failed to remove path of failed extraction: ${sGE_INSTALL_PATH}/Proton-${sEXTRACT_PACKAGE_VERSION}"
+                # TODO update/remove message if install verification is updated
+                echo "This script may interpret it as a valid install until it is removed"
+            fi
         }
         return 1
     fi
@@ -304,16 +303,17 @@ ListInstalledGEVersions() {
 
     iCOUNT=0
     sNODE=""
+    sEXTRACTED_VERSION=""
 
-    [ "$iDEBUG" = 1 ] && echo "Install path: $sGE_INSTALL_PATH"
+    [ "$iDEBUG" = 1 ] && echo "ListInstalledGEVersions: Install path: $sGE_INSTALL_PATH"
 
     echo "Installed version(s):"
     for sNODE in "$sGE_INSTALL_PATH"/*; do
         if [ -d "$sNODE" ]; then
-            sVERSION=$(cat "$sNODE"/version 2>/dev/null)
-            sVERSION=${sVERSION#*[[:blank:]]}
-            if [ -z "$sVERSION" ] || [ "$sVERSION" = "file not found" ]; then sVERSION="error: version file not found"; fi
-            echo "  ${sNODE##*/} ($sVERSION)"
+            sEXTRACTED_VERSION=$(cat "$sNODE"/version 2>/dev/null)
+            sEXTRACTED_VERSION=${sEXTRACTED_VERSION#*[[:blank:]]}
+            if [ -z "$sEXTRACTED_VERSION" ] || [ "$sEXTRACTED_VERSION" = "file not found" ]; then sEXTRACTED_VERSION="error: version file not found"; fi
+            echo "  ${sNODE##*/} ($sEXTRACTED_VERSION)"
             iCOUNT=$(( iCOUNT + 1 ))
         fi
     done
@@ -322,7 +322,11 @@ ListInstalledGEVersions() {
     echo "Saved packages:"
     for sNODE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [ -f "$sNODE" ]; then
-            echo "  ${sNODE##*/}"
+            if [ "$iDEBUG" = 1 ]; then
+                echo "ListInstalledGEVersions: $sNODE"
+            else
+                echo "  ${sNODE##*/}"
+            fi
             iCOUNT=$(( iCOUNT + 1 ))
         fi
     done
@@ -345,31 +349,31 @@ ReportGEDiskUsage() {
         iFAILED=1
         echo "command du not found"
     else
-        [ "$iDEBUG" = 1 ] && echo "command du found"
+        [ "$iDEBUG" = 1 ] && echo "ReportGEDiskUsage: command du found"
     fi
 
     if ! command -v find >/dev/null; then
         iFAILED=1
         echo "command find not found"
     else
-        [ "$iDEBUG" = 1 ] && echo "command find found"
+        [ "$iDEBUG" = 1 ] && echo "ReportGEDiskUsage: command find found"
     fi
 
     if ! command -v wc >/dev/null; then
         iFAILED=1
         echo "command wc not found"
     else
-        [ "$iDEBUG" = 1 ] && echo "command wc found"
+        [ "$iDEBUG" = 1 ] && echo "ReportGEDiskUsage: command wc found"
     fi
 
     # if all checks succeeded
     if [ "$iFAILED" = 0 ]; then
         # set the path to be reported on based on which parameter was used -s|-S
-        # NOTE if -S is invoked, sREPORT_VERSION is set to NULL
+        # NOTE if -S is invoked, sREPORT_VERSION is set to NULL in getopts
         if [ "$sREPORT_VERSION" = "" ]; then
             sPATH=$sGE_INSTALL_PATH
         elif [ -n "$sREPORT_VERSION" ]; then
-            sPATH=$sGE_INSTALL_PATH/Proton-${sREPORT_VERSION}
+            sPATH=${sGE_INSTALL_PATH}/Proton-${sREPORT_VERSION}
         fi
 
         if [ -d "$sPATH" ]; then
@@ -383,8 +387,8 @@ ReportGEDiskUsage() {
         fi
     # if any check failed
     elif [ "$iFAILED" = 1 ]; then
+        [ "$iDEBUG" = 1 ] && echo "ReportGEDiskUsage: At least one optional command was not found"
         echo "Report not available"
-        [ "$iDEBUG" = 1 ] && echo "See -h for a list of optional commands required to use this feature"
         return 1
     fi
 
@@ -398,12 +402,12 @@ RemoveSavedPackages() {
     iSUCCESS=0
     iFAILED=0
 
-    [ "$iDEBUG" = 1 ] && echo "Install path: $sGE_INSTALL_PATH"
+    [ "$iDEBUG" = 1 ] && echo "RemoveSavedPackages: Install path: $sGE_INSTALL_PATH"
 
     for sPACKAGE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [ -f "$sPACKAGE" ]; then
             if rm -f "$sPACKAGE"; then
-                [ "$iDEBUG" = 1 ] && echo "Package $sPACKAGE removed"
+                [ "$iDEBUG" = 1 ] && echo "RemoveSavedPackages: Package $sPACKAGE removed"
                 iSUCCESS=$(( iSUCCESS + 1 ))
             else
                 echo "Remove $sPACKAGE failed"
@@ -435,8 +439,8 @@ RemoveGEInstallPath() {
     if command -v du >/dev/null; then
         sSIZE=$(du -sh "$sGE_INSTALL_PATH")
     else
-        echo "command du not found, reported size will be wrong"
-        sSIZE="error"
+        [ "$iDEBUG" = 1 ] && echo "RemoveGEInstallPath: command du not found"
+        sSIZE="?"
     fi
 
     if rm -rf "$sGE_INSTALL_PATH"; then
@@ -458,9 +462,14 @@ RemoveGEInstallPath() {
 
 IsInstalled() {
 
-    [ -z "$1" ] && return 1
+    [ -z "$1" ] && {
+        [ "$iDEBUG" = 1 ] && echo "IsInstalled: empty parameter"
+        return 1
+    }
 
-    sVERSION=${1}
+    sVERSION=$1
+
+    [ "$iDEBUG" = 1 ] && echo "IsInstalled: Checking for version \"$sVERSION\" at \"${sGE_INSTALL_PATH}/Proton-${sVERSION}\""
 
     if [ -d "${sGE_INSTALL_PATH}/Proton-${sVERSION}" ]; then
         return 0
@@ -482,7 +491,7 @@ IsSteamRunning() {
             return 1
         fi
     else
-        printf "%s\n%s\n" "Warning: command pgrep not found" "IsSteamRunning check will always return false unless this command is installed"
+        printf "%s\n%s\n" "Warning: command pgrep not found" "IsSteamRunning check will always return success/\"not running\" unless this command is installed"
         return 0
     fi
 
@@ -493,21 +502,26 @@ IsSteamRunning() {
 
 CleanUpVersion() {
 
-    [ -z "$1" ] && { printf "%s\n" "Internal error: CleanUpVersion() requires one parameter" 1>/dev/stderr; return 1; }
+    iREAL_EXIT_STATUS=$?
+
+    [ -z "$1" ] && {
+        [ "$iDEBUG" = 1 ] && echo "CleanUpVersion: empty parameter" 1>/dev/stderr
+        return 1
+    }
 
     sVERSION=$1
 
     [ "$iDEBUG" = 1 ] && {
         iLENGTH=${#sVERSION}
-        echo "CleanUpVersion before: $sVERSION" 1>/dev/stderr
+        echo "CleanUpVersion: sVERSION before: $sVERSION" 1>/dev/stderr
     }
 
-    sVERSION=${sVERSION#*"Proton-"}
-    sVERSION=${sVERSION#*"proton-"}
-    sVERSION=${sVERSION%".tar.gz"*}
+    sVERSION=${sVERSION^^}
+    sVERSION=${sVERSION#*"PROTON-"}
+    sVERSION=${sVERSION%".TAR.GZ"*}
 
     [ "$iDEBUG" = 1 ] && {
-        echo "CleanUpVersion after: $sVERSION" 1>/dev/stderr
+        echo "CleanUpVersion: sVERSION after: $sVERSION" 1>/dev/stderr
         echo "CleanUpVersion: removed $(( iLENGTH - ${#sVERSION} )) characters" 1>/dev/stderr
     }
 
@@ -523,11 +537,11 @@ CleanUp() {
     [ -d "$sTMP_DIR" ] && {
         if [ "$iDEBUG" = 0 ]; then
             if ! rm -rf "$sTMP_DIR"; then
-                echo "Failed to remove temporary file path at $sTMP_DIR"
+                echo "CleanUp: Failed to remove temporary path at $sTMP_DIR"
                 return 1
             fi
-        elif [ "$iDEBUG" = 1 ]; then
-            [ "$iFINAL_CLEANUP" = 1 ] && echo "Temporary file path not removed: $sTMP_DIR"
+        else
+            [ "$iFINAL_CLEANUP" = 1 ] && echo "CleanUp: Temporary path saved at: $sTMP_DIR"
         fi
     }
 
@@ -551,15 +565,15 @@ Main() {
         exit
     fi
 
+    # debug mode
+    if [ "$iDEBUG" = 1 ]; then
+        echo "Debug mode enabled"
+    fi
+
     if [ "$iDEBUG" = 1 ]; then
         mkdir -pv "$sGE_INSTALL_PATH"
     else
         mkdir -p "$sGE_INSTALL_PATH"
-    fi
-
-    # debug mode
-    if [ "$iDEBUG" = 1 ]; then
-        echo "Debug mode enabled"
     fi
 
     # remove install path
@@ -611,21 +625,26 @@ Main() {
                 fi
             # Latest version is installed and -f was not supplied
             elif IsInstalled "$sGE_LATEST_VERSION" && [ "$iFORCE" = 0 ]; then
-                echo "Update: Latest version is installed"
+                [ "$iDEBUG" = 1 ] && printf "%s" "Update: "
+                echo "Latest version is installed"
             # Latest version is not installed
             elif ! IsInstalled "$sGE_LATEST_VERSION"; then
-                echo "Update: Latest version is not installed"
+                [ "$iDEBUG" = 1 ] && printf "%s" "Update: "
+                echo "Latest version is not installed"
                 if InstallGEVersion; then
+                    [ "$iDEBUG" = 1 ] && printf "%s" "Update: "
                     echo "Update succeeded"
                 else
+                    [ "$iDEBUG" = 1 ] && printf "%s" "Update: "
                     echo "Update failed"
                 fi
             fi
         else
             # GetLatestGEVersionInfo failed
+            [ "$iDEBUG" = 1 ] && printf "%s\n" "Update: GetLatestGEVersionInfo returned failure status"
             echo "Update failed"
         fi
-        # WARNING this hack will haunt you
+        # WARNING like purchasing a tribble, this is probably a bad idea
         [ "$iINSTALL" = 1 ] && iUPDATE=0
     fi
 
@@ -669,13 +688,14 @@ Main() {
             fi
         }
 
+        echo "Nothing to do - showing help"
         ShowHelp
     fi
 }
 
 ###############################################################################
 
-trap '[ "$iDEBUG" = 1 ] && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; [ "$iDEBUG" = 1 ] && echo "Exit status (CleanUp): $?"' EXIT
+trap '[ "$iDEBUG" = 1 ] && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; [ "$iDEBUG" = 1 ] && echo "Exit status (CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT
 
 ###############################################################################
 
