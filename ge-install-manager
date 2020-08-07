@@ -289,12 +289,23 @@ QueryGimAttribute() {
     if UpdateSavedGELatestRelease; then
         while IFS= read -r; do
             ((iLINE_COUNTER++))
-            [[ $REPLY == name:*$sVERSION* ]] && { iSIZE_LINE=$((iLINE_COUNTER+1)); iBROWSER_URL_LINE=$((iLINE_COUNTER+2)); continue; } # version match
-            if [[ $iLINE_COUNTER -eq $iSIZE_LINE ]]; then # size
-                [[ $REPLY =~ ^size:[[:digit:]]*$ ]] && { sSIZE=${REPLY/#size:}; continue; }
+            # version match
+            [[ $REPLY == name:*$sVERSION* ]] && {
+                iSIZE_LINE=$((iLINE_COUNTER+1))
+                iBROWSER_URL_LINE=$((iLINE_COUNTER+2))
+                continue
+            }
+            if [[ $iLINE_COUNTER -eq $iSIZE_LINE ]]; then
+                [[ $REPLY =~ ^size:[[:digit:]]*$ ]] && {
+                    sSIZE=${REPLY/#size:}
+                    continue
+                }
             fi
-            if [[ $iLINE_COUNTER -eq $iBROWSER_URL_LINE ]]; then # browser_download_url
-                [[ $REPLY == browser_download_url:*$sVERSION* ]] && { sBROWSER_URL=${REPLY/#browser_download_url:}; break; }
+            if [[ $iLINE_COUNTER -eq $iBROWSER_URL_LINE ]]; then
+                [[ $REPLY == browser_download_url:*$sVERSION* ]] && {
+                    sBROWSER_URL=${REPLY/#browser_download_url:}
+                    break
+                }
             fi
         done < "$sGE_INSTALL_PATH"/latest.gim 2>/dev/null
     else
@@ -306,12 +317,23 @@ QueryGimAttribute() {
         if UpdateSavedGEReleases; then
             while IFS= read -r; do
                 ((iLINE_COUNTER++))
-                [[ $REPLY == name:*$sVERSION* ]] && { iSIZE_LINE=$((iLINE_COUNTER+1)); iBROWSER_URL_LINE=$((iLINE_COUNTER+2)); continue; } # version match
-                if [[ $iLINE_COUNTER -eq $iSIZE_LINE ]]; then # size
-                    [[ $REPLY =~ ^size:[[:digit:]]*$ ]] && { sSIZE=${REPLY/#size:}; continue; }
+                # version match
+                [[ $REPLY == name:*$sVERSION* ]] && {
+                    iSIZE_LINE=$((iLINE_COUNTER+1))
+                    iBROWSER_URL_LINE=$((iLINE_COUNTER+2))
+                    continue
+                }
+                if [[ $iLINE_COUNTER -eq $iSIZE_LINE ]]; then
+                    [[ $REPLY =~ ^size:[[:digit:]]*$ ]] && {
+                        sSIZE=${REPLY/#size:}
+                        continue
+                    }
                 fi
-                if [[ $iLINE_COUNTER -eq $iBROWSER_URL_LINE ]]; then # browser_download_url
-                    [[ $REPLY == browser_download_url:*$sVERSION* ]] && { sBROWSER_URL=${REPLY/#browser_download_url:}; break; }
+                if [[ $iLINE_COUNTER -eq $iBROWSER_URL_LINE ]]; then
+                    [[ $REPLY == browser_download_url:*$sVERSION* ]] && {
+                        sBROWSER_URL=${REPLY/#browser_download_url:}
+                        break
+                    }
                 fi
             done < "$sGE_INSTALL_PATH/"releases.gim 2>/dev/null
         else
@@ -327,9 +349,16 @@ QueryGimAttribute() {
 
     # output the value of the requested attribute
     case $sATTRIBUTE in
-        size) printf '%s' "$sSIZE" ;;
-        browser_download_url) printf '%s' "$sBROWSER_URL" ;;
-        *) printf ''; return 1
+        (size)
+            printf '%s' "$sSIZE"
+        ;;
+        (browser_download_url)
+            printf '%s' "$sBROWSER_URL"
+        ;;
+        (*)
+            printf ''
+            return 1
+        ;;
     esac
 
     return 0
@@ -863,31 +892,71 @@ CleanUp() {
 ParseParameters() {
     while getopts 'zZhHflSs:i:d:R:NuX' sOPT; do
         case "$sOPT" in
-            ("h") iSHOW_HELP=1 ;;
-            ("H") iSHOW_USAGE=1 ;;
-            ("f") iFORCE=1 ;;
-            ("z") iDEBUG=1 ;;
-            ("Z") if [[ $iFORCE -eq 1 ]] && [[ $iDEBUG -eq 1 ]]; then ReportEnvironmentInfo; fi ;; # -fzZ (undocumented environment analysis tool)
-            ("X") iREMOVE_INSTALL_PATH=1 ;;
-            ("N") iREMOVE_SAVED_PACKAGES=1 ;;
-            ("R") iREMOVE=1 sREMOVE_VERSION=$OPTARG ;;
-            ("l") iLIST_INSTALLED_GE_VERSIONS=1 ;;
-            ("s") iREPORT_VERSION_USAGE=1 sREPORT_VERSION=$OPTARG ;;
-            ("S") iREPORT_INSTALL_PATH_USAGE=1 ;;
-            ("d") iDOWNLOAD=1 sDOWNLOAD_VERSION=$OPTARG ;;
-            ("i") iINSTALL=1 sINSTALL_VERSION=$OPTARG ;;
-            ("u") iUPDATE=1 ;;
-            (":"|"?") exit 1
+            (h)
+                iSHOW_HELP=1
+            ;;
+            (H)
+                iSHOW_USAGE=1
+            ;;
+            (f)
+                iFORCE=1
+            ;;
+            (z)
+                iDEBUG=1
+            ;;
+            (Z)
+                if [[ $iFORCE -eq 1 ]] && [[ $iDEBUG -eq 1 ]]; then
+                    ReportEnvironmentInfo # exactly -fzZ (undocumented environment analysis tool)
+                fi
+            ;;
+            (X)
+                iREMOVE_INSTALL_PATH=1
+            ;;
+            (N)
+                iREMOVE_SAVED_PACKAGES=1
+            ;;
+            (R)
+                iREMOVE=1
+                sREMOVE_VERSION=$OPTARG
+            ;;
+            (l)
+                iLIST_INSTALLED_GE_VERSIONS=1
+            ;;
+            (s)
+                iREPORT_VERSION_USAGE=1
+                sREPORT_VERSION=$OPTARG
+            ;;
+            (S)
+                iREPORT_INSTALL_PATH_USAGE=1
+            ;;
+            (d)
+                iDOWNLOAD=1
+                sDOWNLOAD_VERSION=$OPTARG
+            ;;
+            (i)
+                iINSTALL=1
+                sINSTALL_VERSION=$OPTARG
+            ;;
+            (u)
+                iUPDATE=1
+            ;;
+            (":"|"?")
+                return 1
+            ;;
         esac
     done
+
+    return 0
 }
 
 ###############################################################################
 
 Main() {
 
-    # Nothing to see here, move along
-    if ! ParseParameters "$@"; then exit 1; else set +e; fi
+    # Parse script parameters and options, set global variables
+    if ! ParseParameters "$@"; then
+        exit 1
+    fi
 
     # show help and/or usage
     if [[ $iSHOW_HELP -eq 1 ]] && [[ $iSHOW_USAGE -eq 0 ]]; then
@@ -999,18 +1068,17 @@ Main() {
     [[ $iREPORT_VERSION_USAGE -eq 1 ]] && ReportGEDiskUsage "$sREPORT_VERSION"
 
 
-    # if no parameters were supplied, check for latest version and report if it is installed or not
-    # TODO is there a better way?
+    # if no parameters were supplied, show help
     # NOTE ignore iFORCE and iDEBUG flags
     if [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && \
-        [[ $iREMOVE_SAVED_PACKAGES -eq 0 ]] && \
-        [[ $iREMOVE -eq 0 ]] && \
-        [[ $iLIST_INSTALLED_GE_VERSIONS -eq 0 ]] && \
-        [[ $iREPORT_VERSION_USAGE -eq 0 ]] && \
-        [[ $iREPORT_INSTALL_PATH_USAGE -eq 0 ]] && \
-        [[ $iDOWNLOAD -eq 0 ]] && \
-        [[ $iINSTALL -eq 0 ]] && \
-        [[ $iUPDATE -eq 0 ]]; then
+       [[ $iREMOVE_SAVED_PACKAGES -eq 0 ]] && \
+       [[ $iREMOVE -eq 0 ]] && \
+       [[ $iLIST_INSTALLED_GE_VERSIONS -eq 0 ]] && \
+       [[ $iREPORT_VERSION_USAGE -eq 0 ]] && \
+       [[ $iREPORT_INSTALL_PATH_USAGE -eq 0 ]] && \
+       [[ $iDOWNLOAD -eq 0 ]] && \
+       [[ $iINSTALL -eq 0 ]] && \
+       [[ $iUPDATE -eq 0 ]]; then
 
         ((iDEBUG)) && {
             if IsSteamRunning; then
@@ -1023,6 +1091,8 @@ Main() {
 
         ShowHelp
     fi
+
+    return 0
 }
 
 ###############################################################################
@@ -1031,7 +1101,5 @@ trap '((iDEBUG)) && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 Cl
 
 ###############################################################################
 
-# Last warning
-set +e
 Main "$@"
 
