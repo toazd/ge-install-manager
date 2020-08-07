@@ -391,21 +391,21 @@ InstallGEVersion() {
 
     if IsInstalled "$sVERSION"; then
         if [[ $iFORCE -eq 0 ]]; then
-            echo "Install: $sVERSION already installed"
+            echo "\"$sVERSION\" is already installed"
             return 0
         elif [[ $iFORCE -eq 1 ]]; then
             if IsSteamRunning; then
                 echo "Please close Steam before re-installing a version that is already installed"
                 return 1
             else
-                echo "Install: Forcing re-install of version $sVERSION"
+                echo "Forcing re-install of version \"$sVERSION\""
             fi
         fi
     fi
 
     # if a saved package exists and -f is not included
     if [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 0 ]]; then
-        echo "Using saved package: $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"
+        echo "Using saved package: \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
         sEXTRACT_PACKAGE_VERSION=$sVERSION
         if ExtractGEPackage; then
             return 0
@@ -415,11 +415,11 @@ InstallGEVersion() {
     # if a saved package exists and -f is included
     # NOTE doesn't matter if Steam is running
     elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
-        echo "Removing saved package $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"
+        echo "Removing saved package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
         if rm "$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"; then
-            echo "Package $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz removed"
+            echo "Package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz removed\""
         else
-            echo "Removing package $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz failed"
+            echo "Removing package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\" failed"
             return 1
         fi
     fi
@@ -450,13 +450,13 @@ RemoveGEVersion() {
     # remove installed path
     if [[ -z $sREMOVE_PACKAGE ]]; then
         if [[ -d $sREMOVE_PATH ]]; then
-            [[ $iDEBUG -eq 1 ]] && echo "$LINENO RemoveGEVersion: Removing $sREMOVE_PATH"
+            [[ $iDEBUG -eq 1 ]] && echo "$LINENO RemoveGEVersion: Removing \"$sREMOVE_PATH\""
             if IsSteamRunning && IsInstalled "$sREMOVE_VERSION"; then
                 # TODO is there a way to tell which version(s) Steam is using?
                 echo "Please close Steam before removing a version"
             elif IsInstalled "$sREMOVE_VERSION"; then
                 if rm -rf "$sREMOVE_PATH"; then
-                    echo "Removed version $sREMOVE_VERSION"
+                    echo "Removed version \"$sREMOVE_VERSION\""
                 else
                     echo "Removal of \"$sREMOVE_PATH\" failed"
                     iFAILED=1
@@ -478,9 +478,9 @@ RemoveGEVersion() {
     elif [[ -n $sREMOVE_PACKAGE ]]; then
         if [[ -f $sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz ]]; then
             if rm -f "$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz"; then
-                echo "Package $sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz removed"
+                echo "Package \"$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz\" removed"
             else
-                echo "Failed to remove package $sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz"
+                echo "Failed to remove package \"$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz\""
                 iFAILED=1
             fi
         fi
@@ -511,7 +511,7 @@ ExtractGEPackage() {
             if rm -rf "$sGE_INSTALL_PATH/Proton-${sEXTRACT_PACKAGE_VERSION}"; then
                 [[ $iDEBUG -eq 1 ]] && echo "$LINENO ExtractGEPackage: Removal succeeded"
             else
-                echo "Failed to remove path of failed extraction: $sGE_INSTALL_PATH/Proton-${sEXTRACT_PACKAGE_VERSION}"
+                echo "Failed to remove path of failed extraction: \"$sGE_INSTALL_PATH/Proton-${sEXTRACT_PACKAGE_VERSION}\""
                 # TODO update/remove message if install verification is updated
                 echo "This script may interpret it as a valid install until it is removed"
             fi
@@ -544,7 +544,7 @@ ListInstalledGEVersions() {
     done
     [[ $iCOUNT -eq 0 ]] && echo "None found"
 
-    echo "Saved packages:"
+    echo "Saved package(s):"
     sNODE=''
     iCOUNT=0
     for sNODE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
@@ -637,7 +637,7 @@ RemoveSavedPackages() {
                 [[ $iDEBUG -eq 1 ]] && echo "$LINENO RemoveSavedPackages: Package \"$sPACKAGE\" removed"
                 iSUCCESS=$((iSUCCESS+1))
             else
-                echo "Remove $sPACKAGE failed"
+                echo "Remove \"$sPACKAGE\" failed"
                 iFAILED=$((iFAILED+1))
             fi
         fi
@@ -862,7 +862,7 @@ Main() {
             RemoveGEInstallPath
         fi
     elif [[ $iREMOVE_INSTALL_PATH -eq 1 ]] && [[ $iFORCE -eq 0 ]]; then
-        echo "-X must be combined with -f to confirm that you are sure"
+        echo "-X must be combined with -f to confirm that you are sure" # "Use the force Harry" ~ Gandalf
     fi
 
     # remove saved packages
