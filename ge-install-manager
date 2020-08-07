@@ -41,7 +41,7 @@ OPTERR=1 # make sure it's on
 ShowHelp() {
     cat <<END_OF_HELP
 
-    $(basename "$0" .sh)  v$sSCRIPT_VERSION \"$sSCRIPT_CODENAME\"
+    $(basename "$0" .sh)  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
 
     Required:       curl, tar, gzip, ps, stat
     Optional:       du, find, wc
@@ -987,8 +987,6 @@ Main() {
     if [[ $iINSTALL -eq 1 ]] && [[ $iUPDATE -eq 0 ]]; then
         # NOTE sINSTALL_VERSION is set in getops
         InstallGEVersion "$sINSTALL_VERSION"
-    else
-        ((iDEBUG)) && echo "$LINENO Main: install requested, but iUPDATE is not 0 iINSTALL: \"$iINSTALL\" iUPDATE: \"$iUPDATE\""
     fi
 
     # list installed versions
