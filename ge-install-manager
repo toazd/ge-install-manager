@@ -107,9 +107,9 @@ Usage:
 
   - The order of parameters is not significant except:
     > If during invocation multiple identical parameters are supplied.
-      For example:
+      Example:
         ./$(basename "$0") -s 5.11-GE-1-MF -s 5.9-GE-3-ST
-      Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
+          Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
   - Order of operations if multiple unique parameters are supplied:
     > NOTE: -h and/or -H, and exactly -fzZ will exit irrespective of other parameters
