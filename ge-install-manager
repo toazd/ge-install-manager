@@ -760,11 +760,11 @@ IsSteamRunning() {
         while IFS= read -r; do
             [[ ${REPLY,,} =~ ^.*steam$ ]] && {
                 iSTEAM=1
-                ((iDEBUG)) && "IsSteamRunning: steam match: \"$REPLY\""
+                ((iDEBUG)) && echo "IsSteamRunning: steam match: \"$REPLY\""
             }
             [[ ${REPLY,,} =~ ^.*steamwebhelper.*$ ]] && {
                 iWEBHLPR=1
-                ((iDEBUG)) && "IsSteamRunning: steamwebhelper match: \"$REPLY\""
+                ((iDEBUG)) && echo "IsSteamRunning: steamwebhelper match: \"$REPLY\""
             }
         done < <(ps -e)
         #return $(( iSTEAM == 1 ? 0 : 1 ))
