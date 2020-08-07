@@ -958,7 +958,7 @@ Main() {
                     fi
                 elif IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 0 ]]; then # Latest version is installed and -f was not supplied
                     ((iDEBUG)) && printf '%s' "$LINENO Main: Update: "
-                    echo "Latest version is installed"
+                    echo "Latest version is installed ($sGE_LATEST_VERSION)"
                 elif ! IsInstalled "$sGE_LATEST_VERSION"; then # Latest version is not installed
                     ((iDEBUG)) && printf '%s' "$LINENO Main: Update: "
                     echo "Latest version is not installed"
