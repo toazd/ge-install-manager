@@ -8,13 +8,13 @@
 #                                                                             #
 ###############################################################################
 
-Version 0.7.0
+Version 0.7.1
 Codename "Cochrane Bonaventure"
 
 Help:
 
-    Required:       curl, tar, gzip, pgrep, stat
-    Optional:       du, find, wc (for -s|-S)
+    Required:       curl, tar, gzip, ps, stat
+    Optional:       du, find, wc
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
@@ -24,7 +24,8 @@ Help:
     -u            - Check for and install the latest release if it is not installed
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
-    -r <version>  - Remove saved package <version>
+                      Combine with -f to also remove the saved package or to remove a package
+                      if the install path was already removed for <version>
     -d <version>  - Download the package for <version> and save it to the install path
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
@@ -39,32 +40,36 @@ Usage:
   - Acceptable formats for <version>:
       5.9-GE-3-ST, Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz (case-insensitive)
 
-  - Parameters that do not require arguments can be combined
-      For example: ./ge-install-manager -hH
-                     Result: Show help and then show usage
-                   ./ge-install-manager -lSu -i 5.9-GE-3-ST
-                     Result: Check for the latest version and install it,
-                       install version 5.9-GE-3-ST, list installed versions, then
-                       report file and disk usage for the install path
+  - Most parameters can be combined with other unique parameters.
+    > NOTE: arguments must directly follow parameters that require arguments
+      Example (both produce the same result):
+        ./ge-install-manager -Hh
+        ./ge-install-manager -h -H
+          Result: Show help and then show usage
+      Example (both produce the same result):
+        ./ge-install-manager -lSui 5.9-GE-3-ST
+        ./ge-install-manager -lS -i 5.9-GE-3-ST -u
+          Result: Check for the latest version and install it,
+           install version 5.9-GE-3-ST, list installed versions, then
+           report file and disk usage for the install path
+      Example: (assume the latest version is 5.9-GE-3-ST)
+        ./ge-install-manager -z -u -i Proton-5.11-GE-1-MF -Xf
+          Result: enable debug mode, remove the installation path,
+           update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
+      Example (both produce the same result):
+        ./ge-install-manager -s 5.6-GE-3-ST -S
+        ./ge-install-manager -Ss 5.6-GE-3-ST
+          Result: report disk usage and file count for the install path,
+           and then report disk usage and file count for version 5.6-GE-3-ST
 
-  - The order of parameters is not significant except,
+  - The order of parameters is not significant except:
     > If during invocation multiple identical parameters are supplied.
-          For example: -s 5.11-GE-1-MF -s 5.9-GE-3-ST
-        Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
-    > If during invocation a parameter and it's capital/lowercase counter-part
-      are both included (except -hH)
-          For example: -s 5.11-GE-1-MF -S
-        Only the right-most parameter will be processed (-S).
+      For example:
+        ./ge-install-manager -s 5.11-GE-1-MF -s 5.9-GE-3-ST
+      Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
-  - Most unique, lower-case parameters (except -hH) can be combined with other
-    unique, lower-case options to perform more than one action in one invocation.
-      For example: assume that the latest version is 5.9-GE-3-ST,
-        ./ge-install-manager -f -X -i Proton-5.11-GE-1-MF -z -u
-      will enable debug mode, remove the installation path,
-      update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
-
-  - Order of operations if multiple parameters are supplied:
-      (NOTE: -h, -hH|-Hh, -H, and -fzZ (undocumented) will exit after running irrespective of any other parameters)
+  - Order of operations if multiple unique parameters are supplied:
+    > NOTE: -h and/or -H, and exactly -fzZ will exit irrespective of other parameters
       Force toggle,
       Report environment info (-fzZ),
       Show help,
@@ -77,4 +82,5 @@ Usage:
       Update,
       Install,
       List installed,
-      Report usage
+      Report install path usage,
+      Report specific version usage

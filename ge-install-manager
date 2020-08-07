@@ -14,10 +14,9 @@
 
 set +e # WARNING DO NOT set -e
 
-sSCRIPT_VERSION="0.7.0"
+sSCRIPT_VERSION="0.7.1"
 sSCRIPT_CODENAME="Cochrane Bonaventure"
 sGE_INSTALL_PATH="$HOME"/.steam/root/compatibilitytools.d
-sGE_DOWNLOAD_BASE_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download"
 sGE_LATEST_VERSION_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
 sGE_RELEASES_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
 sGE_LATEST_VERSION=''
@@ -31,7 +30,8 @@ iFINAL_CLEANUP=0
 iREMOVE_INSTALL_PATH=0
 iREMOVE_SAVED_PACKAGES=0
 iLIST_INSTALLED_GE_VERSIONS=0
-iREPORT_USAGE=0
+iREPORT_VERSION_USAGE=0
+iREPORT_INSTALL_PATH_USAGE=0
 iSHOW_HELP=0
 iSHOW_USAGE=0
 OPTERR=1 # make sure it's on
@@ -47,8 +47,8 @@ ShowHelp() {
     Optional:       du, find, wc
 
     Install path:          $sGE_INSTALL_PATH
-    Base download URL:     $sGE_DOWNLOAD_BASE_URL
     Latest version URL:    $sGE_LATEST_VERSION_URL
+    Releases URL:          $sGE_RELEASES_URL
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
@@ -58,7 +58,8 @@ ShowHelp() {
     -u            - Check for and install the latest release if it is not installed
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
-    -r <version>  - Remove saved package <version>
+                      Combine with -f to also remove the saved package or to remove a package
+                      if the install path was already removed for <version>
     -d <version>  - Download the package for <version> and save it to the install path
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
@@ -77,43 +78,48 @@ END_OF_HELP
 
 ShowUsage() {
     cat <<END_OF_USAGE
-
 Usage:
 
   - Acceptable formats for <version>:
       5.9-GE-3-ST, Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz (case-insensitive)
 
-  - Parameters that do not require arguments can be combined
-      For example: ./$(basename "$0") -hH
-                     Result: Show help and then show usage
-                   ./$(basename "$0") -lSu -i 5.9-GE-3-ST
-                     Result: Check for the latest version and install it,
-                       install version 5.9-GE-3-ST, list installed versions, then
-                       report file and disk usage for the install path
+  - Most parameters can be combined with other unique parameters.
+    > NOTE: arguments must directly follow parameters that require arguments
+      Example (both produce the same result):
+        ./$(basename "$0") -Hh
+        ./$(basename "$0") -h -H
+          Result: Show help and then show usage
+      Example (both produce the same result):
+        ./$(basename "$0") -lSui 5.9-GE-3-ST
+        ./$(basename "$0") -lS -i 5.9-GE-3-ST -u
+          Result: Check for the latest version and install it,
+           install version 5.9-GE-3-ST, list installed versions, then
+           report file and disk usage for the install path
+      Example: (assume the latest version is 5.9-GE-3-ST)
+        ./$(basename "$0") -z -u -i Proton-5.11-GE-1-MF -Xf
+          Result: enable debug mode, remove the installation path,
+           update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
+      Example (both produce the same result):
+        ./$(basename "$0") -s 5.6-GE-3-ST -S
+        ./$(basename "$0") -Ss 5.6-GE-3-ST
+          Result: report disk usage and file count for the install path,
+           and then report disk usage and file count for version 5.6-GE-3-ST
 
-  - The order of parameters is not significant except,
+  - The order of parameters is not significant except:
     > If during invocation multiple identical parameters are supplied.
-          For example: -s 5.11-GE-1-MF -s 5.9-GE-3-ST
-        Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
-    > If during invocation a parameter and it's capital/lowercase counter-part
-      are both included (except -hH)
-          For example: -s 5.11-GE-1-MF -S
-        Only the right-most parameter will be processed (-S).
+      For example:
+        ./$(basename "$0") -s 5.11-GE-1-MF -s 5.9-GE-3-ST
+      Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
-  - Most unique, lower-case parameters (except -hH) can be combined with other
-    unique, lower-case options perform more than one action in one invocation.
-      For example: Assume the latest version is 5.9-GE-3-ST,
-        ./$(basename "$0") -f -X -i Proton-5.11-GE-1-MF -z -u
-      will enable debug mode, remove the installation path,
-      update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
-
-  - Order of operations if multiple parameters are supplied
-      NOTE: -h, -hH|-Hh, -H, and -fzZ will exit irrespective of other parameters
-      Force toggle, Report environment info, Show help, Show usage,
-      Debug toggle, Remove install path,
+  - Order of operations if multiple unique parameters are supplied:
+    > NOTE: -h and/or -H, and exactly -fzZ will exit irrespective of other parameters
+      Force toggle, Report environment info (-fzZ), Show help,
+      Show usage, Debug toggle, Remove install path,
       Remove saved packages (if remove install path is not active),
       Remove installed version (if remove install path is not active),
-      Download, Update, Install, List installed, Report usage
+      Download, Update, Install, List installed,
+      Report install path usage,
+      Report specific version usage
 
 END_OF_USAGE
 
@@ -127,21 +133,21 @@ UpdateSavedGELatestRelease() {
     local sGE_LATEST_RELEASE_JSON=''
 
     if [[ -f $sGE_INSTALL_PATH/latest.gim ]]; then
-        (( iDEBUG )) && echo "$LINENO UpdateSavedGELatestRelease: checking if \"$sGE_LATEST_VERSION_URL\" is newer than $sGE_INSTALL_PATH/latest.gim"
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: checking if \"$sGE_LATEST_VERSION_URL\" is newer than $sGE_INSTALL_PATH/latest.gim"
         sGE_LATEST_RELEASE_JSON=$(curl -sz "$sGE_INSTALL_PATH"/latest.gim -L "$sGE_LATEST_VERSION_URL" -o - 2>/dev/null)
     else
-        (( iDEBUG )) && echo "$LINENO UpdateSavedGELatestRelease: checking if \"$sGE_LATEST_VERSION_URL\" is newer than $sGE_INSTALL_PATH/latest.json"
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: checking if \"$sGE_LATEST_VERSION_URL\" is newer than $sGE_INSTALL_PATH/latest.json"
         sGE_LATEST_RELEASE_JSON=$(curl -sz "$sGE_INSTALL_PATH"/latest.json -L "$sGE_LATEST_VERSION_URL" -o - 2>/dev/null)
     fi
 
     if [[ -z $sGE_LATEST_RELEASE_JSON ]]; then
-        (( iDEBUG )) && echo "$LINENO UpdateSavedGELatestRelease: curl returned NULL"
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: curl returned NULL"
         if [[ ! -f $sGE_INSTALL_PATH/latest.json ]]; then
             echo "$LINENO UpdateSavedGELatestRelease: No new release found and $sGE_INSTALL_PATH/latest.json not found. Is \"$sGE_LATEST_VERSION_URL\" a valid URL?" 1>&2
             return 1
         fi
     elif [[ -n $sGE_LATEST_RELEASE_JSON ]]; then
-        (( iDEBUG )) && echo "$LINENO UpdateSavedGELatestRelease: curl response was not empty"
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: curl response was not empty"
         [[ -f $sGE_INSTALL_PATH/latest.json ]] && mv "$sGE_INSTALL_PATH"/latest.json "$sGE_INSTALL_PATH"/latest.json.bak
         printf '%s' "$sGE_LATEST_RELEASE_JSON" > "$sGE_INSTALL_PATH"/latest.json
         GenerateGimFromJSON "$sGE_INSTALL_PATH/latest.json"
@@ -159,21 +165,21 @@ UpdateSavedGEReleases() {
     # BUG updates to download_count in remote releases cause curl -z to download a new version much more often than is needed
     # TODO fix it. may need to construct "custom" GET requests, or you know, actually use the api
     if [[ -f $sGE_INSTALL_PATH/latest.gim ]]; then
-        (( iDEBUG )) && echo "$LINENO UpdateSavedGEReleases: checking if \"$sGE_RELEASES_URL\" is newer than $sGE_INSTALL_PATH/releases.gim"
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: checking if \"$sGE_RELEASES_URL\" is newer than $sGE_INSTALL_PATH/releases.gim"
         sGE_RELEASES_JSON=$(curl -sz "$sGE_INSTALL_PATH"/releases.gim -L "$sGE_RELEASES_URL" -o - 2>/dev/null)
     else
-        (( iDEBUG )) && echo "$LINENO UpdateSavedGEReleases: checking if \"$sGE_RELEASES_URL\" is newer than $sGE_INSTALL_PATH/releases.json"
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: checking if \"$sGE_RELEASES_URL\" is newer than $sGE_INSTALL_PATH/releases.json"
         sGE_RELEASES_JSON=$(curl -sz "$sGE_INSTALL_PATH"/releases.json -L "$sGE_RELEASES_URL" -o - 2>/dev/null)
     fi
 
     if [[ -z $sGE_RELEASES_JSON ]]; then
-        (( iDEBUG )) && echo "$LINENO UpdateSavedGEReleases: curl returned NULL"
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: curl returned NULL"
         if [[ ! -f $sGE_INSTALL_PATH/releases.json ]]; then
             echo "$LINENO UpdateSavedGEReleases: No new release and releases.json not found. Is \"$sGE_RELEASES_URL\" a valid URL?"
             return 1
          fi
     elif [[ -n $sGE_RELEASES_JSON ]]; then
-        (( iDEBUG )) && echo "$LINENO UpdateSavedGEReleases: curl response was not empty"
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: curl response was not empty"
         [[ -f $sGE_INSTALL_PATH/releases.json ]] && mv "$sGE_INSTALL_PATH"/releases.json "$sGE_INSTALL_PATH"/releases.json.bak
         printf '%s' "$sGE_RELEASES_JSON" > "$sGE_INSTALL_PATH"/releases.json
         GenerateGimFromJSON "$sGE_INSTALL_PATH/releases.json"
@@ -209,7 +215,7 @@ GenerateGimFromJSON() {
             if [[ -n $REPLY ]]; then
                 printf '%s\n' "$REPLY" >&1
             else
-                (( iDEBUG )) && echo "$LINENO GenerateGimFromJSON: parse error, REPLY is null" 1>&2
+                ((iDEBUG)) && echo "$LINENO GenerateGimFromJSON: parse error, REPLY is null" 1>&2
                 printf '%s\n' "GenerateGimFromJSON:ERROR" >&1
             fi
         }
@@ -229,10 +235,10 @@ GetLatestGEVersion() {
     if UpdateSavedGELatestRelease; then
         while IFS= read -r; do
             [[ $REPLY =~ ^name:.*\.tar\.gz$ ]] && {
-                (( iDEBUG )) && echo "$LINENO GetLatestGEVersion: matched line \"$REPLY\""
+                ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: matched line \"$REPLY\""
                 sGE_LATEST_VERSION=${REPLY#*:}
                 sGE_LATEST_VERSION=${sGE_LATEST_VERSION/%.tar.gz}
-                (( iDEBUG )) && echo "$LINENO GetLatestGEVersion: sGE_LATEST_VERSION set to \"$REPLY\""
+                ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: sGE_LATEST_VERSION set to \"$REPLY\""
                 break
             }
         done < "$sGE_INSTALL_PATH"/latest.gim
@@ -242,7 +248,7 @@ GetLatestGEVersion() {
             return 1
         }
     else
-        (( iDEBUG )) && echo "$LINENO GetLatestGEVersion: UpdateSavedGELatestRelease returned failure status"
+        ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: UpdateSavedGELatestRelease returned failure status"
         return 1
     fi
 
@@ -252,18 +258,17 @@ GetLatestGEVersion() {
 ###############################################################################
 # Accepts a version and an attribute name, returns the value of the requested attribute
 # if found, looking first in latest.gim and then releases.gim
-# eg. QueryGimAttribute "Proton-5.9-GE-1-MF.tar.gz" "browser_download_url"
 # BUG both attributes are set even though only one can be queried at a time
 # WARNING Do not output to stderr inside either while loop unless you enjoy long walks in void and conversations with /dev/null
 QueryGimAttribute() {
 
     if [[ -z $1 || -z $2 ]] || [[ ! $# -eq 2 ]]; then
-        (( iDEBUG )) && echo "$LINENO QueryGimAttribute: parameter error"
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: parameter error"
         return 1
     fi
 
     [[ ${2,,} != @(size|browser_download_url) ]] && {
-        (( iDEBUG )) && echo "$LINENO QueryGimAttribute: unsupported attribute requested \"$2\""
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: unsupported attribute requested \"$2\""
         return 1
     }
 
@@ -293,7 +298,7 @@ QueryGimAttribute() {
             fi
         done < "$sGE_INSTALL_PATH"/latest.gim 2>/dev/null
     else
-        (( iDEBUG )) && echo "$LINENO QueryGimAttribute: UpdateSavedGELatestRelease failed"
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: UpdateSavedGELatestRelease failed"
     fi
 
     # try again using releases.gim
@@ -310,13 +315,13 @@ QueryGimAttribute() {
                 fi
             done < "$sGE_INSTALL_PATH/"releases.gim 2>/dev/null
         else
-            (( iDEBUG )) && echo "$LINENO QueryGimAttribute: UpdateSavedGEReleases failed"
+            ((iDEBUG)) && echo "$LINENO QueryGimAttribute: UpdateSavedGEReleases failed"
         fi
     fi
 
     # if either not found, error
     [[ -z $sSIZE || -z $sBROWSER_URL ]] && {
-        (( iDEBUG )) && echo "$LINENO GetGEVersionBrowserDownloadURL: .gim parse error sSIZE: \"$sSIZE\" sBROWSER_URL: \"$sBROWSER_URL\""
+        ((iDEBUG)) && echo "$LINENO GetGEVersionBrowserDownloadURL: .gim parse error sSIZE: \"$sSIZE\" sBROWSER_URL: \"$sBROWSER_URL\""
         return 1
     }
 
@@ -335,34 +340,35 @@ QueryGimAttribute() {
 # is specified by setting sDOWNLOAD_VERSION before calling this function.
 DownloadGEPackage() {
 
+    local sVERSION=$(CleanUpVersion "$1")
     local sTMP_DIR=$(mktemp -qd --tmpdir "$(basename "$0" .sh)".tmp.XXXXXXXXXX)
-    local sTMP_PACKAGE=$sTMP_DIR/Proton-${sDOWNLOAD_VERSION}.tar.gz
-    local sGE_DOWNLOAD_URL=$(QueryGimAttribute "$sDOWNLOAD_VERSION" "browser_download_url")
+    local sTMP_PACKAGE=$sTMP_DIR/Proton-${sVERSION}.tar.gz
+    local sGE_DOWNLOAD_URL=$(QueryGimAttribute "$sVERSION" "browser_download_url")
     local sSIZE_BYTES=''
 
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
         sSIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
-        (( iDEBUG )) && echo "$LINENO DownloadGEPackage: Package size in bytes: $sSIZE_BYTES"
+        ((iDEBUG)) && echo "$LINENO DownloadGEPackage: Package size in bytes: $sSIZE_BYTES"
         if [[ $sSIZE_BYTES -eq 9 ]] && [[ $(cat "$sTMP_PACKAGE" 2>/dev/null) = "Not Found" ]]; then
-            echo "$LINENO DownloadGEPackage: package for version \"$sDOWNLOAD_VERSION\" not found"
+            echo "$LINENO DownloadGEPackage: package for version \"$sVERSION\" not found"
             CleanUp
             return 1
         # TODO attempt download again automagically? how to tell if it's transient or not?
-        elif [[ $sSIZE_BYTES != "$(QueryGimAttribute "$sDOWNLOAD_VERSION" "size")" ]]; then
+        elif [[ $sSIZE_BYTES != "$(QueryGimAttribute "$sVERSION" "size")" ]]; then
             printf '%s\n%s\n' \
-                   "$LINENO DownloadGEPackage: download size and expected size do not match" \
-                   "$LINENO DownloadGEPackage: (\"$sSIZE_BYTES\" != \"$(QueryGimAttribute "$sDOWNLOAD_VERSION" "size")\")"
+                   "$LINENO DownloadGEPackage: downloaded file size and expected size do not match" \
+                   "$LINENO DownloadGEPackage: (\"$sSIZE_BYTES\" != \"$(QueryGimAttribute "$sVERSION" "size")\")"
            CleanUp
            return 1
         fi
-        (( iDEBUG )) && echo "$LINENO DownloadGEPackage: Copying package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\""
+        ((iDEBUG)) && echo "$LINENO DownloadGEPackage: Copying package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\""
         if cp "$sTMP_PACKAGE" "$sGE_INSTALL_PATH"; then
-            (( iDEBUG )) && echo "$LINENO DownloadGEPackage: Package copied successfully"
+            ((iDEBUG)) && echo "$LINENO DownloadGEPackage: Package copied successfully"
             echo "Download succeeded"
             CleanUp
         else
-            (( iDEBUG )) && echo "$LINENO DownloadGEPackage: Copy package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\" failed"
+            ((iDEBUG)) && echo "$LINENO DownloadGEPackage: Copy package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\" failed"
             echo "Download failed"
             CleanUp
             return 1
@@ -383,10 +389,21 @@ InstallGEVersion() {
     local sVERSION=''
 
     if [[ $iUPDATE -eq 1 ]]; then
+        [[ -z $sGE_LATEST_VERSION ]] && GetLatestGEVersion || return 1
         sVERSION=$sGE_LATEST_VERSION
     elif [[ $iUPDATE -eq 0 ]]; then
         sVERSION=$sINSTALL_VERSION
+    else
+        echo "$LINENO InstallGEVersion: error detecting install mode"
+        return 1
     fi
+
+    sVERSION=$(CleanUpVersion "$sVERSION")
+
+    [[ -z $sVERSION ]] && {
+        ((iDEBUG)) && echo "$LINENO InstallGEVersion: sVERSION is null"
+        return 1
+    }
 
     if IsInstalled "$sVERSION"; then
         if [[ $iFORCE -eq 0 ]]; then
@@ -405,8 +422,7 @@ InstallGEVersion() {
     # if a saved package exists and -f is not included
     if [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 0 ]]; then
         echo "Using saved package: \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
-        sEXTRACT_PACKAGE_VERSION=$sVERSION
-        if ExtractGEPackage; then
+        if ExtractGEPackage "$sVERSION"; then
             return 0
         else
             return 1
@@ -424,10 +440,8 @@ InstallGEVersion() {
     fi
 
     # If a saved package for this version doesn't exist or it was removed, download it and install it
-    sDOWNLOAD_VERSION=$sVERSION
-    if DownloadGEPackage; then
-        sEXTRACT_PACKAGE_VERSION=$sVERSION
-        if ExtractGEPackage; then
+    if DownloadGEPackage "$sVERSION"; then
+        if ExtractGEPackage "$sVERSION"; then
             return 0
         else
             return 1
@@ -443,75 +457,89 @@ InstallGEVersion() {
 # TODO Remove a version specified by sREMOVE_VERSION
 RemoveGEVersion() {
 
-    local sREMOVE_PATH=$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}
-    local iFAILED=0
+    local sVERSION=$(CleanUpVersion "$1")
+    local sREMOVE_PATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
+    local sREMOVE_PACKAGE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
 
-    # remove installed path
-    if [[ -z $sREMOVE_PACKAGE ]]; then
-        if [[ -d $sREMOVE_PATH ]]; then
-            (( iDEBUG )) && echo "$LINENO RemoveGEVersion: Removing \"$sREMOVE_PATH\""
-            if IsSteamRunning && IsInstalled "$sREMOVE_VERSION"; then
-                # TODO is there a way to tell which version(s) Steam is using?
-                echo "Please close Steam before removing a version"
-            elif IsInstalled "$sREMOVE_VERSION"; then
-                if rm -rf "$sREMOVE_PATH"; then
-                    echo "Removed version \"$sREMOVE_VERSION\""
+    [[ -z $sVERSION ]] && {
+        ((iDEBUG)) && echo "$LINENO RemoveGEVersion: sVERSION is null"
+        return 1
+    }
+
+    ((iDEBUG)) && echo "$LINENO RemoveGEVersion: Removing \"$sREMOVE_PATH\""
+    # If force is enabled, remove the path and the package
+    if [[ $iFORCE -eq 1 ]]; then
+        ((iDEBUG)) && echo "$LINENO RemoveGEVersion: force is enabled"
+        # Remove the path if it exists
+        [[ -d $sREMOVE_PATH ]] && {
+            if ! IsSteamRunning; then
+                if rm -rf "$sREMOVE_PATH" >/dev/null; then
+                    echo "Removed path \"$sREMOVE_PATH\""
                 else
-                    echo "Removal of \"$sREMOVE_PATH\" failed"
-                    iFAILED=1
+                    echo "Failed to remove \"$sREMOVE_PATH\""
+                    return 1
                 fi
             else
-                (( iDEBUG )) && {
-                    printf '%s\n%s\n' \
-                           "$LINENO RemoveGEVersion: package and path exist but IsInstalled failed (at line: $LINENO)" \
-                           "sREMOVE_PACKAGE:\"$sREMOVE_PACKAGE\" sREMOVE_PATH\"$sREMOVE_PATH\" sREMOVE_VERSION\"$sREMOVE_VERSION\""
-                }
+                echo "Please close Steam before removing an install path"
                 return 1
             fi
-        else
-            echo "Version not found at: \"$sREMOVE_PATH\""
-            iFAILED=1
-        fi
-    # remove saved package
-    # NOTE doesn't matter if Steam is installed
-    elif [[ -n $sREMOVE_PACKAGE ]]; then
-        if [[ -f $sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz ]]; then
-            if rm -f "$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz"; then
-                echo "Package \"$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz\" removed"
+        }
+        # Remove the package if it exists
+        [[ -f $sREMOVE_PACKAGE ]] && {
+            if rm -f "$sREMOVE_PACKAGE" >/dev/null; then
+                echo "Removed package \"$sREMOVE_PACKAGE\""
             else
-                echo "Failed to remove package \"$sGE_INSTALL_PATH/Proton-${sREMOVE_VERSION}.tar.gz\""
-                iFAILED=1
+                echo "Failed to remove package \"$sREMOVE_PACKAGE\""
+                return 1
             fi
-        fi
+        }
+    # If force is not enabled, remove only the install path for sVERSION
+    elif [[ $iFORCE -eq 0 ]]; then
+        ((iDEBUG)) && echo "$LINENO RemoveGEVersion: force is not enabled"
+        # Remove the path if it exists
+        [[ -d $sREMOVE_PATH ]] && {
+            if ! IsSteamRunning; then
+                if rm -rf "$sREMOVE_PATH" >/dev/null; then
+                    echo "Removed path \"$sREMOVE_PATH\""
+                else
+                    echo "Failed to remove \"$sREMOVE_PATH\""
+                    return 1
+                fi
+            else
+                echo "Please close Steam before removing an install path"
+                return 1
+            fi
+        }
     fi
 
-    if [[ $iFAILED -eq 1 ]]; then
-        return 1
-    elif [[ $iFAILED -eq 0 ]]; then
-        return 0
-    else
-        (( iDEBUG )) && "$LINENO RemoveGEVersion: iFAILED was neither 1 or 0: \"$iFAILED\""
-        return 1
-    fi
+    return 0
 }
 
 ###############################################################################
 
 ExtractGEPackage() {
 
+    local sVERSION=$(CleanUpVersion "$1")
+    local sEXTRACT_FILE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
+
+    [[ -z $sVERSION ]] && {
+        ((iDEBUG)) && echo "$LINENO ExtractGEPackage: sVERSION is null"
+        return 1
+    }
+
     printf '%s' "Extracting"
-    if tar --checkpoint=.1000 -C "$sGE_INSTALL_PATH" -xzf "$sGE_INSTALL_PATH/Proton-${sEXTRACT_PACKAGE_VERSION}.tar.gz" 2>/dev/null; then
+    if tar --checkpoint=.1000 -C "$sGE_INSTALL_PATH" -xzf "$sEXTRACT_FILE" 2>/dev/null; then
         printf '\n%s\n' "Package extraction successful"
         return 0
     else
         printf '\n%s\n' "Package extraction failed"
-        [[ -d $sGE_INSTALL_PATH/Proton-${sEXTRACT_PACKAGE_VERSION} ]] && {
-            (( iDEBUG )) && echo "$LINENO ExtractGEPackage: Removing failed extraction path \"$sGE_INSTALL_PATH/Proton-${sEXTRACT_PACKAGE_VERSION}\""
-            if rm -rf "$sGE_INSTALL_PATH/Proton-${sEXTRACT_PACKAGE_VERSION}"; then
-                (( iDEBUG )) && echo "$LINENO ExtractGEPackage: Removal succeeded"
+        [[ -d $sGE_INSTALL_PATH/Proton-${sVERSION} ]] && {
+            ((iDEBUG)) && echo "$LINENO ExtractGEPackage: Removing failed extraction path \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
+            if rm -rf "$sGE_INSTALL_PATH/Proton-${sVERSION}"; then
+                ((iDEBUG)) && echo "$LINENO ExtractGEPackage: Removal succeeded"
             else
-                echo "Failed to remove path of failed extraction: \"$sGE_INSTALL_PATH/Proton-${sEXTRACT_PACKAGE_VERSION}\""
-                # TODO update/remove message if install verification is updated
+                echo "Failed to remove path of failed extraction: \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
+                # TODO update/remove message when install verification is updated
                 echo "This script may interpret it as a valid install until it is removed"
             fi
         }
@@ -529,7 +557,7 @@ ListInstalledGEVersions() {
     local sNODE=''
     local sEXTRACTED_VERSION=''
 
-    (( iDEBUG )) && echo "$LINENO ListInstalledGEVersions: Install path: \"$sGE_INSTALL_PATH\""
+    ((iDEBUG)) && echo "$LINENO ListInstalledGEVersions: Install path: \"$sGE_INSTALL_PATH\""
 
     echo "Installed version(s):"
     for sNODE in "$sGE_INSTALL_PATH"/*; do
@@ -549,7 +577,7 @@ ListInstalledGEVersions() {
     for sNODE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [[ -f $sNODE ]]; then
             if [[ $iDEBUG -eq 1 ]]; then
-                echo "ListInstalledGEVersions: $sNODE"
+                echo "  ${sNODE##*/} (size: $(stat -c '%s' "$sNODE"), expected size: $(QueryGimAttribute "${sNODE##*/}" "size")"
             else
                 echo "  ${sNODE##*/}"
             fi
@@ -565,8 +593,11 @@ ListInstalledGEVersions() {
 
 ReportGEDiskUsage() {
 
+    local sVERSION=$(CleanUpVersion "$1")
     local sPATH=''
     local iFAILED=0
+
+    # NOTE do not return 1 if sVERSION is NULL, functionality below depends on it
 
     # check for commands required by this optional feature and report any missing
     # NOTE Arch - coreutils: du, wc - required by base: find
@@ -575,45 +606,55 @@ ReportGEDiskUsage() {
         iFAILED=1
         echo "command du not found"
     else
-        (( iDEBUG )) && echo "ReportGEDiskUsage: command du found"
+        ((iDEBUG)) && echo "ReportGEDiskUsage: command du found"
     fi
 
     if ! command -v find >/dev/null; then
         iFAILED=1
         echo "command find not found"
     else
-        (( iDEBUG )) && echo "ReportGEDiskUsage: command find found"
+        ((iDEBUG)) && echo "ReportGEDiskUsage: command find found"
     fi
 
     if ! command -v wc >/dev/null; then
         iFAILED=1
         echo "command wc not found"
     else
-        (( iDEBUG )) && echo "ReportGEDiskUsage: command wc found"
+        ((iDEBUG)) && echo "ReportGEDiskUsage: command wc found"
     fi
 
     # if all checks succeeded
     if [[ $iFAILED -eq 0 ]]; then
-        # set the path to be reported on based on which parameter was used -s|-S
-        # NOTE if -S is invoked, sREPORT_VERSION is set to NULL in getopts
-        if [[ $sREPORT_VERSION = '' ]]; then
+        # set the path to be reported based on whether a version was provided or not
+        if [[ -z $sVERSION ]]; then
+            # report the file count and disk usage for the entire install path
             sPATH=$sGE_INSTALL_PATH
-        elif [[ -n $sREPORT_VERSION ]]; then
-            sPATH=$sGE_INSTALL_PATH/Proton-${sREPORT_VERSION}
+            if [[ -d $sPATH ]]; then
+                sSIZE=$(du -sh "$sPATH")
+                sFILE_COUNT=$(find "$sPATH" -type f | wc -l)
+                printf '%s\n%s\n%s\n' "Path: $sPATH" "Files: $sFILE_COUNT" "Disk usage: ${sSIZE%%[[:blank:]]*}"
+            else
+                ((iDEBUG)) && echo "Path: $sPATH"
+                echo "Version \"$sVERSION\" not found"
+                return 1
+            fi
         fi
-
-        if [[ -d $sPATH ]]; then
-            sSIZE=$(du -sh "$sPATH")
-            sFILE_COUNT=$(find "$sPATH" -type f | wc -l)
-            printf '%s\n%s\n%s\n' "Path: $sPATH" "Files: $sFILE_COUNT" "Disk usage: ${sSIZE%%[[:blank:]]*}"
-        else
-            (( iDEBUG )) && echo "Path: $sPATH"
-            echo "Version \"$sREPORT_VERSION\" not found"
-            return 1
+        if [[ -n $sVERSION ]]; then
+            # Report the file count and disk usage for a specific version
+            sPATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
+            if [[ -d $sPATH ]]; then
+                sSIZE=$(du -sh "$sPATH")
+                sFILE_COUNT=$(find "$sPATH" -type f | wc -l)
+                printf '%s\n%s\n%s\n' "Path: $sPATH" "Files: $sFILE_COUNT" "Disk usage: ${sSIZE%%[[:blank:]]*}"
+            else
+                ((iDEBUG)) && echo "Path: $sPATH"
+                echo "Version \"$sVERSION\" not found"
+                return 1
+            fi
         fi
     # if any check failed
     elif [[ $iFAILED -eq 1 ]]; then
-        (( iDEBUG )) && echo "$LINENO ReportGEDiskUsage: At least one optional command was not found"
+        ((iDEBUG)) && echo "$LINENO ReportGEDiskUsage: At least one optional command was not found"
         echo "Report not available"
         return 1
     fi
@@ -628,12 +669,12 @@ RemoveSavedPackages() {
     local iSUCCESS=0
     local iFAILED=0
 
-    (( iDEBUG )) && echo "$LINENO RemoveSavedPackages: Install path: \"$sGE_INSTALL_PATH\""
+    ((iDEBUG)) && echo "$LINENO RemoveSavedPackages: Install path: \"$sGE_INSTALL_PATH\""
 
     for sPACKAGE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [[ -f $sPACKAGE ]]; then
             if rm -f "$sPACKAGE"; then
-                (( iDEBUG )) && echo "$LINENO RemoveSavedPackages: Package \"$sPACKAGE\" removed"
+                ((iDEBUG)) && echo "$LINENO RemoveSavedPackages: Package \"$sPACKAGE\" removed"
                 ((iSUCCESS++))
             else
                 echo "Remove \"$sPACKAGE\" failed"
@@ -665,7 +706,7 @@ RemoveGEInstallPath() {
     if command -v du >/dev/null; then
         sSIZE=$(du -sh "$sGE_INSTALL_PATH")
     else
-        (( iDEBUG )) && echo "$LINENO RemoveGEInstallPath: command du not found"
+        ((iDEBUG)) && echo "$LINENO RemoveGEInstallPath: command du not found"
         sSIZE="?"
     fi
 
@@ -685,17 +726,18 @@ RemoveGEInstallPath() {
 }
 
 ###############################################################################
-
+# Currently only checks if a path exists
+# TODO better verification
 IsInstalled() {
 
     [[ -z $1 ]] && {
-        (( iDEBUG )) && echo "$LINENO IsInstalled: NULL parameter error"
+        ((iDEBUG)) && echo "$LINENO IsInstalled: NULL parameter error"
         return 1
     }
 
     sVERSION=$(CleanUpVersion "$1")
 
-    (( iDEBUG )) && echo "IsInstalled: Checking for version \"$sVERSION\" at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
+    ((iDEBUG)) && echo "IsInstalled: Checking for version \"$sVERSION\" at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
 
     if [[ -d $sGE_INSTALL_PATH/Proton-${sVERSION} ]]; then
         return 0
@@ -718,11 +760,11 @@ IsSteamRunning() {
         while IFS= read -r; do
             [[ ${REPLY,,} =~ ^.*steam$ ]] && {
                 iSTEAM=1
-                (( iDEBUG )) && "IsSteamRunning: steam match: \"$REPLY\""
+                ((iDEBUG)) && "IsSteamRunning: steam match: \"$REPLY\""
             }
             [[ ${REPLY,,} =~ ^.*steamwebhelper.*$ ]] && {
                 iWEBHLPR=1
-                (( iDEBUG )) && "IsSteamRunning: steamwebhelper match: \"$REPLY\""
+                ((iDEBUG)) && "IsSteamRunning: steamwebhelper match: \"$REPLY\""
             }
         done < <(ps -e)
         #return $(( iSTEAM == 1 ? 0 : 1 ))
@@ -752,17 +794,14 @@ IsSteamRunning() {
 CleanUpVersion() {
 
     local iLENGTH=0
+    local sVERSION=${1-}
 
-    iREAL_EXIT_STATUS=$?
-
-    [[ -z $1 ]] && {
-        (( iDEBUG )) && echo "$LINENO CleanUpVersion: empty parameter error" 1>/dev/stderr
+    [[ -z $sVERSION ]] && {
+        ((iDEBUG)) && echo "$LINENO CleanUpVersion: sVERSION is null" 1>/dev/stderr
         return 1
     }
 
-    sVERSION=$1
-
-    (( iDEBUG )) && {
+    ((iDEBUG)) && {
         iLENGTH=${#sVERSION}
         echo "$LINENO CleanUpVersion: sVERSION before: \"$sVERSION\"" 1>/dev/stderr
     }
@@ -771,7 +810,7 @@ CleanUpVersion() {
     sVERSION=${sVERSION#*'PROTON-'}
     sVERSION=${sVERSION%'.TAR.GZ'*}
 
-    (( iDEBUG )) && {
+    ((iDEBUG)) && {
         echo "$LINENO CleanUpVersion: sVERSION after: \"$sVERSION\"" 1>/dev/stderr
         echo "$LINENO CleanUpVersion: removed $(( iLENGTH - ${#sVERSION} )) characters" 1>/dev/stderr
     }
@@ -787,13 +826,13 @@ ReportEnvironmentInfo() {
 
     # TODO report found/not found status of all commands used
 
-    printf '\n%s\n' "#### set ####"
+    #printf '\n%s\n' "#### set ####"
     if ! set; then echo "set failed"; fi
 
-    printf '\n%s\n' "#### stty -a ####"
+    #printf '\n%s\n' "#### stty -a ####"
     if ! stty -a; then echo "stty failed"; fi
 
-    printf '\n%s\n' "#### env -v --list-signal-handling 2>/dev/stdout ####"
+    #printf '\n%s\n' "#### env -v --list-signal-handling 2>/dev/stdout ####"
     if ! env -v --list-signal-handling 2>/dev/stdout; then echo "env failed"; fi
 
     exit 0
@@ -802,6 +841,8 @@ ReportEnvironmentInfo() {
 ###############################################################################
 
 CleanUp() {
+    # NOTE must be first
+    iREAL_EXIT_STATUS=$? # used to pass the exit status to the calling environment in case of unexpected failure
 
     [[ -d $sTMP_DIR ]] && {
         if [[ $iDEBUG -eq 0 ]]; then
@@ -820,7 +861,7 @@ CleanUp() {
 ###############################################################################
 
 ParseParameters() {
-    while getopts 'zZhHflSs:i:d:R:r:NuX' sOPT; do
+    while getopts 'zZhHflSs:i:d:R:NuX' sOPT; do
         case "$sOPT" in
             ("h") iSHOW_HELP=1 ;;
             ("H") iSHOW_USAGE=1 ;;
@@ -829,11 +870,10 @@ ParseParameters() {
             ("Z") if [[ $iFORCE -eq 1 ]] && [[ $iDEBUG -eq 1 ]]; then ReportEnvironmentInfo; fi ;; # -fzZ (undocumented environment analysis tool)
             ("X") iREMOVE_INSTALL_PATH=1 ;;
             ("N") iREMOVE_SAVED_PACKAGES=1 ;;
-            ("r") iREMOVE=1 sREMOVE_VERSION=$OPTARG sREMOVE_PACKAGE="";;
-            ("R") iREMOVE=1 sREMOVE_PACKAGE=${OPTARG:-""} sREMOVE_VERSION="" ;;
+            ("R") iREMOVE=1 sREMOVE_VERSION=$OPTARG ;;
             ("l") iLIST_INSTALLED_GE_VERSIONS=1 ;;
-            ("s") iREPORT_USAGE=1 sREPORT_VERSION=${OPTARG:-""} ;;
-            ("S") iREPORT_USAGE=1 sREPORT_VERSION="" ;;
+            ("s") iREPORT_VERSION_USAGE=1 sREPORT_VERSION=$OPTARG ;;
+            ("S") iREPORT_INSTALL_PATH_USAGE=1 ;;
             ("d") iDOWNLOAD=1 sDOWNLOAD_VERSION=$OPTARG ;;
             ("i") iINSTALL=1 sINSTALL_VERSION=$OPTARG ;;
             ("u") iUPDATE=1 ;;
@@ -863,7 +903,7 @@ Main() {
     fi
 
     # debug mode
-    (( iDEBUG )) && echo "Main: Debug mode enabled"
+    ((iDEBUG)) && echo "Main: Debug mode enabled"
 
     [[ ! -d $sGE_INSTALL_PATH ]] && {
         if [[ $iDEBUG -eq 1 ]]; then
@@ -892,9 +932,8 @@ Main() {
 
     # remove an installed version or package
     if [[ $iREMOVE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && [[ $iREMOVE_SAVED_PACKAGES -eq 0 ]]; then
-        # NOTE sREMOVE_VERSION and sREMOVE_PACKAGE are both set in getops
-        sREMOVE_VERSION=$(CleanUpVersion "$sREMOVE_VERSION")
-        RemoveGEVersion
+        # NOTE sREMOVE_VERSION is set in getops
+        RemoveGEVersion "$sREMOVE_VERSION"
     elif [[ $iREMOVE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 1 ]]; then
         echo "Skipping remove version/package because remove install path was requested in the same invocation"
     fi
@@ -902,8 +941,7 @@ Main() {
     # downlaod a package
     if [[ $iDOWNLOAD -eq 1 ]]; then
         # NOTE sDOWNLOAD_VERSION is set in getops
-        sDOWNLOAD_VERSION=$(CleanUpVersion "$sDOWNLOAD_VERSION")
-        DownloadGEPackage
+        DownloadGEPackage "$sDOWNLOAD_VERSION"
     fi
 
     # check for new version and update if it is not installed
@@ -911,8 +949,7 @@ Main() {
         if UpdateSavedGELatestRelease; then
             if GetLatestGEVersion; then # set sGE_LATEST_VERSION
                 if IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 1 ]]; then # Latest version is installed and -f is suppled
-                    sREMOVE_VERSION=$sGE_LATEST_VERSION
-                    if RemoveGEVersion; then
+                    if RemoveGEVersion "$sGE_LATEST_VERSION"; then
                         if InstallGEVersion; then # InstallGEVersion checks iUPDATE then sINSTALL_VERSION and/or sGE_LATEST_VERSION
                             echo "Update succeeded"
                         else
@@ -920,26 +957,26 @@ Main() {
                         fi
                     fi
                 elif IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 0 ]]; then # Latest version is installed and -f was not supplied
-                    (( iDEBUG )) && printf '%s' "$LINENO Main: Update: "
+                    ((iDEBUG)) && printf '%s' "$LINENO Main: Update: "
                     echo "Latest version is installed"
                 elif ! IsInstalled "$sGE_LATEST_VERSION"; then # Latest version is not installed
-                    (( iDEBUG )) && printf '%s' "$LINENO Main: Update: "
+                    ((iDEBUG)) && printf '%s' "$LINENO Main: Update: "
                     echo "Latest version is not installed"
                     if InstallGEVersion; then
-                        (( iDEBUG )) && printf '%s' "$LINENO Main: Update: "
+                        ((iDEBUG)) && printf '%s' "$LINENO Main: Update: "
                         echo "Update succeeded"
                         if IsSteamRunning; then echo "Please restart Steam to use the new version"; fi
                     else
-                        (( iDEBUG )) && printf '%s' "$LINENO Main: Update: "
+                        ((iDEBUG)) && printf '%s' "$LINENO Main: Update: "
                         echo "Update failed"
                     fi
                 fi
             else
-                (( iDEBUG )) && printf '%s\n' "$LINENO Main: Update: GetLatestGEVersion returned failure status"
+                ((iDEBUG)) && printf '%s\n' "$LINENO Main: Update: GetLatestGEVersion returned failure status"
             fi
         else
             # GetLatestGEVersionInfo failed
-            (( iDEBUG )) && printf '%s\n' "$LINENO Main: Update: GetLatestGEVersionInfo returned failure status"
+            ((iDEBUG)) && printf '%s\n' "$LINENO Main: Update: GetLatestGEVersionInfo returned failure status"
             echo "Update failed"
         fi
         # Like purchasing a tribble, this is probably a bad idea
@@ -949,24 +986,20 @@ Main() {
     # install a package
     if [[ $iINSTALL -eq 1 ]] && [[ $iUPDATE -eq 0 ]]; then
         # NOTE sINSTALL_VERSION is set in getops
-        sINSTALL_VERSION=$(CleanUpVersion "$sINSTALL_VERSION")
-        InstallGEVersion
+        InstallGEVersion "$sINSTALL_VERSION"
     else
-        (( iDEBUG )) && echo "$LINENO Main: install requested, but iUPDATE is not 0 iINSTALL: \"$iINSTALL\" iUPDATE: \"$iUPDATE\""
+        ((iDEBUG)) && echo "$LINENO Main: install requested, but iUPDATE is not 0 iINSTALL: \"$iINSTALL\" iUPDATE: \"$iUPDATE\""
     fi
 
     # list installed versions
-    if [[ $iLIST_INSTALLED_GE_VERSIONS -eq 1 ]]; then
-        ListInstalledGEVersions
-    fi
+    [[ $iLIST_INSTALLED_GE_VERSIONS -eq 1 ]] && ListInstalledGEVersions
 
-    # report install path usage
-    if [[ $iREPORT_USAGE -eq 1 ]] && [[ -n $sREPORT_VERSION ]]; then
-        sREPORT_VERSION=$(CleanUpVersion "$sREPORT_VERSION")
-        ReportGEDiskUsage
-    elif [[ $iREPORT_USAGE -eq 1 ]] && [[ -z $sREPORT_VERSION ]]; then
-        ReportGEDiskUsage
-    fi
+    # Report entire install path disk usage and file count
+    [[ $iREPORT_INSTALL_PATH_USAGE -eq 1 ]] && ReportGEDiskUsage
+
+    # Report disk usage and file count for a specific version
+    [[ $iREPORT_VERSION_USAGE -eq 1 ]] && ReportGEDiskUsage "$sREPORT_VERSION"
+
 
     # if no parameters were supplied, check for latest version and report if it is installed or not
     # TODO is there a better way?
@@ -975,12 +1008,13 @@ Main() {
         [[ $iREMOVE_SAVED_PACKAGES -eq 0 ]] && \
         [[ $iREMOVE -eq 0 ]] && \
         [[ $iLIST_INSTALLED_GE_VERSIONS -eq 0 ]] && \
-        [[ $iREPORT_USAGE -eq 0 ]] && \
+        [[ $iREPORT_VERSION_USAGE -eq 0 ]] && \
+        [[ $iREPORT_INSTALL_PATH_USAGE -eq 0 ]] && \
         [[ $iDOWNLOAD -eq 0 ]] && \
         [[ $iINSTALL -eq 0 ]] && \
         [[ $iUPDATE -eq 0 ]]; then
 
-        (( iDEBUG )) && {
+        ((iDEBUG)) && {
             if IsSteamRunning; then
                 echo "Main: Steam is running"
             else
@@ -989,14 +1023,13 @@ Main() {
             echo "Main: Nothing to do - showing help"
         }
 
-
         ShowHelp
     fi
 }
 
 ###############################################################################
 
-trap '(( iDEBUG )) && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; (( iDEBUG )) && echo "Exit status (CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT
+trap '((iDEBUG)) && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; ((iDEBUG)) && echo "Exit status (CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT
 
 ###############################################################################
 
