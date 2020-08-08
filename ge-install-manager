@@ -65,6 +65,7 @@ ShowHelp() {
     -s <version>  - Report file count and disk usage of <version>
     -U            - Check for and install the latest release
     -u            - Check for the latest release and report installed status
+                      Combined with -U, -u will be ignored
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
                       Combine with -f to also remove the saved package or to remove a package
