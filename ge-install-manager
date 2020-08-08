@@ -1086,11 +1086,11 @@ Main() {
 
         ((iDEBUG)) && {
             if IsSteamRunning; then
-                echo "Main: Steam is running"
+                echo "Main: Steam is running" 1>&2
             else
-                echo "Main: Steam is not running"
+                echo "Main: Steam is not running" 1>&2
             fi
-            echo "Main: Nothing to do - showing help"
+            echo "Main: Nothing to do - showing help" 1>&2
         }
 
         ShowHelp
@@ -1101,7 +1101,7 @@ Main() {
 
 ###############################################################################
 
-trap '((iDEBUG)) && echo "Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; ((iDEBUG)) && echo "Exit status (CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT
+trap '((iDEBUG)) && echo "Exit status (before CleanUp): $?" 1>&2; iFINAL_CLEANUP=1 CleanUp; ((iDEBUG)) && echo "Exit status (after CleanUp): $?" 1>&2; exit $iREAL_EXIT_STATUS' EXIT
 
 ###############################################################################
 
