@@ -1,0 +1,113 @@
+###############################################################################
+# Retrieve a "value" from a .gim file key:value pair
+# Accepts two required parameters, a version and an attribute name (key), returns the value of the requested attribute
+# if found, looking first in latest.json.gim and then releases.json.gim
+# BUG both attributes are set even though only one can be queried at a time
+# WARNING Do not output to stderr inside either while loop unless you enjoy long walks in void and conversations with /dev/null
+# WARNING ALL console output that isn't part of the value to be returned should be redirected to anywhere except stdout
+QueryGimAttribute() {
+
+    if [[ -z $1 || -z $2 ]] || [[ ! $# -eq 2 ]]; then
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\"" 1>&2
+        return 1
+    fi
+
+    [[ ${2,,} != @(size|browser_download_url) ]] && {
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: unsupported attribute requested: \"$2\"" 1>&2
+        return 1
+    }
+
+    local sVERSION=''
+    local iLINE_COUNTER=0
+    local iSIZE_LINE=0
+    local iBROWSER_URL_LINE=0
+    local sSIZE=''
+    local sBROWSER_URL=''
+    local sATTRIBUTE=''
+
+    sVERSION=$(CleanUpVersion "$1")
+    [[ -z $sVERSION ]] && {
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: sVERSION is null" 1>&2
+        return 1
+    }
+
+    sATTRIBUTE=${2,,}
+
+    # first, check latest.json.gim
+    if UpdateSavedGELatestRelease; then
+        while IFS= read -r; do
+            ((iLINE_COUNTER++))
+            # version match
+            [[ $REPLY == name:*$sVERSION* ]] && {
+                iSIZE_LINE=$((iLINE_COUNTER+1))
+                iBROWSER_URL_LINE=$((iLINE_COUNTER+2))
+                continue
+            }
+            if [[ $iLINE_COUNTER -eq $iSIZE_LINE ]]; then
+                [[ $REPLY =~ ^size:[[:digit:]]*$ ]] && {
+                    sSIZE=${REPLY/#size:}
+                    continue
+                }
+            fi
+            if [[ $iLINE_COUNTER -eq $iBROWSER_URL_LINE ]]; then
+                [[ $REPLY == browser_download_url:*$sVERSION* ]] && {
+                    sBROWSER_URL=${REPLY/#browser_download_url:}
+                    break
+                }
+            fi
+        done < "$sGE_INSTALL_PATH"/latest.json.gim 2>/dev/null
+    else
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: UpdateSavedGELatestRelease failed" 1>&2
+    fi
+
+    # try again using releases.json.gim
+    if [[ -z $sSIZE || -z $sBROWSER_URL ]]; then
+        if UpdateSavedGEReleases; then
+            while IFS= read -r; do
+                ((iLINE_COUNTER++))
+                # version match
+                [[ $REPLY == name:*$sVERSION* ]] && {
+                    iSIZE_LINE=$((iLINE_COUNTER+1))
+                    iBROWSER_URL_LINE=$((iLINE_COUNTER+2))
+                    continue
+                }
+                if [[ $iLINE_COUNTER -eq $iSIZE_LINE ]]; then
+                    [[ $REPLY =~ ^size:[[:digit:]]*$ ]] && {
+                        sSIZE=${REPLY/#size:}
+                        continue
+                    }
+                fi
+                if [[ $iLINE_COUNTER -eq $iBROWSER_URL_LINE ]]; then
+                    [[ $REPLY == browser_download_url:*$sVERSION* ]] && {
+                        sBROWSER_URL=${REPLY/#browser_download_url:}
+                        break
+                    }
+                fi
+            done < "$sGE_INSTALL_PATH/"releases.json.gim 2>/dev/null
+        else
+            ((iDEBUG)) && echo "$LINENO QueryGimAttribute: UpdateSavedGEReleases failed" 1>&2
+        fi
+    fi
+
+    # if either not found, error
+    [[ -z $sSIZE || -z $sBROWSER_URL ]] && {
+        ((iDEBUG)) && echo "$LINENO GetGEVersionBrowserDownloadURL: .gim parse error sSIZE: \"$sSIZE\" sBROWSER_URL: \"$sBROWSER_URL\"" 1>&2
+        return 1
+    }
+
+    # output the value of the requested attribute
+    case $sATTRIBUTE in
+        (size)
+            printf '%s' "$sSIZE" >&1
+        ;;
+        (browser_download_url)
+            printf '%s' "$sBROWSER_URL" >&1
+        ;;
+        (*)
+            printf ''
+            return 1
+        ;;
+    esac
+
+    return 0
+}
