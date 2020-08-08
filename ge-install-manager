@@ -6,7 +6,7 @@
 #                                                                             #
 #      Toazd 2020 Unlicense https://unlicense.org/                            #
 #                                                                             #
-#      GloriousEggroll installation manager                                   #
+#      GloriousEggroll proton-ge-custom installation manager                  #
 #       Manage proton-ge-custom installations                                 #
 #        https://github.com/GloriousEggroll/proton-ge-custom                  #
 #                                                                             #
@@ -228,6 +228,11 @@ UpdateSavedGEReleases() {
 # NOTE "gim" is short for "(g)e (i)nstall (m)anager" because I am super creative like that
 #      It's nothing special, just the latest/release JSON stripped down to only what this script is interested in
 #      The file format is very simple key:value pairs, delimited by newlines, no comment support
+# Sample .gim entry (minus the leading "#  "):
+#  name:Proton-5.9-GE-5-ST.tar.gz
+#  size:406721946
+#  browser_download_url:https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz
+#
 # WARNING redirect all console messages/debug output to stderr
 # TODO download and process new versions if the current gim is malformed
 GenerateGimFromJSON() {
@@ -265,19 +270,20 @@ GenerateGimFromJSON() {
 
 ###############################################################################
 # Retrieve a "value" from a .gim file key:value pair
-# Accepts a version and an attribute name (key), returns the value of the requested attribute
+# Accepts two required parameters, a version and an attribute name (key), returns the value of the requested attribute
 # if found, looking first in latest.json.gim and then releases.json.gim
 # BUG both attributes are set even though only one can be queried at a time
 # WARNING Do not output to stderr inside either while loop unless you enjoy long walks in void and conversations with /dev/null
+# WARNING ALL console output that isn't part of the value to be returned should be redirected to anywhere except stdout
 QueryGimAttribute() {
 
     if [[ -z $1 || -z $2 ]] || [[ ! $# -eq 2 ]]; then
-        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: parameter error" 1>&2
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\"" 1>&2
         return 1
     fi
 
     [[ ${2,,} != @(size|browser_download_url) ]] && {
-        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: unsupported attribute requested \"$2\"" 1>&2
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: unsupported attribute requested: \"$2\"" 1>&2
         return 1
     }
 
@@ -290,7 +296,10 @@ QueryGimAttribute() {
     local sATTRIBUTE=''
 
     sVERSION=$(CleanUpVersion "$1")
-    [[ -z $sVERSION ]] && return 1
+    [[ -z $sVERSION ]] && {
+        ((iDEBUG)) && echo "$LINENO QueryGimAttribute: sVERSION is null" 1>&2
+        return 1
+    }
 
     sATTRIBUTE=${2,,}
 
@@ -375,10 +384,14 @@ QueryGimAttribute() {
 
 ###############################################################################
 # Attempt to download a package (Proton*.tar.gz) using a tmp path.
-# Accepts one parameter, the version, in one of the acceptable formats described in usage
+# Accepts one required parameter, the version, in one of the acceptable formats described in usage
 DownloadGEPackage() {
 
     local sVERSION=$(CleanUpVersion "$1")
+    [[ -z $sVERSION ]] && {
+        ((iDEBUG)) && echo "$LINENO RemoveGEVersion: sVERSION is null" 1>&2
+        return 1
+    }
     local sTMP_DIR=$(mktemp -qd --tmpdir "$(basename "$0" .sh)".tmp.XXXXXXXXXX)
     local sTMP_PACKAGE=$sTMP_DIR/Proton-${sVERSION}.tar.gz
     local sGE_DOWNLOAD_URL=$(QueryGimAttribute "$sVERSION" "browser_download_url")
@@ -425,7 +438,9 @@ DownloadGEPackage() {
 
 ###############################################################################
 # Install a GE version using either a saved package or downloading a new one
-# Accepts one parameter, the version, in one of the acceptable formats described in usage
+# Accepts one optional parameter, the version, in one of the acceptable formats described in usage
+# NOTE sINSTALL_VERSION is set in getops when -i is invoked
+# NOTE If -u and -i are both invoked, the update will run first and then the install, if needed
 InstallGEVersion() {
 
     local sVERSION=''
@@ -434,19 +449,19 @@ InstallGEVersion() {
         [[ -z $sGE_LATEST_VERSION ]] && GetLatestGEVersion || return 1
         sVERSION=$sGE_LATEST_VERSION
     elif [[ $iUPDATE -eq 0 ]]; then
-        sVERSION=$sINSTALL_VERSION
+        sVERSION=${sINSTALL_VERSION:-$(CleanUpVersion "$1")}
     else
+        sVERSION=$(CleanUpVersion "$1")
         echo "$LINENO InstallGEVersion: error detecting install mode"
         return 1
     fi
-
-    sVERSION=$(CleanUpVersion "$sVERSION")
 
     [[ -z $sVERSION ]] && {
         ((iDEBUG)) && echo "$LINENO InstallGEVersion: sVERSION is null" 1>&2
         return 1
     }
 
+    # Re-install a version that is already installed
     if IsInstalled "$sVERSION"; then
         if [[ $iFORCE -eq 0 ]]; then
             echo "\"$sVERSION\" is already installed"
@@ -461,7 +476,7 @@ InstallGEVersion() {
         fi
     fi
 
-    # if a saved package exists and -f is not included
+    # if a saved package exists and force mode is not active
     if [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 0 ]]; then
         echo "Using saved package: \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
         if ExtractGEPackage "$sVERSION"; then
@@ -469,8 +484,7 @@ InstallGEVersion() {
         else
             return 1
         fi
-    # if a saved package exists and -f is included
-    # NOTE doesn't matter if Steam is running
+    # if a saved package exists and force mode is active
     elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
         echo "Removing saved package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
         if rm "$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"; then
@@ -571,7 +585,7 @@ RemoveGEVersion() {
 
 ###############################################################################
 # Extracts a saved package (Proton-*.tar.gz) in the install path to the install path
-# Accepts one parameter, the version, in one of the acceptable formats described in usage
+# Accepts one required parameter, the version, in one of the acceptable formats described in usage
 ExtractGEPackage() {
 
     local sVERSION=$(CleanUpVersion "$1")
@@ -646,7 +660,8 @@ ListInstalledGEVersions() {
 }
 
 ###############################################################################
-
+# Report disk usage and file counts for the install path and/or a specified installed version
+# Accepts one optional parameter, the version, in one of the acceptable formats described in usage
 ReportGEDiskUsage() {
 
     local sVERSION=$(CleanUpVersion "$1")
@@ -697,7 +712,8 @@ ReportGEDiskUsage() {
 }
 
 ###############################################################################
-
+# Removes all saved packages in the install path defined by the global variable sGE_INSTALL_PATH
+# NOTE a package is any regular file that matches the glob pattern "Proton-*.tar.gz"
 RemoveSavedPackages() {
 
     local iSUCCESS=0
@@ -732,7 +748,8 @@ RemoveSavedPackages() {
 }
 
 ###############################################################################
-
+# Removes the path defined by the global variable sGE_INSTALL_PATH
+# NOTE currently requires -f to be combined with -X
 RemoveGEInstallPath() {
 
     local sSIZE=''
@@ -760,7 +777,9 @@ RemoveGEInstallPath() {
 }
 
 ###############################################################################
-# Currently only checks if a path exists
+# Check if a version is installed
+# Accepts one parameter, the version, in one of the acceptable formats described in usage
+# NOTE Currently only checks if a path for the version exists
 # TODO better verification
 IsInstalled() {
 
@@ -783,8 +802,9 @@ IsInstalled() {
 }
 
 ###############################################################################
+# Check if Steam is running using 'ps -e'
 # return 0 = Steam is running
-# return 1 = Steam is not running (default)
+# return 1 = Steam is not running / ps is missing / Steam is not running but steamwebhelper is
 IsSteamRunning() {
 
     local iSTEAM=0
@@ -811,7 +831,7 @@ IsSteamRunning() {
         elif [[ $iSTEAM -eq 0 && $iWEBHLPR -eq 0 ]]; then
             return 1
         else
-            echo "$LINENO IsSteamRunning: unknown error detecting Steam PID"
+            echo "$LINENO IsSteamRunning: unknown error iSTEAM: \"$iSTEAM\" iWEBHLPR: \"$iWEBHLPR\" (last)REPLY: \"$REPLY\""
             return 1
         fi
     else
@@ -824,7 +844,10 @@ IsSteamRunning() {
 }
 
 ###############################################################################
-
+# Support different formats for version specification
+# Internally, the script uses case-sensitive "base" versions such as "5.9-GE-5-ST" but
+# for parsing parameters many other variations are supported. Examples are in usage above.
+# TODO support even more variations?
 CleanUpVersion() {
 
     local iLENGTH=0
@@ -840,8 +863,11 @@ CleanUpVersion() {
         echo "$LINENO CleanUpVersion: sVERSION before: \"$sVERSION\"" 1>&2
     }
 
+    # global upper case
     sVERSION=${sVERSION^^}
+    # anchored left, remove a single "PROTON-" and anything to the left of it
     sVERSION=${sVERSION#*'PROTON-'}
+    # anchored right, remove a single ".TAR.GZ" and anything to the right of it
     sVERSION=${sVERSION%'.TAR.GZ'*}
 
     ((iDEBUG)) && {
@@ -890,7 +916,7 @@ ReportEnvironmentInfo() {
 }
 
 ###############################################################################
-
+# Remove temporary paths if debug mode is not active
 CleanUp() {
     # NOTE must be first
     iREAL_EXIT_STATUS=$? # used to pass the exit status to the calling environment in case of unexpected failure
@@ -910,7 +936,9 @@ CleanUp() {
 }
 
 ###############################################################################
-
+# Parse command line parameters and set global variables according to what was
+# requested. Order of operations for invocations that involve multiple parameters
+# is listed at the end of the usage section.
 ParseParameters() {
     while getopts 'zZhHflSs:i:d:R:NuX' sOPT; do
         case "$sOPT" in
