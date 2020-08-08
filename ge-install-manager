@@ -49,10 +49,10 @@ OPTERR=1 # make sure it's on
 ShowHelp() {
     cat <<END_OF_HELP
 
-    $(basename "$0" .sh)  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
+    $(basename "$0")  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
 
-    Required:       curl, tar, gzip, ps, stat
-    Optional:       du, find, wc
+    Required:       Bash 3.2+(TBD), curl, tar, gzip, stat
+    Optional:       du, find, wc, ps
 
     Install path:          $sGE_INSTALL_PATH
     Latest version URL:    $sGE_LATEST_VERSION_URL
@@ -138,10 +138,10 @@ END_OF_USAGE
 
 ###############################################################################
 # Sets the global variable sGE_LATEST_VERSION to the latest version
-# TODO *might* want to check releases if latest fails. Or, just let it burn. Don't forget the marshmallows!
+# TODO *might* want to check releases if latest fails.
 GetLatestGEVersion() {
 
-    # WARNING DO NOT make this local (this warning not brought to you by personal experience)
+    # WARNING DO NOT make this local
     sGE_LATEST_VERSION=''
 
     if UpdateSavedGELatestRelease; then
