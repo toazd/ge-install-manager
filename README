@@ -21,7 +21,8 @@ Help:
     -l            - List installed versions and saved packages
     -S            - Report file count and disk usage of install path
     -s <version>  - Report file count and disk usage of <version>
-    -u            - Check for and install the latest release if it is not installed
+    -U            - Check for and install the latest release
+    -u            - Check for the latest release and report installed status
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
                       Combine with -f to also remove the saved package or to remove a package
@@ -69,12 +70,13 @@ Usage:
           Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
   - Order of operations if multiple unique parameters are supplied:
-    > NOTE: -h and/or -H, and exactly -fzZ will exit irrespective of other parameters
+    > NOTE: -h and/or -H, and -fzZ will exit irrespective of other parameters
       Force toggle,
       Report environment info (-fzZ),
       Show help,
       Show usage,
       Debug toggle,
+      Check for latest release,
       Remove install path,
       Remove saved packages (if remove install path is not active),
       Remove installed version (if remove install path is not active),

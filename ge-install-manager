@@ -41,6 +41,7 @@ iREPORT_VERSION_USAGE=0
 iREPORT_INSTALL_PATH_USAGE=0
 iSHOW_HELP=0
 iSHOW_USAGE=0
+iCHECK_UPDATE=0
 OPTERR=1 # make sure it's on
 
 ###############################################################################
@@ -62,7 +63,8 @@ ShowHelp() {
     -l            - List installed versions and saved packages
     -S            - Report file count and disk usage of install path
     -s <version>  - Report file count and disk usage of <version>
-    -u            - Check for and install the latest release if it is not installed
+    -U            - Check for and install the latest release
+    -u            - Check for the latest release and report installed status
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
                       Combine with -f to also remove the saved package or to remove a package
@@ -119,9 +121,9 @@ Usage:
           Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
   - Order of operations if multiple unique parameters are supplied:
-    > NOTE: -h and/or -H, and exactly -fzZ will exit irrespective of other parameters
+    > NOTE: -h and/or -H, and -fzZ will exit irrespective of other parameters
       Force toggle, Report environment info (-fzZ), Show help,
-      Show usage, Debug toggle, Remove install path,
+      Show usage, Debug toggle, Check for latest release, Remove install path,
       Remove saved packages (if remove install path is not active),
       Remove installed version (if remove install path is not active),
       Download, Update, Install, List installed,
@@ -147,7 +149,7 @@ GetLatestGEVersion() {
                 ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: matched line \"$REPLY\"" 1>&2
                 sGE_LATEST_VERSION=${REPLY#*:}
                 sGE_LATEST_VERSION=${sGE_LATEST_VERSION/%.tar.gz}
-                ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: sGE_LATEST_VERSION set to \"$REPLY\"" 1>&2
+                ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: sGE_LATEST_VERSION set to \"$sGE_LATEST_VERSION\"" 1>&2
                 break
             }
         done < "$sGE_INSTALL_PATH"/latest.json.gim
@@ -814,8 +816,10 @@ IsInstalled() {
     ((iDEBUG)) && echo "IsInstalled: Checking for version \"$sVERSION\" at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\"" 1>&2
 
     if [[ -d $sGE_INSTALL_PATH/Proton-${sVERSION} ]]; then
+        ((iDEBUG)) && echo "IsInstalled: Version \"$sVERSION\" found" 1>&2
         return 0
     else
+        ((iDEBUG)) && echo "IsInstalled: Version \"$sVERSION\" not found" 1>&2
         return 1
     fi
 
@@ -881,7 +885,7 @@ CleanUpVersion() {
 
     ((iDEBUG)) && {
         iLENGTH=${#sVERSION}
-        echo "$LINENO CleanUpVersion: sVERSION before: \"$sVERSION\"" 1>&2
+        echo "$LINENO CleanUpVersion: before: \"$sVERSION\"" 1>&2
     }
 
     # global upper case
@@ -892,7 +896,7 @@ CleanUpVersion() {
     sVERSION=${sVERSION%'.TAR.GZ'*}
 
     ((iDEBUG)) && {
-        echo "$LINENO CleanUpVersion: sVERSION after: \"$sVERSION\"" 1>&2
+        echo "$LINENO CleanUpVersion: after: \"$sVERSION\"" 1>&2
         [[ $iLENGTH -ne ${#sVERSION} ]] && echo "$LINENO CleanUpVersion: removed $(( iLENGTH - ${#sVERSION} )) characters" 1>&2
     }
 
@@ -948,7 +952,7 @@ CleanUp() {
 # requested. Order of operations for invocations that involve multiple parameters
 # is listed at the end of the usage section.
 ParseParameters() {
-    while getopts 'zZhHflSs:i:d:R:NuX' sOPT; do
+    while getopts 'zZhHflSs:i:d:R:NuUX' sOPT; do
         case "$sOPT" in
             (h) iSHOW_HELP=1 ;;
             (H) iSHOW_USAGE=1 ;;
@@ -959,6 +963,7 @@ ParseParameters() {
                     ReportEnvironmentInfo # exactly -fzZ (undocumented diagnostic tool)
                 fi
             ;;
+            (u) iCHECK_UPDATE=1 ;;
             (X) iREMOVE_INSTALL_PATH=1 ;;
             (N) iREMOVE_SAVED_PACKAGES=1 ;;
             (R)
@@ -979,7 +984,7 @@ ParseParameters() {
                 iINSTALL=1
                 sINSTALL_VERSION=$OPTARG
             ;;
-            (u) iUPDATE=1 ;;
+            (U) iUPDATE=1 ;;
             (":"|"?")
                 return 1
             ;;
@@ -1021,6 +1026,17 @@ Main() {
             mkdir -p "$sGE_INSTALL_PATH"
         fi
     }
+
+    # checkupdate
+    if [[ $iCHECK_UPDATE -eq 1 && $iUPDATE -eq 0 ]]; then
+        if GetLatestGEVersion; then
+            if IsInstalled "$sGE_LATEST_VERSION"; then
+                echo "The latest version \"$sGE_LATEST_VERSION\" is installed"
+            else
+                echo "The latest version \"$sGE_LATEST_VERSION\" is not installed"
+            fi
+        fi
+    fi
 
     # remove install path
     if [[ $iREMOVE_INSTALL_PATH -eq 1 ]] && [[ $iFORCE -eq 1 ]]; then
@@ -1067,7 +1083,7 @@ Main() {
                     fi
                 elif IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 0 ]]; then # Latest version is installed and -f was not supplied
                     ((iDEBUG)) && printf '%s' "$LINENO Main: Update: "
-                    echo "Latest version is installed ($sGE_LATEST_VERSION)"
+                    echo "Latest version is already installed ($sGE_LATEST_VERSION)"
                 elif ! IsInstalled "$sGE_LATEST_VERSION"; then # Latest version is not installed
                     ((iDEBUG)) && printf '%s' "$LINENO Main: Update: "
                     echo "Latest version is not installed"
@@ -1118,6 +1134,7 @@ Main() {
        [[ $iREPORT_INSTALL_PATH_USAGE -eq 0 ]] && \
        [[ $iDOWNLOAD -eq 0 ]] && \
        [[ $iINSTALL -eq 0 ]] && \
+       [[ $iCHECK_UPDATE -eq 0 ]] && \
        [[ $iUPDATE -eq 0 ]]; then
 
         ((iDEBUG)) && {
@@ -1129,11 +1146,12 @@ Main() {
             echo "Main: Nothing to do - showing help" 1>&2
         }
 
+        # report latest version installed status
         if GetLatestGEVersion; then
             if IsInstalled "$sGE_LATEST_VERSION"; then
-                echo "  The latest version \"$sGE_LATEST_VERSION\" is installed"
+                echo "The latest version \"$sGE_LATEST_VERSION\" is installed"
             else
-                echo "  The latest version \"$sGE_LATEST_VERSION\" is not installed"
+                echo "The latest version \"$sGE_LATEST_VERSION\" is not installed"
             fi
         fi
         ShowHelp
