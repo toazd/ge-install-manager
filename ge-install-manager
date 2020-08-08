@@ -592,7 +592,7 @@ RemoveSavedPackages() {
 ###############################################################################
 # Wrapper for QueryGEAttribute to first check latest.json, then if a value is not returned, check releases.json
 # Accepts two required parameters, version and attribute
-# NOTE attributes are checked in QueryJSONAttribute
+# NOTE attributes are validated in QueryJSONAttribute
 QueryGEAttribute() {
 
     [[ -z $1 || -z $2 || ! $# -eq 2 ]] && {
@@ -1129,6 +1129,13 @@ Main() {
             echo "Main: Nothing to do - showing help" 1>&2
         }
 
+        if GetLatestGEVersion; then
+            if IsInstalled "$sGE_LATEST_VERSION"; then
+                echo "  The latest version \"$sGE_LATEST_VERSION\" is installed"
+            else
+                echo "  The latest version \"$sGE_LATEST_VERSION\" is not installed"
+            fi
+        fi
         ShowHelp
     fi
 
