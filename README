@@ -13,8 +13,10 @@ Codename "Cochrane Bonaventure"
 
 Help:
 
-    Required:       curl, tar, gzip, ps, stat
-    Optional:       du, find, wc
+    Required:       Bash 3.2+(TBD), curl, tar, gzip, stat
+    Optional:       du, find, and wc (for -s|-S)
+                    ps (is steam running)
+                    trash (used instead of rm)
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
