@@ -7,6 +7,7 @@
 #      Toazd 2020 Unlicense https://unlicense.org/                            #
 #                                                                             #
 #      GloriousEggroll proton-ge-custom installation manager                  #
+#       Maybe "geim" would be better?                                         #
 #       Manage proton-ge-custom installations                                 #
 #        https://github.com/GloriousEggroll/proton-ge-custom                  #
 #                                                                             #
@@ -19,14 +20,19 @@ set +e # WARNING DO NOT set -e
 sSCRIPT_VERSION="0.7.1"
 sSCRIPT_CODENAME="Cochrane Bonaventure"
 sGE_INSTALL_PATH="$HOME"/.steam/root/compatibilitytools.d
+# JSON data sources
 sGE_LATEST_VERSION_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
 sGE_RELEASES_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
+# HTML data sources
+# https://github.com/GloriousEggroll/proton-ge-custom/releases
+# https://github.com/GloriousEggroll/proton-ge-custom/tags
 sFILE_LATEST_JSON="$sGE_INSTALL_PATH/latest.json"
 sFILE_RELEASES_JSON="$sGE_INSTALL_PATH/releases.json"
 # NOTE using a custom user-agent as recommended by the api docs, causes the response to be minified JSON of which this script is incompatible with
 #sCURL_HEADER_USERAGENT="User-Agent: ge-install-manager/0.7.1"
 sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
 sGE_LATEST_VERSION=''
+sCOMMAND_RM="rm"
 iFORCE=0
 iDEBUG=0
 iDOWNLOAD=0
@@ -52,7 +58,7 @@ ShowHelp() {
     $(basename "$0")  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
 
     Required:       Bash 3.2+(TBD), curl, tar, gzip, stat
-    Optional:       du, find, wc, ps
+    Optional:       du, find, wc, ps, trash
 
     Install path:          $sGE_INSTALL_PATH
     Latest version URL:    $sGE_LATEST_VERSION_URL
@@ -146,17 +152,20 @@ GetLatestGEVersion() {
 
     if UpdateSavedGELatestRelease; then
         while IFS= read -r; do
-            [[ $REPLY =~ ^name:.*\.tar\.gz$ ]] && {
+            # WARNING do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST",
+            #         they are not always the same name as the package
+            # "name": "Proton-5.9-GE-5-ST.tar.gz",
+            [[ $REPLY =~ ^.*\"name\":[[:space:]]\"Proton-.*\.tar\.gz\",$ ]] && {
                 ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: matched line \"$REPLY\"" 1>&2
-                sGE_LATEST_VERSION=${REPLY#*:}
-                sGE_LATEST_VERSION=${sGE_LATEST_VERSION/%.tar.gz}
+                sGE_LATEST_VERSION=${REPLY#*[[:space:]]\"name\":[[:space:]]\"Proton-}
+                sGE_LATEST_VERSION=${sGE_LATEST_VERSION%.tar.gz\",}
                 ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: sGE_LATEST_VERSION set to \"$sGE_LATEST_VERSION\"" 1>&2
                 break
             }
-        done < "$sGE_INSTALL_PATH"/latest.json.gim
+        done < "$sFILE_LATEST_JSON"
 
         [[ -z $sGE_LATEST_VERSION ]] && {
-            echo "$LINENO GetLatestGEVersion: interal error retrieving sGE_LATEST_VERSION for version \"$sGE_LATEST_VERSION\"" 1>&2
+            ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: interal error, sGE_LATEST_VERSION is sNULL" 1>&2
             return 1
         }
     else
@@ -174,19 +183,18 @@ UpdateSavedGELatestRelease() {
 
     local sGE_LATEST_RELEASE_JSON=''
 
-    if [[ -f $sFILE_LATEST_JSON ]]; then
-        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: checking if \"$sGE_LATEST_VERSION_URL\" is newer than $sFILE_LATEST_JSON" 1>&2
-        sGE_LATEST_RELEASE_JSON=$(curl -sz "$sFILE_LATEST_JSON" -H "$sCURL_HEADER_GITHUB_MEDIATYPE" -L "$sGE_LATEST_VERSION_URL" -o - 2>/dev/null)
-    fi
+    ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: checking if \"$sGE_LATEST_VERSION_URL\" is newer than \"$sFILE_LATEST_JSON\"" 1>&2
+    sGE_LATEST_RELEASE_JSON=$(curl -sz "$sFILE_LATEST_JSON" -H "$sCURL_HEADER_GITHUB_MEDIATYPE" -L "$sGE_LATEST_VERSION_URL" -o - 2>/dev/null)
 
     if [[ -z $sGE_LATEST_RELEASE_JSON ]]; then
-        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: curl returned NULL" 1>&2
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: curl returned NULL (remote mtime is not newer than saved mtime)" 1>&2
         if [[ ! -f $sFILE_LATEST_JSON ]]; then
             echo "$LINENO UpdateSavedGELatestRelease: No new release found and $sFILE_LATEST_JSON not found. Is \"$sGE_LATEST_VERSION_URL\" a valid URL?" 1>&2
             return 1
         fi
     elif [[ -n $sGE_LATEST_RELEASE_JSON ]]; then
-        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: curl response was not empty" 1>&2
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGELatestRelease: curl response was not empty (remote mtime is newer than saved mtime)" 1>&2
+        [[ -f $sFILE_LATEST_JSON.bak ]] && $sCOMMAND_RM "$sFILE_LATEST_JSON".bak
         [[ -f $sFILE_LATEST_JSON ]] && mv "$sFILE_LATEST_JSON" "$sFILE_LATEST_JSON".bak
         printf '%s' "$sGE_LATEST_RELEASE_JSON" > "$sFILE_LATEST_JSON"
     fi
@@ -202,19 +210,18 @@ UpdateSavedGEReleases() {
     local sGE_RELEASES_JSON=''
 
     # BUG updates to download_count in remote releases cause curl -z to download a new version much more often than is needed
-    if [[ -f $sFILE_RELEASES_JSON ]]; then
-        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: checking if \"$sGE_RELEASES_URL\" is newer than $sFILE_RELEASES_JSON" 1>&2
-        sGE_RELEASES_JSON=$(curl -sz "$sFILE_RELEASES_JSON" -H "$sCURL_HEADER_GITHUB_MEDIATYPE" -L "$sGE_RELEASES_URL" -o - 2>/dev/null)
-    fi
+    ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: checking if \"$sGE_RELEASES_URL\" is newer than \"$sFILE_RELEASES_JSON\"" 1>&2
+    sGE_RELEASES_JSON=$(curl -sz "$sFILE_RELEASES_JSON" -H "$sCURL_HEADER_GITHUB_MEDIATYPE" -L "$sGE_RELEASES_URL" -o - 2>/dev/null)
 
     if [[ -z $sGE_RELEASES_JSON ]]; then
-        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: curl returned NULL" 1>&2
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: curl returned NULL (remote mtime is not newer than saved mtime)" 1>&2
         if [[ ! -f $sFILE_RELEASES_JSON ]]; then
             echo "$LINENO UpdateSavedGEReleases: No new release and $sFILE_RELEASES_JSON not found. Is \"$sGE_RELEASES_URL\" a valid URL?" 1>&2
             return 1
          fi
     elif [[ -n $sGE_RELEASES_JSON ]]; then
-        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: curl response was not empty" 1>&2
+        ((iDEBUG)) && echo "$LINENO UpdateSavedGEReleases: curl response was not empty (remote mtime is newer than saved mtime)" 1>&2
+        [[ -f $sFILE_RELEASES_JSON.bak ]] && $sCOMMAND_RM "$sFILE_RELEASES_JSON".bak
         [[ -f $sFILE_RELEASES_JSON ]] && mv "$sFILE_RELEASES_JSON" "$sFILE_RELEASES_JSON".bak
         printf '%s' "$sGE_RELEASES_JSON" > "$sFILE_RELEASES_JSON"
     fi
@@ -236,6 +243,11 @@ DownloadGEPackage() {
     local sTMP_PACKAGE=$sTMP_DIR/Proton-${sVERSION}.tar.gz
     local sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
     local sSIZE_BYTES=''
+
+    [[ -z $sGE_DOWNLOAD_URL ]] && {
+        ((iDEBUG)) && "$LINENO DownloadGEPackage: sVERSION is NULL" 1>&2
+        return 1
+    }
 
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
@@ -327,7 +339,7 @@ InstallGEVersion() {
     # if a saved package exists and force mode is active
     elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
         echo "Removing saved package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
-        if rm "$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"; then
+        if $sCOMMAND_RM "$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"; then
             echo "Package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz removed\""
         else
             echo "Removing package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\" failed"
@@ -345,6 +357,7 @@ InstallGEVersion() {
             return 1
         fi
     else
+        echo "Version \"$sVERSION\" not found"
         return 1
     fi
 
@@ -382,7 +395,7 @@ RemoveGEVersion() {
             if ! IsSteamRunning; then
                 sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
                 sSIZE=${sSIZE%[[:space:]]*}
-                if rm -rf "$sREMOVE_PATH" >/dev/null; then
+                if $sCOMMAND_RM -rf "$sREMOVE_PATH" >/dev/null; then
                     echo "Removed path \"$sREMOVE_PATH\" (${sSIZE:-'error'})"
                 else
                     echo "Failed to remove \"$sREMOVE_PATH\""
@@ -397,7 +410,7 @@ RemoveGEVersion() {
         [[ -f $sREMOVE_PACKAGE ]] && {
             sSIZE=$(du -h "$sREMOVE_PACKAGE" 2>/dev/null)
             sSIZE=${sSIZE%[[:space:]]*}
-            if rm -f "$sREMOVE_PACKAGE" >/dev/null; then
+            if $sCOMMAND_RM -f "$sREMOVE_PACKAGE" >/dev/null; then
                 echo "Removed package \"$sREMOVE_PACKAGE\" (${sSIZE:-'error'})"
             else
                 echo "Failed to remove package \"$sREMOVE_PACKAGE\""
@@ -412,7 +425,7 @@ RemoveGEVersion() {
             if ! IsSteamRunning; then
                 sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
                 sSIZE=${sSIZE%[[:space:]]*}
-                if rm -rf "$sREMOVE_PATH" >/dev/null; then
+                if $sCOMMAND_RM -rf "$sREMOVE_PATH" >/dev/null; then
                     echo "Removed path \"$sREMOVE_PATH\" (${sSIZE:-'error'})"
                 else
                     echo "Failed to remove \"$sREMOVE_PATH\""
@@ -442,14 +455,14 @@ ExtractGEPackage() {
     }
 
     printf '%s' "Extracting"
-    if tar --checkpoint=.1000 -C "$sGE_INSTALL_PATH" -xzf "$sEXTRACT_FILE" 2>/dev/null; then
-        printf '\n%s\n' "Package extracted successfully"
+    if tar --checkpoint=.10000 -C "$sGE_INSTALL_PATH" -xzf "$sEXTRACT_FILE" 2>/dev/null; then
+        printf '\r\033[0K%s\n' "Package extracted successfully"
         return 0
     else
-        printf '\n%s\n' "Package extraction failed"
+        printf '\r\033[0K%s\n' "Package extraction failed"
         [[ -d $sGE_INSTALL_PATH/Proton-${sVERSION} ]] && {
             ((iDEBUG)) && echo "$LINENO ExtractGEPackage: Removing failed extraction path \"$sGE_INSTALL_PATH/Proton-${sVERSION}\"" 1>&2
-            if rm -rf "$sGE_INSTALL_PATH/Proton-${sVERSION}"; then
+            if $sCOMMAND_RM -rf "$sGE_INSTALL_PATH/Proton-${sVERSION}"; then
                 ((iDEBUG)) && echo "$LINENO ExtractGEPackage: Removal succeeded" 1>&2
             else
                 echo "Failed to remove path of failed extraction: \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
@@ -568,7 +581,7 @@ RemoveSavedPackages() {
 
     for sPACKAGE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [[ -f $sPACKAGE ]]; then
-            if rm -f "$sPACKAGE"; then
+            if $sCOMMAND_RM -f "$sPACKAGE"; then
                 ((iDEBUG)) && echo "$LINENO RemoveSavedPackages: Package \"$sPACKAGE\" removed" 1>&2
                 ((iSUCCESS++))
             else
@@ -705,14 +718,14 @@ QueryJSONAttribute() {
         # version match
         # sVERSION=5.9-GE-5-ST
         # *"name": "Proton-5.9-GE-5-ST.tar.gz",
-        [[ ${REPLY,,} =~ ^.*\"name\":[[:space:]]\"proton-${sVERSION,,}\.tar\.gz\",$ ]] && {
+        [[ $REPLY =~ ^.*\"name\":[[:space:]]\"Proton-${sVERSION}\.tar\.gz\",$ ]] && {
             iFLAG_VERSION_FOUND=1
             iLINE_VERSION_FOUND=$iLINE_COUNTER
         }
 
         # *"size": 406721946,
         [[ $iFLAG_VERSION_FOUND -eq 1 ]] && {
-            [[ ${REPLY,,} =~ ^.*\"size\":[[:space:]][[:digit:]]*,$ ]] && {
+            [[ ${REPLY,,} =~ ^.*\"size\":[[:space:]]+[[:digit:]]*,$ ]] && {
                 iFLAG_SIZE_FOUND=1
                 iLINE_SIZE_FOUND=$iLINE_COUNTER
                 sSIZE=${REPLY/#*\"size\":[[:space:]]}
@@ -723,7 +736,7 @@ QueryJSONAttribute() {
 
         # *"browser_download_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
         [[ $iFLAG_VERSION_FOUND -eq 1 && $iFLAG_SIZE_FOUND -eq 1 ]] && {
-            [[ ${REPLY,,} =~ ^.*\"browser_download_url\":[[:space:]]\".*proton-${sVERSION,,}\.tar\.gz\"$ ]] && {
+            [[ $REPLY =~ ^.*\"browser_download_url\":[[:space:]]\".*Proton-${sVERSION}\.tar\.gz\"$ ]] && {
                 #iFLAG_BROWURL_FOUND=1
                 iLINE_BROWURL_FOUND=$iLINE_COUNTER
                 sBROWSER_URL=${REPLY/#*\"browser_download_url\":[[:space:]]\"}
@@ -754,19 +767,24 @@ QueryJSONAttribute() {
     }
 
     # output the value of the requested attribute
-    case $sATTRIBUTE in
-        (size)
-            printf '%s' "$sSIZE" >&1
-        ;;
-        (browser_download_url)
-            printf '%s' "$sBROWSER_URL" >&1
-        ;;
-        (*)
-            # NOTE NULL response indicates error OR not found. check return status and response
-            printf ''
-            return 1
-        ;;
-    esac
+    if [[ -n $sSIZE && -n $sBROWSER_URL ]]; then
+        case $sATTRIBUTE in
+            (size)
+                printf '%s' "$sSIZE" >&1
+            ;;
+            (browser_download_url)
+                printf '%s' "$sBROWSER_URL" >&1
+            ;;
+            (*)
+                # NOTE NULL response indicates error OR not found. check return status and response
+                printf ''
+                return 1
+            ;;
+        esac
+    else
+        printf ''
+        return 1
+    fi
 
     return 0
 }
@@ -785,7 +803,7 @@ RemoveGEInstallPath() {
         sSIZE="?"
     fi
 
-    if rm -rf "$sGE_INSTALL_PATH"; then
+    if $sCOMMAND_RM -rf "$sGE_INSTALL_PATH"; then
         echo "Remove install path succeeded ( ${sSIZE%%[[:blank:]]*} removed )"
         if [[ $iDEBUG -eq 1 ]]; then
             mkdir -pv "$sGE_INSTALL_PATH"
@@ -929,6 +947,17 @@ ReportEnvironmentInfo() {
 }
 
 ###############################################################################
+# Optional command support
+ConfigureOptionalCommands() {
+
+    if command -v trash >/dev/null; then
+        sCOMMAND_RM="trash"
+    fi
+
+    return 0
+}
+
+###############################################################################
 # Remove temporary paths if debug mode is not active
 CleanUp() {
     # NOTE must be first
@@ -936,7 +965,7 @@ CleanUp() {
 
     [[ -d $sTMP_DIR ]] && {
         if [[ $iDEBUG -eq 0 ]]; then
-            if ! rm -rf "$sTMP_DIR"; then
+            if ! $sCOMMAND_RM -rf "$sTMP_DIR"; then
                 echo "CleanUp: Failed to remove temporary path at $sTMP_DIR"
                 return 1
             fi
@@ -1020,6 +1049,8 @@ Main() {
     # debug mode
     ((iDEBUG)) && echo "Main: Debug mode enabled" 1>&2
 
+    ConfigureOptionalCommands
+
     [[ ! -d $sGE_INSTALL_PATH ]] && {
         if [[ $iDEBUG -eq 1 ]]; then
             mkdir -pv "$sGE_INSTALL_PATH"
@@ -1065,10 +1096,10 @@ Main() {
     fi
 
     # downlaod a package
-    if [[ $iDOWNLOAD -eq 1 ]]; then
+    ((iDOWNLOAD)) && {
         # NOTE sDOWNLOAD_VERSION is set in getops
         DownloadGEPackage "$sDOWNLOAD_VERSION"
-    fi
+    }
 
     # check for new version and update if it is not installed
     if [[ $iUPDATE -eq 1 ]]; then

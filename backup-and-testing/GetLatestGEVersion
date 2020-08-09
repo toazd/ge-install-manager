@@ -1,0 +1,40 @@
+#!/bin/bash
+
+UpdateSavedGELatestRelease() {
+    return 0
+}
+
+GetLatestGEVersion() {
+
+    # WARNING DO NOT make this local
+    sGE_LATEST_VERSION=''
+
+    if UpdateSavedGELatestRelease; then
+        while IFS= read -r; do
+            # "name": "Proton-5.9-GE-5-ST.tar.gz",
+            # WARNING do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST",
+            #         they are not always the same name as the package
+            [[ $REPLY =~ ^.*\"name\":[[:space:]]\"Proton-.*\.tar\.gz\",$ ]] && {
+                ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: matched line \"$REPLY\"" 1>&2
+                sGE_LATEST_VERSION=${REPLY#*[[:space:]]\"name\":[[:space:]]\"Proton-}
+                sGE_LATEST_VERSION=${sGE_LATEST_VERSION%.tar.gz\",}
+                ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: sGE_LATEST_VERSION set to \"$sGE_LATEST_VERSION\"" 1>&2
+                break
+            }
+        done < ""
+
+        [[ -z $sGE_LATEST_VERSION ]] && {
+            ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: interal error, sGE_LATEST_VERSION is sNULL" 1>&2
+            return 1
+        }
+    else
+        ((iDEBUG)) && echo "$LINENO GetLatestGEVersion: UpdateSavedGELatestRelease returned failure status" 1>&2
+        return 1
+    fi
+
+    return 0
+}
+
+GetLatestGEVersion
+
+echo "$sGE_LATEST_VERSION"
