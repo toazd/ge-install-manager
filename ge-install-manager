@@ -1165,7 +1165,7 @@ CleanUpVersion() {
     local sVERSION=${1-}
 
     [[ -z $sVERSION ]] && {
-        ((iDEBUG)) && echo "($LINENO) CleanUpVersion: sVERSION is null" 1>&2
+        ((iDEBUG)) && echo "($LINENO) CleanUpVersion: sVERSION is NULL" 1>&2
         return 1
     }
 
@@ -1382,10 +1382,13 @@ Main() {
 
     # debug mode
     ((iDEBUG)) && {
-        echo "Main: Debug mode enabled" 1>&2
+        echo "($LINENO) Main: Debug mode enabled" 1>&2
     }
 
+    #TODO
     ConfigureOptionalCommands
+
+    #TODO
     CreateSedUnminifyJSONscript
 
     [[ ! -d $sGE_INSTALL_PATH ]] && {
@@ -1429,7 +1432,7 @@ Main() {
         # NOTE sREMOVE_VERSION is set in getops
         RemoveGEVersion "$sREMOVE_VERSION"
     elif [[ $iREMOVE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 1 ]]; then
-        echo "Skipping remove version/package because remove install path was requested in the same invocation"
+        echo "Skipping remove version/package because remove install path was also requested"
     fi
 
     # downlaod a package
@@ -1508,11 +1511,11 @@ Main() {
 
         ((iDEBUG)) && {
             if IsSteamRunning; then
-                echo "Main: Steam is running" 1>&2
+                echo "($LINENO) Main: Steam is running" 1>&2
             else
-                echo "Main: Steam is not running" 1>&2
+                echo "($LINENO) Main: Steam is not running" 1>&2
             fi
-            echo "Main: Nothing to do - showing help" 1>&2
+            echo "($LINENO) Main: Nothing to do" 1>&2
         }
 
         # report latest version installed status
