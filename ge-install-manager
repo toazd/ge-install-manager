@@ -33,6 +33,7 @@ sFILE_RELEASES_JSON="$sGE_INSTALL_PATH/releases.json"
 sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
 sGE_LATEST_VERSION=''
 sCOMMAND_RM="rm" # command 'trash' replaces 'rm' if it is found
+# some script functionality depends on the following being initiaized as 0
 iFORCE=0
 iDEBUG=0
 iDOWNLOAD=0
@@ -613,7 +614,7 @@ RemoveSavedPackages() {
 
 ###############################################################################
 # Wrapper for QueryGEAttribute to first check latest.json, then if a value is not returned, check releases.json
-# Accepts two required parameters, version and attribute
+# Accepts two required parameters, version and attribute, returns the value or NULL if not found/error
 # NOTE attributes are validated in QueryJSONAttribute
 QueryGEAttribute() {
 
@@ -949,6 +950,28 @@ ReportEnvironmentInfo() {
 
     echo "###############################################################################"
 
+    if ! shopt -p; then echo "shopt -p failed"; fi
+
+    echo "###############################################################################"
+
+    echo "PWD: \"$PWD\""
+    echo "SHELL: \"$SHELL\""
+    echo "SHELLOPTS: \"$SHELLOPTS\""
+    echo "SHLVL: \"$SHLVL\""
+    echo "BASH_VERSINFO: \"${BASH_VERSINFO[*]}\""
+    echo "BASH_VERSION: \"$BASH_VERSION\""
+    echo "MACHTYPE: \"$MACHTYPE\""
+    echo "OSTYPE: \"$OSTYPE\""
+    echo "PROMPT_COMMAND: \"$PROMPT_COMMAND\""
+    echo "LANG: \"$LANG\""
+    echo "LC_MESSAGES: \"$LC_MESSAGES\""
+    echo "LC_ALL: \"$LC_ALL\""
+    echo "EUID: \"$EUID\""
+    #echo "${FUNCNAME[@]}"
+    echo "GROUPS: ${GROUPS[*]}"
+
+    echo "###############################################################################"
+
     exit 0
 }
 
@@ -976,7 +999,9 @@ CleanUp() {
                 return 1
             fi
         elif [[ $iDEBUG -eq 1 ]]; then
-            [[ $iFINAL_CLEANUP -eq 1 ]] && echo "$LINENO CleanUp: Temporary path saved at: $sTMP_DIR" 1>&2
+            [[ $iFINAL_CLEANUP -eq 1 ]] && {
+                echo "$LINENO CleanUp: Temporary path saved at: $sTMP_DIR" 1>&2
+            }
         fi
     }
 
@@ -1053,7 +1078,9 @@ Main() {
     fi
 
     # debug mode
-    ((iDEBUG)) && echo "Main: Debug mode enabled" 1>&2
+    ((iDEBUG)) && {
+        echo "Main: Debug mode enabled" 1>&2
+    }
 
     ConfigureOptionalCommands
 
