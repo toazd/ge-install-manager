@@ -528,6 +528,10 @@ ReportGEDiskUsage() {
 
     # NOTE do not return 1 if sVERSION is NULL, functionality below depends on it
 
+    if ! command -v du >/dev/null && ! command -v find >/dev/null && ! command -v wc >/dev/null; then
+        iFAILED=1
+    fi
+
     # if all checks succeeded
     if [[ $iFAILED -eq 0 ]]; then
         # set the path to be reported based on whether a version was provided or not
