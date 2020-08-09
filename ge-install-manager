@@ -32,7 +32,7 @@ sFILE_RELEASES_JSON="$sGE_INSTALL_PATH/releases.json"
 #sCURL_HEADER_USERAGENT="User-Agent: ge-install-manager/0.7.1"
 sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
 sGE_LATEST_VERSION=''
-sCOMMAND_RM="rm"
+sCOMMAND_RM="rm" # command 'trash' replaces 'rm' if it is found
 iFORCE=0
 iDEBUG=0
 iDOWNLOAD=0
@@ -58,7 +58,9 @@ ShowHelp() {
     $(basename "$0")  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
 
     Required:       Bash 3.2+(TBD), curl, tar, gzip, stat
-    Optional:       du, find, wc, ps, trash
+    Optional:       du, find, and wc (for -s|-S)
+                    ps (is steam running)
+                    trash (used instead of rm)
 
     Install path:          $sGE_INSTALL_PATH
     Latest version URL:    $sGE_LATEST_VERSION_URL
@@ -566,7 +568,7 @@ ReportGEDiskUsage() {
     # if any check failed
     elif [[ $iFAILED -eq 1 ]]; then
         ((iDEBUG)) && echo "$LINENO ReportGEDiskUsage: At least one optional command was not found" 1>&2
-        echo "Report not available"
+        echo "One or more optional commands not found (see -h). Report not available"
         return 1
     fi
 
