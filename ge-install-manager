@@ -19,9 +19,10 @@ set +e # WARNING DO NOT set -e
 # Global notes
 #
 #  All non-special variables are written in capital letters, prefixed with a lower-case letter
-#  that denotes usage within the scope of that particular variable.
+#   that denotes usage within the scope of that particular variable.
 #  This is not a strict requirement by Bash. It's a convenience for reference and readability.
-#  When you see a variable prefixed with an 'i' in this script you can be sure that it always contains only integers.
+#  When you see a variable prefixed with an 'i' in this script you can be sure that it (almost) always contains only integers.
+#  (some 'int' designated variables may contain alphabetic characters temporarily before trimming away all but the digits)
 #    eg. iDEBUG will always contain digits and nothing else (integers). Mathematical operator usage involving these variables is always valid.
 #    eg. sGE_LATEST_VERSION can and will contain any variety of alphanumeric and/or special/control characters (string).
 #    eg. If any indexed or associative arrays are used in the future they will be prefixed with 'ia' and 'aa' respectively.
@@ -30,17 +31,22 @@ set +e # WARNING DO NOT set -e
 #    eg. IsSteamRunning => success(0) = yes, failure(1) = no
 #    eg. if InstallGEVersion "5.9-GE-5-ST"; then echo "success"; else echo "failure"; fi
 #
-#  Functions that 'return' values do so in a manner expecting the use of command substitution
-#  (or otherwise connecting to/capturing stdout)
+#  Functions that 'return' values do so in a manner expecting the use of command substitution (or otherwise connecting to/capturing stdout)
+#  and those values are returned exactly as they were received (eg. no additional newlines)
 #    eg. iSIZE_BYTES=$(QueryGEAttribute "5.9-GE-t-ST" "size")
-#        NOTE: Values returned in this manner do not include newlines
 #
 #  In addition to appropriate return values, functions that are expected to return a value other than an exit status also
 #  intentionally return NULL if a non-fatal event occured.
-#  (except in the case of GetLatestGEVersion which sets sGE_LATEST_VERSION to NULL instead)
+#  (except in the case of GetLatestGEVersion which sets the global variable sGE_LATEST_VERSION to NULL instead)
 #  This can be leveraged to better determine the type of event that occured, if any, and what to do about it, if anything
 #    eg. QueryGEAttribute will return a NULL value (and exit status failure [1]) if the invoking parameters were syntatically valid,
-#        but a value for that version was not found or if that version was not found
+#        but a value for that version was not found or if that version was not found. Therefore, it is up to the calling function
+#        to report the status if appropriate (eg. version not found). To see more details about what each function is doing
+#        simply add -z to the parameter list (enable debug mode). The debug mode (typically) makes it very easy to know what went
+#        wrong (almost) exactly where and what to do about it (if anything).
+#
+#  All debug related messages are redirected to file descriptor 2 (which, by default, is stderr). This enables simple and effective filtering of
+#  messages when debug mode is enabled. It also keeps debug messages from interfering with functions that pass their output to the caller via stdin.
 #
 #  Most integer variables (excepting counters) are used simply as boolean values (0 or 1)
 #    eg. iDEBUG is either 1 (on) or 0 (off)
@@ -50,7 +56,12 @@ set +e # WARNING DO NOT set -e
 #  "minified", and/or extremely optimized forms are intentionally avoided.
 #
 #
-
+###############################################################################
+# "Things that would be nice, but aren't required for main features" list
+#
+# TODO find a way to not download releases so often (updates to download_count update the mtime of the remote file)
+#
+#
 ###############################################################################
 # Global variables
 sSCRIPT_VERSION="0.7.2"
@@ -59,12 +70,13 @@ sGE_INSTALL_PATH="$HOME"/.steam/root/compatibilitytools.d
 # JSON data sources TODO optional support for jq in addition to keeping sed as a fallback
 sGE_LATEST_VERSION_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
 sGE_RELEASES_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
-# HTML data sources
+# HTML data sources (reference only, this script does not currently support html data sources)
 # https://github.com/GloriousEggroll/proton-ge-custom/releases
 # https://github.com/GloriousEggroll/proton-ge-custom/tags
 sFILE_LATEST_JSON="$sGE_INSTALL_PATH/latest.json"
 sFILE_RELEASES_JSON="$sGE_INSTALL_PATH/releases.json"
-# NOTE JSON is returned minified when a custom User-Agent is used
+# NOTE JSON is returned minified when a custom User-Agent is used.
+# This saves ~25KiB per releases file download and ~0.5KiB per latest file download
 sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
 sCURL_HEADER_USER_AGENT="User-Agent: toazd/ge-install-manager/$sSCRIPT_VERSION"
 sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
