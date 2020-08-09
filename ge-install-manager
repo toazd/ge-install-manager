@@ -97,8 +97,8 @@ ShowHelp() {
 
     $(basename "$0")  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
 
-    Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat
-    Optional:       du, find, and wc (for -s|-S)
+    Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
+    Optional:       du (display disk usage of a path/file)
                     ps (is steam running)
                     trash (used instead of rm)
 
