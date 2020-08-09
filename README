@@ -8,12 +8,12 @@
 #                                                                             #
 ###############################################################################
 
-Version 0.7.1
+Version 0.7.2
 Codename "Cochrane Bonaventure"
 
 Help:
 
-    Required:       Bash 3.2+(TBD), curl, tar, gzip, stat
+    Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat
     Optional:       du, find, and wc (for -s|-S)
                     ps (is steam running)
                     trash (used instead of rm)
