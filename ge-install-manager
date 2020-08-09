@@ -16,6 +16,42 @@
 set +e # WARNING DO NOT set -e
 
 ###############################################################################
+# Global notes
+#
+#  All non-special variables are written in capital letters, prefixed with a lower-case letter
+#  that denotes usage within the scope of that particular variable.
+#  This is not a strict requirement by Bash. It's a convenience for reference and readability.
+#  When you see a variable prefixed with an 'i' in this script you can be sure that it always contains only integers.
+#    eg. iDEBUG will always contain digits and nothing else (integers). Mathematical operator usage involving these variables is always valid.
+#    eg. sGE_LATEST_VERSION can and will contain any variety of alphanumeric and/or special/control characters (string).
+#    eg. If any indexed or associative arrays are used in the future they will be prefixed with 'ia' and 'aa' respectively.
+#
+#  All functions have appropriate return values. Currently, only two states are utilized, 1 (failure) and 0 (success).
+#    eg. IsSteamRunning => success(0) = yes, failure(1) = no
+#    eg. if InstallGEVersion "5.9-GE-5-ST"; then echo "success"; else echo "failure"; fi
+#
+#  Functions that 'return' values do so in a manner expecting the use of command substitution
+#  (or otherwise connecting to/capturing stdout)
+#    eg. iSIZE_BYTES=$(QueryGEAttribute "5.9-GE-t-ST" "size")
+#        NOTE: Values returned in this manner do not include newlines
+#
+#  In addition to appropriate return values, functions that are expected to return a value other than an exit status also
+#  intentionally return NULL if a non-fatal event occured.
+#  (except in the case of GetLatestGEVersion which sets sGE_LATEST_VERSION to NULL instead)
+#  This can be leveraged to better determine the type of event that occured, if any, and what to do about it, if anything
+#    eg. QueryGEAttribute will return a NULL value (and exit status failure [1]) if the invoking parameters were syntatically valid,
+#        but a value for that version was not found or if that version was not found
+#
+#  Most integer variables (excepting counters) are used simply as boolean values (0 or 1)
+#    eg. iDEBUG is either 1 (on) or 0 (off)
+#    eg. iINSTALL is either 1 (on, install <version> requested) or 0 (off, install not requested)
+#
+#  Most of the script logic is written in a "medium" or "long" form so it's easier to quickly grasp what is happening. "Short-hand",
+#  "minified", and/or extremely optimized forms are intentionally avoided.
+#
+#
+
+###############################################################################
 # Global variables
 sSCRIPT_VERSION="0.7.1"
 sSCRIPT_CODENAME="Cochrane Bonaventure"
@@ -245,7 +281,7 @@ DownloadGEPackage() {
     local sTMP_DIR=$(mktemp -qd --tmpdir "$(basename "$0" .sh)".tmp.XXXXXXXXXX)
     local sTMP_PACKAGE=$sTMP_DIR/Proton-${sVERSION}.tar.gz
     local sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
-    local sSIZE_BYTES=''
+    local iSIZE_BYTES=''
 
     [[ -z $sGE_DOWNLOAD_URL ]] && {
         ((iDEBUG)) && "$LINENO DownloadGEPackage: sVERSION is NULL" 1>&2
@@ -254,20 +290,20 @@ DownloadGEPackage() {
 
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
-        sSIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
-        ((iDEBUG)) && echo "$LINENO DownloadGEPackage: Package size in bytes: $sSIZE_BYTES" 1>&2
-        if [[ $sSIZE_BYTES -eq 9 ]] && [[ $(cat "$sTMP_PACKAGE" 2>/dev/null) = "Not Found" ]]; then
+        iSIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
+        ((iDEBUG)) && echo "$LINENO DownloadGEPackage: Package size in bytes: $iSIZE_BYTES" 1>&2
+        if [[ $iSIZE_BYTES -eq 9 ]] && [[ $(cat "$sTMP_PACKAGE" 2>/dev/null) = "Not Found" ]]; then
             echo "$LINENO DownloadGEPackage: remote package for version \"$sVERSION\" not found"
             CleanUp
             return 1
         # TODO attempt download again automagically? how to tell if it's a transient problem or not?
         fi
-        if [[ $sSIZE_BYTES = "$(QueryGEAttribute "$sVERSION" "size")" ]]; then
+        if [[ $iSIZE_BYTES = "$(QueryGEAttribute "$sVERSION" "size")" ]]; then
             echo "Downloaded package size matches the expected size"
         else
             printf '%s\n%s\n' \
                    "$LINENO DownloadGEPackage: downloaded file size and expected size do not match" \
-                   "$LINENO DownloadGEPackage: (\"$sSIZE_BYTES\" != \"$(QueryGEAttribute "$sVERSION" "size")\")" 1>&2
+                   "$LINENO DownloadGEPackage: (\"$iSIZE_BYTES\" != \"$(QueryGEAttribute "$sVERSION" "size")\")" 1>&2
            CleanUp
            return 1
         fi
@@ -377,7 +413,7 @@ RemoveGEVersion() {
     local sVERSION=$(CleanUpVersion "$1")
     local sREMOVE_PATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
     local sREMOVE_PACKAGE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
-    local sSIZE=0
+    local sSIZE="0"
 
     [[ -z $sVERSION ]] && {
         ((iDEBUG)) && echo "$LINENO RemoveGEVersion: sVERSION is null" 1>&2
@@ -527,6 +563,7 @@ ReportGEDiskUsage() {
 
     local sVERSION=$(CleanUpVersion "$1")
     local sPATH=''
+    local sSIZE="0"
     local iFAILED=0
 
     # NOTE do not return 1 if sVERSION is NULL, functionality below depends on it
@@ -685,6 +722,9 @@ QueryGEAttribute() {
 #
 # WARNING This function relies on non-minified (newline delimited) JSON responses from the github api.
 #         Setting a custom, unique User-Agent can (currently, will) cause the JSON response to be minified, causing this function to not behave as expected.
+#         If I can find a way to guarentee the response format, or better yet not have to parse JSON or html, I'll most certainly use that instead
+#         Otherwise, a more reliable option might be to parse the data one character at a time to make sure it always works
+# NOTE the default media-type requested is "application/vnd.github.v3.text+json" (I may make use of the body_text)
 QueryJSONAttribute() {
 
     if [[ -z $1 || -z $2 || -z $3 ]] || [[ ! $# -eq 3 ]] || [[ ! -f $1 ]]; then
@@ -698,7 +738,7 @@ QueryJSONAttribute() {
     }
 
     local sVERSION=''
-    local sSIZE=''
+    local iSIZE=''
     local sBROWSER_URL=''
     local sATTRIBUTE=''
     local iLINE_COUNTER=0
@@ -735,8 +775,8 @@ QueryJSONAttribute() {
             [[ ${REPLY,,} =~ ^.*\"size\":[[:space:]]+[[:digit:]]*,$ ]] && {
                 iFLAG_SIZE_FOUND=1
                 iLINE_SIZE_FOUND=$iLINE_COUNTER
-                sSIZE=${REPLY/#*\"size\":[[:space:]]}
-                sSIZE=${sSIZE/%,}
+                iSIZE=${REPLY/#*\"size\":[[:space:]]}
+                iSIZE=${iSIZE/%,}
                 continue
             }
         }
@@ -760,10 +800,10 @@ QueryJSONAttribute() {
         elif [[ $iFLAG_VERSION_FOUND -eq 1 ]]; then
             echo "$LINENO QueryJSONAttribute: version match found at line $iLINE_VERSION_FOUND" 1>&2
         fi
-        if [[ -z $sSIZE ]]; then
-            echo "$LINENO QueryJSONAttribute: sSIZE is NULL" 1>&2
+        if [[ -z $iSIZE ]]; then
+            echo "$LINENO QueryJSONAttribute: iSIZE is NULL" 1>&2
         else
-            echo "$LINENO QueryJSONAttribute: sSIZE: \"$sSIZE\"" 1>&2
+            echo "$LINENO QueryJSONAttribute: iSIZE: \"$iSIZE\"" 1>&2
         fi
         if [[ -z $sBROWSER_URL ]]; then
             echo "$LINENO QueryJSONAttribute: sBROWSER_URL is NULL" 1>&2
@@ -774,10 +814,10 @@ QueryJSONAttribute() {
     }
 
     # output the value of the requested attribute
-    if [[ -n $sSIZE && -n $sBROWSER_URL ]]; then
+    if [[ -n $iSIZE && -n $sBROWSER_URL ]]; then
         case $sATTRIBUTE in
             (size)
-                printf '%s' "$sSIZE" >&1
+                printf '%s' "$iSIZE" >&1
             ;;
             (browser_download_url)
                 printf '%s' "$sBROWSER_URL" >&1
@@ -801,7 +841,7 @@ QueryJSONAttribute() {
 # NOTE currently requires -f to be combined with -X
 RemoveGEInstallPath() {
 
-    local sSIZE=''
+    local sSIZE="0"
 
     if command -v du >/dev/null; then
         sSIZE=$(du -sh "$sGE_INSTALL_PATH")
@@ -1059,7 +1099,7 @@ ParseParameters() {
 
 Main() {
 
-    # Parse script parameters and options, set global variables
+    # Parse script parameters and arguments, set global variables
     if ! ParseParameters "$@"; then
         exit 1
     fi
