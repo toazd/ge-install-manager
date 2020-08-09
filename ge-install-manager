@@ -1226,7 +1226,7 @@ Main() {
 }
 
 ###############################################################################
-# EXIT signal trap
+# EXIT trap
 trap '((iDEBUG)) && echo "Exit status (before CleanUp): $?" 1>&2; iFINAL_CLEANUP=1 CleanUp; ((iDEBUG)) && echo "Exit status (after CleanUp): $?" 1>&2; exit $iREAL_EXIT_STATUS' EXIT
 
 ###############################################################################
