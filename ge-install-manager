@@ -314,7 +314,7 @@ DownloadGEPackage() {
         ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: sVERSION is null" 1>&2
         return 1
     }
-    local sTMP_DIR=$(mktemp -qd --tmpdir "$(basename "$0" .sh)".tmp.XXXXXXXXXX)
+    local sTMP_DIR=$(MkTempPath)
     local sTMP_PACKAGE=$sTMP_DIR/Proton-${sVERSION}.tar.gz
     local sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
     local iSIZE_BYTES=''
@@ -1259,6 +1259,92 @@ CleanUpVersion() {
 }
 
 ###############################################################################
+# Bash only primitive replacement for mktemp
+# Accepts no parameters, returns the tmp path/file created
+MkTempFile() {
+
+    local sTMP_BASE_PATH
+    local sTMP_FILE_CREATED
+
+    sTMP_BASE_PATH="/tmp"
+
+    [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || return 1
+
+    sTMP_FILE_CREATED="$sTMP_BASE_PATH/$sSCRIPT_FULL_NAME.tmp.$(GenerateRandomAlphaNumericString 10)"
+
+    # Create the empty temp file
+    printf '' > "$sTMP_FILE_CREATED"
+
+    # "Return" the path and filename,
+    # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
+    printf '%s' "$sTMP_FILE_CREATED"
+
+    return 0
+}
+
+###############################################################################
+# Bash only primitive replacement for mktemp
+# Accepts no parameters, returns the tmp path created
+MkTempPath() {
+
+    local sTMP_BASE_PATH
+    local sTMP_PATH_CREATED
+
+    sTMP_BASE_PATH="/tmp"
+
+    [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || return 1
+
+    sTMP_PATH_CREATED="$sTMP_BASE_PATH/$sSCRIPT_FULL_NAME.$(GenerateRandomAlphaNumericString 15)"
+
+    # Create the path
+    mkdir -p "$sTMP_PATH_CREATED"
+
+    # "Return" the path and filename,
+    # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
+    printf '%s' "$sTMP_PATH_CREATED"
+
+    return 0
+}
+
+###############################################################################
+# Generate a pseudo-random alphanumeric string using only Bash
+# Accepts one optional parameter: the length of the string to generate (range 1-32767) (default: 10)
+GenerateRandomAlphaNumericString() {
+
+    local sLIST
+    local iLEN=${1:-10}
+    local sRESULT
+    local iC=1
+
+    sLIST=$(printf '%s' {a..z}{0..9}{A..Z})
+
+    # If the length requested is outside sane upper and lower bounds, reset it
+    [[ $iLEN -lt 1 ]] && iLEN=1
+    [[ $iLEN -gt 32767 ]] && iLEN=32767
+
+    # Loop iLEN times
+    for (( iC; iC<=iLEN; iC++ )) do
+
+        # Randomly choose one offset of length one from sLIST
+        sCHAR=${sLIST:$RANDOM%${#sLIST}:1}
+
+        # Randomly invert the case
+        (( RANDOM % 2 )) && sCHAR=${sCHAR~}
+
+        # Concatenate sRESULT and sCHAR
+        sRESULT=${sRESULT}${sCHAR}
+
+    done
+
+    # "Return" the resulting string,
+    # meant to be captured using command substitution
+    # eg. sSTRING_OF_LENGTH_TEN=$(GenerateRandomAlphaNumericString 10)
+    printf '%s' "$sRESULT"
+
+    return 0
+}
+
+###############################################################################
 # Setup env and report
 # TODO
 SetupEnvironment() {
@@ -1390,7 +1476,12 @@ ReportEnvironmentInfo() {
     # WARNING there's no telling what will be here in any given version, or what damage it could cause
     # NOTE It's safe to run -fzZ, but not this
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        :
+        sTMP_DIR=$(MkTempFile)
+        #echo "MkTempFile: \"$sTMP_DIR\""
+        CleanUp
+        sTMP_DIR=$(MkTempPath)
+        #echo "MkTempPath: \"$sTMP_DIR\""
+        CleanUp
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -1449,22 +1540,36 @@ ConfigureOptionalCommands() {
 }
 
 ###############################################################################
-# Remove temporary paths on EXIT/manual invocation
+# Remove temporary path defined in sTMP_DIR on EXIT/manual invocation
+# TODO
 CleanUp() {
     # NOTE must be first
     # used to pass the exit status of the last command before CleanUp was invoked to the calling environment in case of unexpected failure
     iREAL_EXIT_STATUS=$?
 
+    # paths
     [[ -d $sTMP_DIR ]] && {
+        if ((iDEBUG)) && [[ $iFINAL_CLEANUP -ne 1 ]]; then
+            echo "($LINENO) CleanUp: Temporary path not removed: $sTMP_DIR" 1>&2
+        fi
         if [[ $iDEBUG -eq 0 ]]; then
             if ! rm -rf "$sTMP_DIR"; then
                 echo "CleanUp: Failed to remove temporary path at $sTMP_DIR"
                 return 1
             fi
-        elif [[ $iDEBUG -eq 1 ]]; then
-            [[ $iFINAL_CLEANUP -eq 1 ]] && {
-                echo "($LINENO) CleanUp: Temporary path saved at: $sTMP_DIR" 1>&2
-            }
+        fi
+    }
+
+    # files
+    [[ -f $sTMP_DIR ]] && {
+        if ((iDEBUG)) && [[ $iFINAL_CLEANUP -ne 1 ]]; then
+            ((iDEBUG)) && echo "($LINENO) CleanUp: Temporary file not removed: $sTMP_DIR" 1>&2
+        fi
+        if [[ $iDEBUG -eq 0 ]]; then
+            if ! rm -rf "$sTMP_DIR"; then
+                echo "CleanUp: Failed to remove temporary file at $sTMP_DIR"
+                return 1
+            fi
         fi
     }
 
