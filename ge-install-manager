@@ -1706,7 +1706,7 @@ Main() {
         DownloadGEPackage "$sDOWNLOAD_VERSION" # NOTE sDOWNLOAD_VERSION is set in getops
     }
 
-    # Check for new version and update if it is not installed
+    # Check for new version and it if it is not installed
     if [[ $iUPDATE -eq 1 ]]; then
         if UpdateSavedGELatestRelease; then
             if GetLatestGEVersion; then # set sGE_LATEST_VERSION
@@ -1719,19 +1719,19 @@ Main() {
                         fi
                     fi
                 elif IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 0 ]]; then # Latest version is installed and -f was not supplied
-                    ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
+                    #((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                     echo "Latest version is already installed ($sGE_LATEST_VERSION)"
                 elif ! IsInstalled "$sGE_LATEST_VERSION"; then # Latest version is not installed
-                    ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
+                    #((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                     echo "Latest version is not installed"
                     if InstallGEVersion; then
-                        ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
+                        #((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                         echo "Update succeeded"
                         if IsSteamRunning; then
                             echo "Restart Steam to use the new version"
                         fi
                     else
-                        ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
+                        #((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                         echo "Update failed"
                     fi
                 fi
