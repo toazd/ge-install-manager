@@ -59,7 +59,6 @@ set +e # WARNING DO NOT set -e
 # "Things that would be nice, but aren't required for main features" list
 #
 # TODO find a way to not download releases so often (updates to download_count update the mtime of the remote file)
-# TODO Create function(s) for output messages
 #
 ###############################################################################
 # Global variables
@@ -217,21 +216,21 @@ GetLatestGEVersion() {
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             [[ $REPLY =~ ^.*\"name\":.*\"Proton-.*\.tar\.gz\".*$ ]] && {
-                ((iDEBUG)) && echo "($LINENO) GetLatestGEVersion: matched line \"$REPLY\"" 1>&2
+                DebugMessage "matched line \"$REPLY\""
                 sGE_LATEST_VERSION=${REPLY#*\"name\":}
                 sGE_LATEST_VERSION=${sGE_LATEST_VERSION#*\"}
                 sGE_LATEST_VERSION=${sGE_LATEST_VERSION%.tar.gz\"*}
-                ((iDEBUG)) && echo "($LINENO) GetLatestGEVersion: sGE_LATEST_VERSION set to \"$sGE_LATEST_VERSION\"" 1>&2
+                DebugMessage "sGE_LATEST_VERSION set to \"$sGE_LATEST_VERSION\""
                 break
             }
         done < "$sFILE_LATEST_JSON"
 
         [[ -z $sGE_LATEST_VERSION ]] && {
-            ((iDEBUG)) && echo "($LINENO) GetLatestGEVersion: sGE_LATEST_VERSION is NULL (no match or not found)" 1>&2
+            DebugMessage "sGE_LATEST_VERSION is NULL (no match or not found)"
             return 1
         }
     else
-        ((iDEBUG)) && echo "($LINENO) GetLatestGEVersion: UpdateSavedGELatestRelease returned failure status" 1>&2
+        DebugMessage "UpdateSavedGELatestRelease returned failure status"
         return 1
     fi
 
@@ -245,25 +244,25 @@ UpdateSavedGELatestRelease() {
 
     local sGE_LATEST_RELEASE_JSON=''
 
-    ((iDEBUG)) && echo "($LINENO) UpdateSavedGELatestRelease: Using RequestURL to check if \"$sGE_LATEST_VERSION_URL\" is newer than \"$sFILE_LATEST_JSON\"" 1>&2
+    DebugMessage "Using RequestURL to check if \"$sGE_LATEST_VERSION_URL\" is newer than \"$sFILE_LATEST_JSON\""
 
     if sGE_LATEST_RELEASE_JSON=$(RequestURL "$sGE_LATEST_VERSION_URL" "$sFILE_LATEST_JSON"); then
-        ((iDEBUG)) && echo "($LINENO) UpdateSavedGELatestRelease: RequestURL returned success" 1>&2
+        DebugMessage "RequestURL returned success"
     else
-        ((iDEBUG)) && echo "($LINENO) UpdateSavedGELatestRelease: RequestURL returned failure" 1>&2
+        DebugMessage "RequestURL returned failure"
     fi
 
     # check the response and report and respond accordingly
     if [[ -n $sGE_LATEST_RELEASE_JSON ]]; then
-        ((iDEBUG)) && echo "($LINENO) UpdateSavedGELatestRelease: sGE_LATEST_RELEASE_JSON is not empty" 1>&2
+        DebugMessage "sGE_LATEST_RELEASE_JSON is not empty"
         [[ -f $sFILE_LATEST_JSON.ulrbak ]] && $sCOMMAND_RM "$sFILE_LATEST_JSON".ulrbak
         [[ -f $sFILE_LATEST_JSON ]] && mv "$sFILE_LATEST_JSON" "$sFILE_LATEST_JSON".ulrbak
         printf '%s' "$sGE_LATEST_RELEASE_JSON" > "$sFILE_LATEST_JSON"
         return 0
     elif [[ -z $sGE_LATEST_RELEASE_JSON ]]; then
-        ((iDEBUG)) && echo "($LINENO) UpdateSavedGELatestRelease: sGE_LATEST_RELEASE_JSON is NULL" 1>&2
+        DebugMessage "sGE_LATEST_RELEASE_JSON is NULL"
         if [[ ! -f $sFILE_LATEST_JSON ]]; then
-            echo "($LINENO) UpdateSavedGELatestRelease: Response from RequestURL was NULL and file \"$sFILE_LATEST_JSON\" not found. Is \"$sGE_LATEST_VERSION_URL\" a valid URL?" 1>&2
+            echo "Response from RequestURL was NULL and file \"$sFILE_LATEST_JSON\" not found. Is \"$sGE_LATEST_VERSION_URL\" a valid URL?"
             return 1
         fi
     fi
@@ -279,24 +278,24 @@ UpdateSavedGEReleases() {
     local sGE_RELEASES_JSON=''
 
     # BUG updates to download_count in remote releases cause curl -z to download a new version much more often than is needed
-    ((iDEBUG)) && echo "($LINENO) UpdateSavedGEReleases: Using RequestURL to check if \"$sGE_RELEASES_URL\" is newer than \"$sFILE_RELEASES_JSON\"" 1>&2
+    DebugMessage "Using RequestURL to check if \"$sGE_RELEASES_URL\" is newer than \"$sFILE_RELEASES_JSON\""
 
     if sGE_RELEASES_JSON=$(RequestURL "$sGE_RELEASES_URL" "$sFILE_RELEASES_JSON"); then
-        ((iDEBUG)) && echo "($LINENO) UpdateSavedGEReleases: RequestURL returned success" 1>&2
+        DebugMessage "RequestURL returned success"
     else
-        ((iDEBUG)) && echo "($LINENO) UpdateSavedGEReleases: RequestURL returned failure" 1>&2
+        DebugMessage "RequestURL returned failure"
     fi
 
     if [[ -n $sGE_RELEASES_JSON ]]; then
-        ((iDEBUG)) && echo "($LINENO) UpdateSavedGEReleases: sGE_RELEASES_JSON is not empty" 1>&2
+        DebugMessage "sGE_RELEASES_JSON is not empty"
         [[ -f $sFILE_RELEASES_JSON.usrbak ]] && $sCOMMAND_RM "$sFILE_RELEASES_JSON".usrbak
         [[ -f $sFILE_RELEASES_JSON ]] && mv "$sFILE_RELEASES_JSON" "$sFILE_RELEASES_JSON".usrbak
         printf '%s' "$sGE_RELEASES_JSON" > "$sFILE_RELEASES_JSON"
         return 0
     elif [[ -z $sGE_RELEASES_JSON ]]; then
-        ((iDEBUG)) && echo "($LINENO) UpdateSavedGEReleases: sGE_RELEASES_JSON is NULL" 1>&2
+        DebugMessage "sGE_RELEASES_JSON is NULL"
         if [[ ! -f $sFILE_RELEASES_JSON ]]; then
-            echo "($LINENO) UpdateSavedGEReleases: Response from RequestURL was NULL and file \"$sFILE_RELEASES_JSON\" not found. Is \"$sGE_RELEASES_URL\" a valid URL?" 1>&2
+            echo "Response from RequestURL was NULL and file \"$sFILE_RELEASES_JSON\" not found. Is \"$sGE_RELEASES_URL\" a valid URL?"
             return 1
          fi
     fi
@@ -311,7 +310,7 @@ DownloadGEPackage() {
 
     local sVERSION=$(CleanUpVersion "$1")
     [[ -z $sVERSION ]] && {
-        ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: sVERSION is null" 1>&2
+        DebugMessage "sVERSION is null"
         return 1
     }
     local sTMP_DIR=$(MkTempPath)
@@ -320,41 +319,41 @@ DownloadGEPackage() {
     local iSIZE_BYTES=''
 
     [[ -z $sGE_DOWNLOAD_URL ]] && {
-        ((iDEBUG)) && "($LINENO) DownloadGEPackage: sVERSION is NULL" 1>&2
+        DebugMessage "sVERSION is NULL"
         return 1
     }
 
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
         iSIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
-        ((iDEBUG)) && echo "($LINENO) DownloadGEPackage: Package size in bytes: \"$iSIZE_BYTES\"" 1>&2
+        DebugMessage "Package size in bytes: \"$iSIZE_BYTES\""
         if [[ $iSIZE_BYTES -eq 9 ]] && [[ $(cat "$sTMP_PACKAGE" 2>/dev/null) = "Not Found" ]]; then
-            echo "($LINENO) DownloadGEPackage: Server responded \"Not Found\" for version \"$sVERSION\""
+            echo "Server responded \"Not Found\" for version \"$sVERSION\""
             CleanUp
             return 1
         fi
         if [[ $iSIZE_BYTES = "$(QueryGEAttribute "$sVERSION" "size")" ]]; then
-            echo "($LINENO) DownloadGEPackage: Downloaded package size matches the expected size"
+            echo "Downloaded package size matches the expected size"
         else
             printf '%s\n%s\n' \
-                   "($LINENO) DownloadGEPackage: Downloaded file size and expected size do not match" \
-                   "($LINENO) DownloadGEPackage: (\"$iSIZE_BYTES\" != \"$(QueryGEAttribute "$sVERSION" "size")\")" 1>&2
+                   "Downloaded file size and expected size do not match" \
+                   "(\"$iSIZE_BYTES\" != \"$(QueryGEAttribute "$sVERSION" "size")\")"
            CleanUp
            return 1
         fi
-        ((iDEBUG)) && echo "($LINENO) DownloadGEPackage: Copying package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\"" 1>&2
+        DebugMessage "Copying package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\""
         if cp "$sTMP_PACKAGE" "$sGE_INSTALL_PATH"; then
-            ((iDEBUG)) && echo "($LINENO) DownloadGEPackage: Package copied successfully" 1>&2
+            DebugMessage "Package copied successfully"
             echo "Download succeeded"
             CleanUp
         else
-            ((iDEBUG)) && echo "($LINENO) DownloadGEPackage: Copy package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\" failed" 1>&2
+            DebugMessage "Copy package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\" failed"
             echo "Download failed"
             CleanUp
             return 1
         fi
     else
-        ((iDEBUG)) && echo "($LINENO) DownloadGEPackage: curl returned failure status" 1>&2
+        DebugMessage "curl returned failure status"
         echo "Download failed"
         CleanUp
         return 1
@@ -372,34 +371,34 @@ InstallGEVersion() {
 
     local sVERSION=''
 
-    ((iDEBUG)) && echo "($LINENO) InstallGEVersion: Determining mode" 1>&2
+    DebugMessage "Determining mode"
     if [[ $iUPDATE -eq 1 ]]; then
-        ((iDEBUG)) && echo "($LINENO) InstallGEVersion: Update mode active" 1>&2
+        DebugMessage "Update mode active"
         [[ -z $sGE_LATEST_VERSION ]] && {
             if GetLatestGEVersion; then
-                ((iDEBUG)) && echo "($LINENO) InstallGEVersion: GetLatestGEVersion returned success" 1>&2
+                DebugMessage "GetLatestGEVersion returned success"
                 sVERSION=$sGE_LATEST_VERSION
             else
-                ((iDEBUG)) && echo "($LINENO) InstallGEVersion: GetLatestGEVersion returned failure" 1>&2
+                DebugMessage "GetLatestGEVersion returned failure"
                 return 1
             fi
         }
     elif [[ $iUPDATE -eq 0 ]]; then
-        ((iDEBUG)) && echo "($LINENO) InstallGEVersion: Install mode active" 1>&2
+        DebugMessage "Install mode active"
         sVERSION=${sINSTALL_VERSION:-$(CleanUpVersion "$1")}
     else
-        ((iDEBUG)) && echo "($LINENO) InstallGEVersion: error detecting install mode" 1>&2
+        DebugMessage "error detecting install mode"
         return 1
     fi
 
     sVERSION=$(CleanUpVersion "$1")
 
     [[ -z $sVERSION ]] && {
-        ((iDEBUG)) && echo "($LINENO) InstallGEVersion: sVERSION is null" 1>&2
+        DebugMessage "sVERSION is null"
         return 1
     }
 
-    ((iDEBUG)) && echo "($LINENO) InstallGEVersion: Requested sVERSION is \"$sVERSION\"" 1>&2
+    DebugMessage "Requested sVERSION is \"$sVERSION\""
 
     # Re-install a version that is already installed
     if IsInstalled "$sVERSION"; then
@@ -465,7 +464,7 @@ RemoveGEVersion() {
     local sSIZE="0"
 
     [[ -z $sVERSION ]] && {
-        ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: sVERSION is null" 1>&2
+        DebugMessage "sVERSION is null"
         return 1
     }
 
@@ -475,13 +474,13 @@ RemoveGEVersion() {
     #    return 0
     #fi
 
-    ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: Requested sVERSION: \"$sVERSION\" sREMOVE_PATH: \"$sREMOVE_PATH\" sREMOVE_PACKAGE: \"$sREMOVE_PACKAGE\"" 1>&2
+    DebugMessage "Requested sVERSION: \"$sVERSION\" sREMOVE_PATH: \"$sREMOVE_PATH\" sREMOVE_PACKAGE: \"$sREMOVE_PACKAGE\""
     # If force is enabled, remove the path and the package
     if [[ $iFORCE -eq 1 ]]; then
-        ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: force is enabled" 1>&2
+        DebugMessage "force is enabled"
         # Remove the path if it exists
         if [[ -d $sREMOVE_PATH ]]; then
-            ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: Path exists" 1>&2
+            DebugMessage "Path exists"
             if ! IsSteamRunning; then
                 sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
                 sSIZE=${sSIZE%[[:space:]]*}
@@ -496,12 +495,12 @@ RemoveGEVersion() {
                 return 1
             fi
         else
-            ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: Path does not exist" 1>&2
+            DebugMessage "Path does not exist"
             echo "Install path not found for version \"$sVERSION\""
         fi
         # Remove the package if it exists
         if [[ -f $sREMOVE_PACKAGE ]]; then
-            ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: Package exists" 1>&2
+            DebugMessage "Package exists"
             sSIZE=$(du -h "$sREMOVE_PACKAGE" 2>/dev/null)
             sSIZE=${sSIZE%[[:space:]]*}
             if $sCOMMAND_RM -f "$sREMOVE_PACKAGE" >/dev/null; then
@@ -511,12 +510,12 @@ RemoveGEVersion() {
                 return 1
             fi
         else
-            ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: Package does not exist" 1>&2
+            DebugMessage "Package does not exist"
             echo "Package for version \"$sVERSION\" not found"
         fi
     # If force is not enabled, remove only the install path for sVERSION
     elif [[ $iFORCE -eq 0 ]]; then
-        ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: force is not enabled" 1>&2
+        DebugMessage "force is not enabled"
         # Remove the path if it exists
         if [[ -d $sREMOVE_PATH ]]; then
             if ! IsSteamRunning; then
@@ -533,7 +532,7 @@ RemoveGEVersion() {
                 return 1
             fi
         else
-            ((iDEBUG)) && echo "($LINENO) RemoveGEVersion: Install path does not exist" 1>&2
+            DebugMessage "Install path does not exist"
             echo "Install path not found for version \"$sVERSION\""
         fi
         [[ -f $sREMOVE_PACKAGE ]] && {
@@ -553,7 +552,7 @@ ExtractGEPackage() {
     local sEXTRACT_FILE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
 
     [[ -z $sVERSION ]] && {
-        ((iDEBUG)) && echo "($LINENO) ExtractGEPackage: sVERSION is null" 1>&2
+        DebugMessage "sVERSION is null"
         return 1
     }
 
@@ -564,9 +563,9 @@ ExtractGEPackage() {
     else
         printf '\r\033[0K%s\n' "Package extraction failed"
         [[ -d $sGE_INSTALL_PATH/Proton-${sVERSION} ]] && {
-            ((iDEBUG)) && echo "($LINENO) ExtractGEPackage: Removing failed extraction path \"$sGE_INSTALL_PATH/Proton-${sVERSION}\"" 1>&2
+            DebugMessage "Removing failed extraction path \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
             if $sCOMMAND_RM -rf "$sGE_INSTALL_PATH/Proton-${sVERSION}"; then
-                ((iDEBUG)) && echo "($LINENO) ExtractGEPackage: Removal succeeded" 1>&2
+                DebugMessage "Removal succeeded"
                 echo "Removed failed extraction path at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
             else
                 echo "Failed to remove path of failed extraction: \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
@@ -588,7 +587,7 @@ ListInstalledGEVersions() {
     local sNODE=''
     #local sEXTRACTED_VERSION=''
 
-    ((iDEBUG)) && echo "($LINENO) ListInstalledGEVersions: Install path: \"$sGE_INSTALL_PATH\"" 1>&2
+    DebugMessage "Install path: \"$sGE_INSTALL_PATH\""
 
     echo "Installed version(s):"
     for sNODE in "$sGE_INSTALL_PATH"/*; do
@@ -597,7 +596,7 @@ ListInstalledGEVersions() {
             #sEXTRACTED_VERSION=${sEXTRACTED_VERSION#*[[:blank:]]}
             #if [[ -z $sEXTRACTED_VERSION ]] || [[ $sEXTRACTED_VERSION = "file not found" ]]; then sEXTRACTED_VERSION="error: version file not found"; fi
             #echo "  ${sNODE##*/} ($sEXTRACTED_VERSION)"
-            echo "  ${sNODE##*/}"
+            echo "  ${sNODE##*/} ($(du -sh "$sNODE"))"
             ((iCOUNT++))
         fi
     done
@@ -609,9 +608,9 @@ ListInstalledGEVersions() {
     for sNODE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [[ -f $sNODE ]]; then
             if [[ $iDEBUG -eq 1 ]]; then
-                echo "  ${sNODE##*/} (size: $(stat -c '%s' "$sNODE"), expected size: $(QueryGEAttribute "${sNODE##*/}" "size"))"
+                DebugMessage "  ${sNODE##*/} (size: $(stat -c '%s' "$sNODE"), expected size: $(QueryGEAttribute "${sNODE##*/}" "size"))"
             else
-                echo "  ${sNODE##*/}"
+                echo "  ${sNODE##*/} ($(du -h "$sNODE")"
             fi
             ((iCOUNT++))
         fi
@@ -649,7 +648,7 @@ ReportGEDiskUsage() {
                 echo "Install path report:"
                 printf '  %s\n  %s\n  %s\n' "Path: $sPATH" "Files: $sFILE_COUNT" "Disk usage: ${sSIZE%%[[:blank:]]*}"
             else
-                ((iDEBUG)) && echo "Path: $sPATH" 1>&2
+                DebugMessage "Path: $sPATH"
                 echo "Version \"$sVERSION\" not found"
                 return 1
             fi
@@ -663,14 +662,14 @@ ReportGEDiskUsage() {
                 echo "Version \"$sVERSION\" report:"
                 printf '  %s\n  %s\n  %s\n' "Path: $sPATH" "Files: $sFILE_COUNT" "Disk usage: ${sSIZE%%[[:blank:]]*}"
             else
-                ((iDEBUG)) && echo "Path: $sPATH" 1>&2
+                DebugMessage "Path: $sPATH"
                 echo "Version \"$sVERSION\" not found"
                 return 1
             fi
         fi
     # if any check failed
     elif [[ $iFAILED -eq 1 ]]; then
-        ((iDEBUG)) && echo "($LINENO) ReportGEDiskUsage: At least one optional command was not found" 1>&2
+        DebugMessage "At least one optional command was not found"
         echo "One or more optional commands not found (see -h). Report not available."
         return 1
     fi
@@ -686,13 +685,13 @@ RemoveSavedPackages() {
     local iSUCCESS=0
     local iFAILED=0
 
-    ((iDEBUG)) && echo "($LINENO) RemoveSavedPackages: Install path: \"$sGE_INSTALL_PATH\"" 1>&2
+    DebugMessage "Install path: \"$sGE_INSTALL_PATH\""
 
     for sPACKAGE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [[ -f $sPACKAGE ]]; then
             if $sCOMMAND_RM -f "$sPACKAGE"; then
                 if [[ $iDEBUG -eq 1 ]]; then
-                    ((iDEBUG)) && echo "($LINENO) RemoveSavedPackages: Package \"$sPACKAGE\" removed" 1>&2
+                    DebugMessage "Package \"$sPACKAGE\" removed"
                 else
                     echo "Removed package \"$sPACKAGE\""
                 fi
@@ -728,20 +727,21 @@ RemoveGEInstallPath() {
     if command -v du >/dev/null; then
         sSIZE=$(du -sh "$sGE_INSTALL_PATH")
     else
-        ((iDEBUG)) && echo "($LINENO) RemoveGEInstallPath: command du not found" 1>&2
+        DebugMessage "command du not found"
         sSIZE="unknown"
     fi
 
     if $sCOMMAND_RM -rf "$sGE_INSTALL_PATH"; then
         echo "Remove install path succeeded ( ${sSIZE%%[[:blank:]]*} removed )"
-        ((iDEBUG)) && echo "($LINENO) RemoveGEInstallPath: Recreating install path at \"$sGE_INSTALL_PATH\"" 1>&2
+        DebugMessage "Recreating install path at \"$sGE_INSTALL_PATH\""
         if mkdir -p "$sGE_INSTALL_PATH"; then
-            ((iDEBUG)) && echo "($LINENO) RemoveGEInstallPath: Creation succeeded" 1>&2
+            DebugMessage "Creation succeeded"
         else
             if [[ $iDEBUG -eq 1 ]]; then
-                echo "($LINENO) RemoveGEInstallPath: Creation failed" 1>&2
+                DebugMessage "Creation failed"
             else
                 echo "Warning: failed to re-create install path at \"$sGE_INSTALL_PATH\""
+                return 1
             fi
         fi
     else
@@ -759,7 +759,7 @@ RemoveGEInstallPath() {
 QueryGEAttribute() {
 
     [[ -z $1 || -z $2 || $# -ne 2 ]] && {
-        ((iDEBUG)) && "($LINENO) QueryGEAttribute: parameter error 1: \"$1\" 2: \"$2\"" 1>&2
+        DebugMessage "parameter error 1: \"$1\" 2: \"$2\""
         return 1
     }
 
@@ -769,38 +769,38 @@ QueryGEAttribute() {
     local iEXIT_STATUS
 
     if UpdateSavedGELatestRelease; then
-        ((iDEBUG)) && echo "($LINENO) QueryGEAttribute: UpdateSavedGELatestRelease returned success" 1>&2
+        DebugMessage "UpdateSavedGELatestRelease returned success"
     else
-        ((iDEBUG)) && echo "($LINENO) QueryGEAttribute: UpdateSavedGELatestRelease returned failure" 1>&2
+        DebugMessage "UpdateSavedGELatestRelease returned failure"
     fi
 
     sVALUE=$(QueryJSONAttribute "$sFILE_LATEST_JSON" "$sVERSION" "$sATTRIBUTE")
     iEXIT_STATUS=$?
     if [[ $iDEBUG -eq 1 && $iEXIT_STATUS -gt 0 ]]; then
-        echo "($LINENO) QueryGEAttribute: QueryJSONAttribute returned failure" 1>&2
+        DebugMessage "QueryJSONAttribute returned failure"
     elif [[ $iDEBUG -eq 1 && $iEXIT_STATUS -eq 0 ]]; then
-        echo "($LINENO) QueryGEAttribute: QueryJSONAttribute returned success" 1>&2
+        DebugMessage "QueryJSONAttribute returned success"
     elif ((iDEBUG)); then
-        echo "($LINENO) QueryGEAttribute: QueryJSONAttribute unknown exit status \$?: \"$?\"" 1>&2
+        DebugMessage "QueryJSONAttribute unknown exit status \$?: \"$?\""
     fi
 
     # if the returned value from QueryJSONAttribute was NULL, try searching in releases
     if [[ -z $sVALUE ]]; then
         if UpdateSavedGEReleases; then
-            ((iDEBUG)) && echo "($LINENO) QueryGEAttribute: UpdateSavedGEReleases returned success" 1>&2
+            DebugMessage "UpdateSavedGEReleases returned success"
         else
-            ((iDEBUG)) && echo "($LINENO) QueryGEAttribute: UpdateSavedGEReleases returned failure" 1>&2
+            DebugMessage "UpdateSavedGEReleases returned failure"
         fi
 
         sVALUE=$(QueryJSONAttribute "$sFILE_RELEASES_JSON" "$sVERSION" "$sATTRIBUTE")
         iEXIT_STATUS=$?
         ((iDEBUG)) && {
             if [[ $iEXIT_STATUS -gt 0 ]]; then
-                echo "($LINENO) QueryGEAttribute: QueryJSONAttribute returned failure status" 1>&2
+                DebugMessage "QueryJSONAttribute returned failure status"
             elif [[ $iEXIT_STATUS -eq 0 ]]; then
-                echo "($LINENO) QueryGEAttribute: QueryJSONAttribute returned success status" 1>&2
+                DebugMessage "QueryJSONAttribute returned success status"
             else
-                echo "($LINENO) QueryGEAttribute: QueryJSONAttribute unknown exit status \$?: \"$?\"" 1>&2
+                DebugMessage "QueryJSONAttribute unknown exit status \$?: \"$?\""
             fi
         }
     fi
@@ -829,12 +829,12 @@ QueryGEAttribute() {
 QueryJSONAttribute() {
 
     if [[ $# -ne 3 ]] || [[ ! -f $1 ]] || [[ -z $1 || -z $2 || -z $3 ]]; then
-        ((iDEBUG)) && echo "($LINENO) QueryJSONAttribute: invalid parameter error 1: \"$1\" 2: \"$2\" 3: \"$3\" \$#: \"$#\"" 1>&2
+        DebugMessage "invalid parameter error 1: \"$1\" 2: \"$2\" 3: \"$3\" \$#: \"$#\""
         return 1
     fi
 
     [[ ${3,,} != @(size|browser_download_url) ]] && {
-        ((iDEBUG)) && echo "($LINENO) QueryJSONAttribute: unsupported attribute requested \"$2\"" 1>&2
+        DebugMessage "unsupported attribute requested \"$2\""
         return 1
     }
 
@@ -853,7 +853,7 @@ QueryJSONAttribute() {
     sVERSION=$(CleanUpVersion "$2")
 
     [[ -z $sVERSION ]] && {
-        ((iDEBUG)) && echo "($LINENO) QueryJSONAttribute: sVERSION is null" 1>&2
+        DebugMessage "sVERSION is null"
         return 1
     }
 
@@ -909,21 +909,21 @@ QueryJSONAttribute() {
     # debug messages
     ((iDEBUG)) && {
         if [[ $iFLAG_VERSION_FOUND -eq 0 ]]; then
-            echo "($LINENO) QueryJSONAttribute: version match not found" 1>&2
+            DebugMessage "version match not found"
         elif [[ $iFLAG_VERSION_FOUND -eq 1 ]]; then
-            echo "($LINENO) QueryJSONAttribute: version match found at line $iLINE_VERSION_FOUND" 1>&2
+            DebugMessage "version match found at line $iLINE_VERSION_FOUND"
         fi
         if [[ -z $iSIZE ]]; then
-            echo "($LINENO) QueryJSONAttribute: iSIZE is NULL" 1>&2
+            DebugMessage "iSIZE is NULL"
         else
-            echo "($LINENO) QueryJSONAttribute: iSIZE: \"$iSIZE\"" 1>&2
+            DebugMessage "iSIZE: \"$iSIZE\""
         fi
         if [[ -z $sBROWSER_URL ]]; then
-            echo "($LINENO) QueryJSONAttribute: sBROWSER_URL is NULL" 1>&2
+            DebugMessage "sBROWSER_URL is NULL"
         else
-            echo "($LINENO) QueryJSONAttribute: sBROWSER_URL: \"$sBROWSER_URL\"" 1>&2
+            DebugMessage "sBROWSER_URL: \"$sBROWSER_URL\""
         fi
-        echo "($LINENO) QueryJSONAttribute: iLINE_VERSION_FOUND: $iLINE_VERSION_FOUND iLINE_SIZE_FOUND: $iLINE_SIZE_FOUND iLINE_BROWURL_FOUND: $iLINE_BROWURL_FOUND" 1>&2
+        DebugMessage "iLINE_VERSION_FOUND: $iLINE_VERSION_FOUND iLINE_SIZE_FOUND: $iLINE_SIZE_FOUND iLINE_BROWURL_FOUND: $iLINE_BROWURL_FOUND"
     }
 
     # output the value of the requested attribute
@@ -954,24 +954,26 @@ QueryJSONAttribute() {
 # TODO
 ReformatJSONUsingSed() {
 
-    local sFILE_JSON
+    local sFILE_JSON=$1
 
-    if ! sFILE_JSON=${1:?"($LINENO) ReformatJSONsed: Parameter required"}; then #TODO
+    [[ -z $sFILE_JSON ]] && {
+        DebugMessage "Parameter required"
         return 1
-    fi
+    }
 
-    ((iDEBUG)) && echo "($LINENO) ReformatJSONUsingSed: sFILE_JSON: \"$sFILE_JSON\"" 1>&2
+    DebugMessage "sFILE_JSON: \"$sFILE_JSON\""
 
     if [[ -f $sFILE_JSON && -w $sFILE_JSON ]]; then
         if sed -f "$sFILE_SED_UNMINIFY_SCRIPT" -i.sedbak "$sFILE_JSON"; then
-            ((iDEBUG)) && echo "($LINENO) ReformatJSONUsingSed: sed returned success" 1>&2
+            DebugMessage "sed returned success"
             return 0
         else
-            ((iDEBUG)) && echo "(($LINENO)) ReformatJSONUsingSed: sed returned failure" 1>&2
+            DebugMessage "sed returned failure"
             return 1
         fi
     else
-        echo "($LINENO) ReformatJSONUsingSed: Invalid file requested: \"$sFILE_JSON\""
+        DebugMessage "Invalid file requested: \"$sFILE_JSON\""
+        return 1
     fi
 
     return 0
@@ -984,22 +986,23 @@ ReformatJSONUsingSed() {
 #      so this function is pointless other than reporting debug info
 IsJSONminified() {
 
-    local sJSON
+    local sJSON=$1
 
-    if ! sJSON=${1:?"($LINENO) IsJSONminified: Parameter required"}; then #TODO
+    [[ -z $sJSON ]] && {
+        DebugMessage "Parameter required"
         return 1
-    fi
+    }
 
     # NOTE do not use herestring
     iLINES=$(printf '%s' "$sJSON" | wc -l)
-    ((iDEBUG)) && "($LINENO) IsJSONminified: iLINES: \"$iLINES\"" 1>&2
+    DebugMessage "iLINES: \"$iLINES\""
     # 0 is the actual value of a minified JSON response, 1 is used in case a mistake is
     # made handling the string and a trailing newline is added
     if [[ $iLINES -le 1 ]]; then
-        ((iDEBUG)) && "($LINENO) IsJSONminified: Detected minified JSON" 1>&2
+        DebugMessage "Detected minified JSON"
         return 0
     else
-        ((iDEBUG)) && "($LINENO) IsJSONminified: JSON is not minified" 1>&2
+        DebugMessage "JSON is not minified"
         return 1
     fi
 
@@ -1019,7 +1022,7 @@ IsJSONminified() {
 CreateSedUnminifyJSONscript() {
 
     if [[ ! -f $sFILE_SED_UNMINIFY_SCRIPT ]] || [[ $(stat -c '%s' "$sFILE_SED_UNMINIFY_SCRIPT") -ne 824 ]]; then
-        ((iDEBUG)) && echo "($LINENO) CreateSedUnminifyJSONscript: Sed script at \"$sFILE_SED_UNMINIFY_SCRIPT\" does not exist or is not the expected size" 1>&2
+        DebugMessage "Sed script at \"$sFILE_SED_UNMINIFY_SCRIPT\" does not exist or is not the expected size"
         cat > "$sFILE_SED_UNMINIFY_SCRIPT" <<"END_OF_SED_SCRIPT"
 #### begin minimum required for ge-install-manager
 # replace: ","
@@ -1072,7 +1075,7 @@ s/"}/"/g
 s/\["/"/g
 END_OF_SED_SCRIPT
     else
-        ((iDEBUG)) && echo "($LINENO) CreateSedUnminifyJSONscript: Sed script already exists at sFILE_SED_UNMINIFY_SCRIPT and is the expected size" 1>&2
+        DebugMessage "Sed script already exists at sFILE_SED_UNMINIFY_SCRIPT and is the expected size"
     fi
 
     return 0
@@ -1086,19 +1089,19 @@ END_OF_SED_SCRIPT
 IsInstalled() {
 
     [[ -z $1 ]] && {
-        ((iDEBUG)) && echo "($LINENO) IsInstalled: NULL parameter error" 1>&2
+        DebugMessage "NULL parameter error"
         return 1
     }
 
     sVERSION=$(CleanUpVersion "$1")
 
-    ((iDEBUG)) && echo "($LINENO) IsInstalled: Checking for version \"$sVERSION\" at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\"" 1>&2
+    DebugMessage "Checking for version \"$sVERSION\" at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
 
     if [[ -d $sGE_INSTALL_PATH/Proton-${sVERSION} ]]; then
-        ((iDEBUG)) && echo "($LINENO) IsInstalled: Version \"$sVERSION\" found" 1>&2
+        DebugMessage "Version \"$sVERSION\" found"
         return 0
     else
-        ((iDEBUG)) && echo "($LINENO) IsInstalled: Version \"$sVERSION\" not found" 1>&2
+        DebugMessage "Version \"$sVERSION\" not found"
         return 1
     fi
 
@@ -1118,11 +1121,11 @@ IsSteamRunning() {
         while IFS= read -r; do
             [[ ${REPLY,,} =~ ^.*steam$ ]] && {
                 iSTEAM=1
-                ((iDEBUG)) && echo "($LINENO) IsSteamRunning: steam match: \"$REPLY\"" 1>&2
+                DebugMessage "steam match: \"$REPLY\""
             }
             [[ ${REPLY,,} =~ ^.*steamwebhelper.*$ ]] && {
                 iWEBHLPR=1
-                ((iDEBUG)) && echo "($LINENO) IsSteamRunning: steamwebhelper match: \"$REPLY\"" 1>&2
+                DebugMessage "steamwebhelper match: \"$REPLY\""
             }
         done < <(ps -e)
         #return $(( iSTEAM == 1 ? 0 : 1 ))
@@ -1131,16 +1134,17 @@ IsSteamRunning() {
             return 0
         elif [[ $iSTEAM -eq 0 && $iWEBHLPR -eq 1 ]]; then
             echo "Warning: at least one steamwebhelper process(es) is still running but Steam is not running"
+            # TODO report their PIDs
             return 1
         elif [[ $iSTEAM -eq 0 && $iWEBHLPR -eq 0 ]]; then
             return 1
         else
-            echo "($LINENO) IsSteamRunning: unknown error iSTEAM: \"$iSTEAM\" iWEBHLPR: \"$iWEBHLPR\" (last)REPLY: \"$REPLY\""
+            DebugMessage "unknown error iSTEAM: \"$iSTEAM\" iWEBHLPR: \"$iWEBHLPR\" (last)REPLY: \"$REPLY\""
             return 1
         fi
     else
         # ps missing
-        echo "($LINENO) IsSteamRunning: command 'ps' not found"
+        DebugMessage "command 'ps' not found"
         return 1
     fi
 
@@ -1153,24 +1157,13 @@ IsSteamRunning() {
 # TODO
 RequestURL() {
 
-    local sURL
-    local sFILE
+    local sURL=$1
+    local sFILE=$2
     local sRESPONSE
     local sMODIFIED_RESPONSE
 
-    # TODO
-    if ! sURL=${1:?"($LINENO) RequestURL: URL parameter required"}; then # TODO
-        return 1
-    fi
-    # TODO
-    if ! sFILE=${2:?"($LINENO) RequestURL: File parameter requried"}; then # TODO
-        return 1
-    fi
-
-    # TODO
-    [[ $# -ne 2 ]] && {
-        ((iDEBUG)) && echo "($LINENO) RequestURL: Exactly two parameters are required" 1>&2
-        return 1
+    [[ -z $sURL || -z $sFILE || $# -ne 2 ]] && {
+        DebugMessage "Parameter error"
     }
 
     if sRESPONSE=$(curl -sz "$sFILE" \
@@ -1180,24 +1173,24 @@ RequestURL() {
                         -L "$sURL" \
                         -o - 2>/dev/null); then
 
-        ((iDEBUG)) && echo "($LINENO) RequestURL: curl returned success" 1>&2
+        DebugMessage "curl returned success"
 
         if [[ -n $sRESPONSE ]]; then
-            ((iDEBUG)) && echo "($LINENO) RequestURL: sRESPONSE is not empty" 1>&2
+            DebugMessage "sRESPONSE is not empty"
             if IsJSONminified "$sRESPONSE"; then
-                ((iDEBUG)) && echo "($LINENO) RequestURL: IsJSONminified returned success" 1>&2
+                DebugMessage "IsJSONminified returned success"
             else
-                ((iDEBUG)) && echo "($LINENO) RequestURL: IsJSONminified returned failure" 1>&2
+                DebugMessage "IsJSONminified returned failure"
             fi
             [[ -f $sFILE ]] && mv "$sFILE" "$sFILE".runtf.bak
             printf '%s' "$sRESPONSE" > "$sFILE"
         else
-            ((iDEBUG)) && echo "($LINENO) RequestURL: sRESPONSE is NULL" 1>&2
+            DebugMessage "sRESPONSE is NULL"
         fi
         #printf '%s' "$sRESPONSE"
         #return 0
     else
-        ((iDEBUG)) && echo "($LINENO) RequestURL: curl returned failure" 1>&2
+        DebugMessage "curl returned failure"
         printf ''
         return 1
     fi
@@ -1207,12 +1200,12 @@ RequestURL() {
     # NOTE It needs to run on both to enable future support for displaying the body_text (update notes) section because
     #      it also transforms literal \n in the body_text to newlines
     if ReformatJSONUsingSed "$sFILE"; then
-        ((iDEBUG)) && echo "($LINENO) RequestURL: ReformatJSONUsingSed returned success" 1>&2
+        DebugMessage "ReformatJSONUsingSed returned success"
         sMODIFIED_RESPONSE=$(cat "$sFILE" 2>/dev/null)
         printf '%s' "${sMODIFIED_RESPONSE%$'\n'}" # remove the newline added by cat
         return 0
     else
-        ((iDEBUG)) && echo "($LINENO) RequestURL: ReformatJSONUsingSed returned failure" 1>&2
+        DebugMessage "ReformatJSONUsingSed returned failure"
         printf ''
         return 1
     fi
@@ -1232,13 +1225,13 @@ CleanUpVersion() {
     local sVERSION=${1-}
 
     [[ -z $sVERSION ]] && {
-        ((iDEBUG)) && echo "($LINENO) CleanUpVersion: sVERSION is NULL" 1>&2
+        DebugMessage "Parameter error"
         return 1
     }
 
     ((iDEBUG)) && {
         iLENGTH=${#sVERSION}
-        echo "($LINENO) CleanUpVersion: before: \"$sVERSION\"" 1>&2
+        DebugMessage "before: \"$sVERSION\""
     }
 
     # global upper case
@@ -1249,8 +1242,8 @@ CleanUpVersion() {
     sVERSION=${sVERSION%'.TAR.GZ'*}
 
     ((iDEBUG)) && {
-        echo "($LINENO) CleanUpVersion: after: \"$sVERSION\"" 1>&2
-        [[ $iLENGTH -ne ${#sVERSION} ]] && echo "($LINENO) CleanUpVersion: removed $(( iLENGTH - ${#sVERSION} )) characters" 1>&2
+        DebugMessage "after: \"$sVERSION\""
+        [[ $iLENGTH -ne ${#sVERSION} ]] && DebugMessage "removed $(( iLENGTH - ${#sVERSION} )) characters"
     }
 
     printf '%s' "$sVERSION"
@@ -1351,95 +1344,95 @@ SetupEnvironment() {
 
     local iFAILED=0
 
-    # NOTE ((iDEBUG)) && echo "($LINENO) SetupEnvironment: " 1>&2
+    # NOTE ((iDEBUG)) && echo "($LINENO) SetupEnvironment: "
 
     # sGE_INSTALL_PATH
     if [[ -d $sGE_INSTALL_PATH ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Found existing sGE_INSTALL_PATH at \"$sGE_INSTALL_PATH\"" 1>&2
+        DebugMessage "Found existing sGE_INSTALL_PATH at \"$sGE_INSTALL_PATH\""
         if [[ -w $sGE_INSTALL_PATH ]]; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script has write access to sGE_INSTALL_PATH" 1>&2
+            DebugMessage "Script has write access to sGE_INSTALL_PATH"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script does not have write access to sGE_INSTALL_PATH" 1>&2
+            DebugMessage "Script does not have write access to sGE_INSTALL_PATH"
             iFAILED=1
         fi
     elif [[ ! -d $sGE_INSTALL_PATH ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: sGE_INSTALL_PATH not found. Creating at \"$sGE_INSTALL_PATH\"" 1>&2
+        DebugMessage "sGE_INSTALL_PATH not found. Creating at \"$sGE_INSTALL_PATH\""
         if mkdir -p "$sGE_INSTALL_PATH"; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Create install path succeeded" 1>&2
+            DebugMessage "Create install path succeeded"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Create install path failed" 1>&2
+            DebugMessage "Create install path failed"
             iFAILED=1
         fi
     fi
 
     # sSCRIPT_CONFIG_PATH
     if [[ -d $sSCRIPT_CONFIG_PATH ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Found existing sSCRIPT_CONFIG_PATH at \"$sSCRIPT_CONFIG_PATH\"" 1>&2
+        DebugMessage "Found existing sSCRIPT_CONFIG_PATH at \"$sSCRIPT_CONFIG_PATH\""
         if [[ -w $sSCRIPT_CONFIG_PATH ]]; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script has write access to sSCRIPT_CONFIG_PATH" 1>&2
+            DebugMessage "Script has write access to sSCRIPT_CONFIG_PATH"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script does not have write access to sSCRIPT_CONFIG_PATH" 1>&2
+            DebugMessage "Script does not have write access to sSCRIPT_CONFIG_PATH"
             iFAILED=1
         fi
     elif [[ ! -d $sSCRIPT_CONFIG_PATH ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: sSCRIPT_CONFIG_PATH not found. Creating at \"$sSCRIPT_CONFIG_PATH\"" 1>&2
+        DebugMessage "sSCRIPT_CONFIG_PATH not found. Creating at \"$sSCRIPT_CONFIG_PATH\""
         if mkdir -p "$sSCRIPT_CONFIG_PATH"; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Create config path succeeded" 1>&2
+            DebugMessage "Create config path succeeded"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Create config path failed" 1>&2
+            DebugMessage "Create config path failed"
             iFAILED=1
         fi
     fi
 
     # sSCRIPT_CACHE_PATH
     if [[ -d $sSCRIPT_CACHE_PATH ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Found existing sSCRIPT_CACHE_PATH at \"$sSCRIPT_CACHE_PATH\"" 1>&2
+        DebugMessage "Found existing sSCRIPT_CACHE_PATH at \"$sSCRIPT_CACHE_PATH\""
         if [[ -w $sSCRIPT_CACHE_PATH ]]; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script has write access to sSCRIPT_CACHE_PATH" 1>&2
+            DebugMessage "Script has write access to sSCRIPT_CACHE_PATH"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script does not have write access to sSCRIPT_CACHE_PATH" 1>&2
+            DebugMessage "Script does not have write access to sSCRIPT_CACHE_PATH"
             iFAILED=1
         fi
     elif [[ ! -d $sSCRIPT_CACHE_PATH ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: sSCRIPT_CACHE_PATH not found. Creating at \"$sSCRIPT_CACHE_PATH\"" 1>&2
+        DebugMessage "sSCRIPT_CACHE_PATH not found. Creating at \"$sSCRIPT_CACHE_PATH\""
         if mkdir -p "$sSCRIPT_CACHE_PATH"; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Create cache path succeeded" 1>&2
+            DebugMessage "Create cache path succeeded"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Create cache path failed" 1>&2
+            DebugMessage "Create cache path failed"
             iFAILED=1
         fi
     fi
 
     # sFILE_SCRIPT_CONFIG
     if [[ -f $sFILE_SCRIPT_CONFIG ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Found existing sFILE_SCRIPT_CONFIG at \"$sFILE_SCRIPT_CONFIG\"" 1>&2
+        DebugMessage "Found existing sFILE_SCRIPT_CONFIG at \"$sFILE_SCRIPT_CONFIG\""
         if [[ -w $sFILE_SCRIPT_CONFIG ]]; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script has write access to sFILE_SCRIPT_CONFIG" 1>&2
+            DebugMessage "Script has write access to sFILE_SCRIPT_CONFIG"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script does not have write access to sFILE_SCRIPT_CONFIG" 1>&2
+            DebugMessage "Script does not have write access to sFILE_SCRIPT_CONFIG"
             iFAILED=1
         fi
         if [[ -r $sFILE_SCRIPT_CONFIG ]]; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script has read access to sFILE_SCRIPT_CONFIG" 1>&2
+            DebugMessage "Script has read access to sFILE_SCRIPT_CONFIG"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Script does not have read access to sFILE_SCRIPT_CONFIG" 1>&2
+            DebugMessage "Script does not have read access to sFILE_SCRIPT_CONFIG"
             iFAILED=1
         fi
     elif [[ ! -f $sFILE_SCRIPT_CONFIG ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: sFILE_SCRIPT_CONFIG not found. Creating at \"$sFILE_SCRIPT_CONFIG\"" 1>&2
+        DebugMessage "sFILE_SCRIPT_CONFIG not found. Creating at \"$sFILE_SCRIPT_CONFIG\""
         if printf '' > "$sFILE_SCRIPT_CONFIG"; then
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Create script config file succeeded" 1>&2
+            DebugMessage "Create script config file succeeded"
         else
-            ((iDEBUG)) && echo "($LINENO) SetupEnvironment: Create script config file failed" 1>&2
+            DebugMessage "Create script config file failed"
             iFAILED=1
         fi
     fi
 
     if [[ $iFAILED -eq 0 ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: All tasks succeeded" 1>&2
+        DebugMessage "All tasks succeeded"
         return 0
     elif [[ $iFAILED -eq 1 ]]; then
-        ((iDEBUG)) && echo "($LINENO) SetupEnvironment: One or more tasks failed" 1>&2
+        DebugMessage "One or more tasks failed"
         return 1
     fi
 
@@ -1467,21 +1460,32 @@ ShowConsoleDiff() {
 }
 
 ###############################################################################
+# Output to stderr a message and also report the calling line and calling function
+# Almost mimic the caller built-in but exclude the source file name
+DebugMessage() {
+
+    # If debug mode is not active, do nothing
+    ((iDEBUG)) || return 0
+
+    [[ -z $1 ]] && { echo "($LINENO) DebugMessage: NULL parameter error"; return 0; }
+
+    local sCALL_LINE=${BASH_LINENO[0]}
+    local sCALL_FUNC=${FUNCNAME[1]}
+
+    # Output to stderr / fd2
+    printf '%s\n' "($sCALL_LINE) $sCALL_FUNC: $1" 1>&2
+
+    return 0
+}
+
+###############################################################################
 # Diagnostic tool - exactly -fzZ invokes this function
 ReportEnvironmentInfo() {
 
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
-
-    # WARNING there's no telling what will be here in any given version, or what damage it could cause
-    # NOTE It's safe to run -fzZ, but not this
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        sTMP_DIR=$(MkTempFile)
-        #echo "MkTempFile: \"$sTMP_DIR\""
-        CleanUp
-        sTMP_DIR=$(MkTempPath)
-        #echo "MkTempPath: \"$sTMP_DIR\""
-        CleanUp
+        DebugMessage "Hello World!"
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -1534,7 +1538,7 @@ ConfigureOptionalCommands() {
         sCOMMAND_RM="trash"
     fi
 
-    ((iDEBUG)) && echo "($LINENO) ConfigureOptionalCommands: sCOMMAND_RM: \"$sCOMMAND_RM\"" 1>&2
+    DebugMessage "sCOMMAND_RM: \"$sCOMMAND_RM\""
 
     return 0
 }
@@ -1550,7 +1554,7 @@ CleanUp() {
     # paths
     [[ -d $sTMP_DIR ]] && {
         if ((iDEBUG)) && [[ $iFINAL_CLEANUP -ne 1 ]]; then
-            echo "($LINENO) CleanUp: Temporary path not removed: $sTMP_DIR" 1>&2
+            DebugMessage "Temporary path not removed: $sTMP_DIR"
         fi
         if [[ $iDEBUG -eq 0 ]]; then
             if ! rm -rf "$sTMP_DIR"; then
@@ -1563,7 +1567,7 @@ CleanUp() {
     # files
     [[ -f $sTMP_DIR ]] && {
         if ((iDEBUG)) && [[ $iFINAL_CLEANUP -ne 1 ]]; then
-            ((iDEBUG)) && echo "($LINENO) CleanUp: Temporary file not removed: $sTMP_DIR" 1>&2
+            DebugMessage "Temporary file not removed: $sTMP_DIR"
         fi
         if [[ $iDEBUG -eq 0 ]]; then
             if ! rm -rf "$sTMP_DIR"; then
@@ -1711,26 +1715,26 @@ Main() {
                         fi
                     fi
                 elif IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 0 ]]; then # Latest version is installed and -f was not supplied
-                    ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: "
+                    ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                     echo "Latest version is already installed ($sGE_LATEST_VERSION)"
                 elif ! IsInstalled "$sGE_LATEST_VERSION"; then # Latest version is not installed
-                    ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: "
+                    ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                     echo "Latest version is not installed"
                     if InstallGEVersion; then
-                        ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: "
+                        ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                         echo "Update succeeded"
                         if IsSteamRunning; then echo "Please restart Steam to use the new version"; fi
                     else
-                        ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: "
+                        ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                         echo "Update failed"
                     fi
                 fi
             else
-                ((iDEBUG)) && printf '%s\n' "($LINENO) Main: Update: GetLatestGEVersion returned failure status" 1>&2
+                DebugMessage "Update: GetLatestGEVersion returned failure status"
             fi
         else
             # GetLatestGEVersionInfo failed
-            ((iDEBUG)) && printf '%s\n' "($LINENO) Main: Update: GetLatestGEVersionInfo returned failure status" 1>&2
+            DebugMessage "Update: GetLatestGEVersionInfo returned failure status"
             echo "Update failed"
         fi
         # Like purchasing a tribble, this is probably a bad idea
@@ -1768,11 +1772,11 @@ Main() {
 
         ((iDEBUG)) && {
             if IsSteamRunning; then
-                echo "($LINENO) Main: Steam is running" 1>&2
+                DebugMessage "Steam is running"
             else
-                echo "($LINENO) Main: Steam is not running" 1>&2
+                DebugMessage "Steam is not running"s
             fi
-            echo "($LINENO) Main: Nothing to do" 1>&2
+            DebugMessage "Nothing to do"
         }
 
         # report latest version installed status
@@ -1791,7 +1795,7 @@ Main() {
 
 ###############################################################################
 # EXIT trap
-trap '((iDEBUG)) && echo "(DEBUG) EXIT trap: Exit status (before CleanUp): $?" 1>&2; iFINAL_CLEANUP=1 CleanUp; ((iDEBUG)) && echo "(DEBUG) EXIT trap: Exit status (after CleanUp): $?" 1>&2; exit $iREAL_EXIT_STATUS' EXIT INT
+trap 'DebugMessage "EXIT trap: Exit status (before CleanUp): $?" 1>&2; iFINAL_CLEANUP=1 CleanUp; DebugMessage "EXIT trap: Exit status (after CleanUp): $?" 1>&2; exit $iREAL_EXIT_STATUS' EXIT INT
 
 ###############################################################################
 
