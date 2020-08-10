@@ -310,7 +310,7 @@ DownloadGEPackage() {
 
     local sVERSION=$(CleanUpVersion "$1")
     [[ -z $sVERSION ]] && {
-        DebugMessage "sVERSION is null"
+        DebugMessage "Parameter error (NULL)"
         return 1
     }
     local sTMP_DIR=$(MkTempPath)
@@ -353,7 +353,7 @@ DownloadGEPackage() {
             return 1
         fi
     else
-        DebugMessage "curl returned failure status"
+        DebugMessage "'curl' returned failure status"
         echo "Download failed"
         CleanUp
         return 1
@@ -387,14 +387,14 @@ InstallGEVersion() {
         DebugMessage "Install mode active"
         sVERSION=${sINSTALL_VERSION:-$(CleanUpVersion "$1")}
     else
-        DebugMessage "error detecting install mode"
+        DebugMessage "Unknown error detecting install mode"
         return 1
     fi
 
     sVERSION=$(CleanUpVersion "$1")
 
     [[ -z $sVERSION ]] && {
-        DebugMessage "sVERSION is null"
+        DebugMessage "sVERSION is NULL"
         return 1
     }
 
@@ -464,7 +464,7 @@ RemoveGEVersion() {
     local sSIZE="0"
 
     [[ -z $sVERSION ]] && {
-        DebugMessage "sVERSION is null"
+        DebugMessage "Parameter error (NULL)"
         return 1
     }
 
@@ -477,7 +477,7 @@ RemoveGEVersion() {
     DebugMessage "Requested sVERSION: \"$sVERSION\" sREMOVE_PATH: \"$sREMOVE_PATH\" sREMOVE_PACKAGE: \"$sREMOVE_PACKAGE\""
     # If force is enabled, remove the path and the package
     if [[ $iFORCE -eq 1 ]]; then
-        DebugMessage "force is enabled"
+        DebugMessage "Force mode is enabled"
         # Remove the path if it exists
         if [[ -d $sREMOVE_PATH ]]; then
             DebugMessage "Path exists"
@@ -515,7 +515,7 @@ RemoveGEVersion() {
         fi
     # If force is not enabled, remove only the install path for sVERSION
     elif [[ $iFORCE -eq 0 ]]; then
-        DebugMessage "force is not enabled"
+        DebugMessage "Force is not enabled"
         # Remove the path if it exists
         if [[ -d $sREMOVE_PATH ]]; then
             if ! IsSteamRunning; then
@@ -552,7 +552,7 @@ ExtractGEPackage() {
     local sEXTRACT_FILE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
 
     [[ -z $sVERSION ]] && {
-        DebugMessage "sVERSION is null"
+        DebugMessage "Parameter error (NULL)"
         return 1
     }
 
@@ -731,7 +731,7 @@ RemoveGEInstallPath() {
     if command -v du >/dev/null; then
         sSIZE=$(du -sh "$sGE_INSTALL_PATH")
     else
-        DebugMessage "command du not found"
+        DebugMessage "Command du not found"
         sSIZE="unknown"
     fi
 
@@ -763,7 +763,7 @@ RemoveGEInstallPath() {
 QueryGEAttribute() {
 
     [[ -z $1 || -z $2 || $# -ne 2 ]] && {
-        DebugMessage "parameter error 1: \"$1\" 2: \"$2\""
+        DebugMessage "Parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\""
         return 1
     }
 
@@ -829,16 +829,16 @@ QueryGEAttribute() {
 # 2.(Line 65) "size": 406721946,
 # 3.(line 69) "browser_download_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
 #
-# NOTE the default media-type requested is "application/vnd.github.v3.text+json" (I may make use of the body_text)
+# NOTE the default media-type requested is "application/vnd.github.v3.text+json" (I may make use of the body_text which generally contains change/update notes)
 QueryJSONAttribute() {
 
     if [[ $# -ne 3 ]] || [[ ! -f $1 ]] || [[ -z $1 || -z $2 || -z $3 ]]; then
-        DebugMessage "invalid parameter error 1: \"$1\" 2: \"$2\" 3: \"$3\" \$#: \"$#\""
+        DebugMessage "Invalid parameter error 1: \"$1\" 2: \"$2\" 3: \"$3\" \$#: \"$#\""
         return 1
     fi
 
     [[ ${3,,} != @(size|browser_download_url) ]] && {
-        DebugMessage "unsupported attribute requested \"$2\""
+        DebugMessage "Unsupported attribute requested \"$2\""
         return 1
     }
 
@@ -857,7 +857,7 @@ QueryJSONAttribute() {
     sVERSION=$(CleanUpVersion "$2")
 
     [[ -z $sVERSION ]] && {
-        DebugMessage "sVERSION is null"
+        DebugMessage "sVERSION is NULL"
         return 1
     }
 
@@ -913,9 +913,9 @@ QueryJSONAttribute() {
     # debug messages
     ((iDEBUG)) && {
         if [[ $iFLAG_VERSION_FOUND -eq 0 ]]; then
-            DebugMessage "version match not found"
+            DebugMessage "Version match not found"
         elif [[ $iFLAG_VERSION_FOUND -eq 1 ]]; then
-            DebugMessage "version match found at line $iLINE_VERSION_FOUND"
+            DebugMessage "Version match found at line $iLINE_VERSION_FOUND"
         fi
         if [[ -z $iSIZE ]]; then
             DebugMessage "iSIZE is NULL"
@@ -961,7 +961,7 @@ ReformatJSONUsingSed() {
     local sFILE_JSON=$1
 
     [[ -z $sFILE_JSON ]] && {
-        DebugMessage "Parameter required"
+        DebugMessage "Parameter error (NULL)"
         return 1
     }
 
@@ -969,10 +969,10 @@ ReformatJSONUsingSed() {
 
     if [[ -f $sFILE_JSON && -w $sFILE_JSON ]]; then
         if sed -f "$sFILE_SED_UNMINIFY_SCRIPT" -i.sedbak "$sFILE_JSON"; then
-            DebugMessage "sed returned success"
+            DebugMessage "'sed' returned success"
             return 0
         else
-            DebugMessage "sed returned failure"
+            DebugMessage "'sed' returned failure"
             return 1
         fi
     else
@@ -993,7 +993,7 @@ IsJSONminified() {
     local sJSON=$1
 
     [[ -z $sJSON ]] && {
-        DebugMessage "Parameter required"
+        DebugMessage "Parameter error (NULL)"
         return 1
     }
 
@@ -1003,7 +1003,7 @@ IsJSONminified() {
     # 0 is the actual value of a minified JSON response, 1 is used in case a mistake is
     # made handling the string and a trailing newline is added
     if [[ $iLINES -le 1 ]]; then
-        DebugMessage "Detected minified JSON"
+        DebugMessage "JSON is minified"
         return 0
     else
         DebugMessage "JSON is not minified"
@@ -1026,7 +1026,7 @@ IsJSONminified() {
 CreateSedUnminifyJSONscript() {
 
     if [[ ! -f $sFILE_SED_UNMINIFY_SCRIPT ]] || [[ $(stat -c '%s' "$sFILE_SED_UNMINIFY_SCRIPT") -ne 824 ]]; then
-        DebugMessage "Sed script at \"$sFILE_SED_UNMINIFY_SCRIPT\" does not exist or is not the expected size"
+        DebugMessage "'sed' script at \"$sFILE_SED_UNMINIFY_SCRIPT\" does not exist or is not the expected size"
         cat > "$sFILE_SED_UNMINIFY_SCRIPT" <<"END_OF_SED_SCRIPT"
 #### begin minimum required for ge-install-manager
 # replace: ","
@@ -1079,7 +1079,7 @@ s/"}/"/g
 s/\["/"/g
 END_OF_SED_SCRIPT
     else
-        DebugMessage "Sed script already exists at sFILE_SED_UNMINIFY_SCRIPT and is the expected size"
+        DebugMessage "'sed' script already exists at sFILE_SED_UNMINIFY_SCRIPT and is the expected size"
     fi
 
     return 0
@@ -1093,7 +1093,7 @@ END_OF_SED_SCRIPT
 IsInstalled() {
 
     [[ -z $1 ]] && {
-        DebugMessage "NULL parameter error"
+        DebugMessage "Parameter error (NULL)"
         return 1
     }
 
@@ -1125,11 +1125,11 @@ IsSteamRunning() {
         while IFS= read -r; do
             [[ ${REPLY,,} =~ ^.*steam$ ]] && {
                 iSTEAM=1
-                DebugMessage "steam match: \"$REPLY\""
+                DebugMessage "'steam' match: \"$REPLY\""
             }
             [[ ${REPLY,,} =~ ^.*steamwebhelper.*$ ]] && {
                 iWEBHLPR=1
-                DebugMessage "steamwebhelper match: \"$REPLY\""
+                DebugMessage "'steamwebhelper' match: \"$REPLY\""
             }
         done < <(ps -e)
         #return $(( iSTEAM == 1 ? 0 : 1 ))
@@ -1143,12 +1143,12 @@ IsSteamRunning() {
         elif [[ $iSTEAM -eq 0 && $iWEBHLPR -eq 0 ]]; then
             return 1
         else
-            DebugMessage "unknown error iSTEAM: \"$iSTEAM\" iWEBHLPR: \"$iWEBHLPR\" (last)REPLY: \"$REPLY\""
+            DebugMessage "Unknown error iSTEAM: \"$iSTEAM\" iWEBHLPR: \"$iWEBHLPR\" (last)REPLY: \"$REPLY\""
             return 1
         fi
     else
         # ps missing
-        DebugMessage "command 'ps' not found"
+        DebugMessage "Command 'ps' not found"
         return 1
     fi
 
@@ -1167,7 +1167,7 @@ RequestURL() {
     local sMODIFIED_RESPONSE
 
     [[ -z $sURL || -z $sFILE || $# -ne 2 ]] && {
-        DebugMessage "Parameter error"
+        DebugMessage "Parameter error (NULL or not exactly two)"
     }
 
     if sRESPONSE=$(curl -sz "$sFILE" \
@@ -1177,7 +1177,7 @@ RequestURL() {
                         -L "$sURL" \
                         -o - 2>/dev/null); then
 
-        DebugMessage "curl returned success"
+        DebugMessage "'curl' returned success"
 
         if [[ -n $sRESPONSE ]]; then
             DebugMessage "sRESPONSE is not empty"
@@ -1194,7 +1194,7 @@ RequestURL() {
         #printf '%s' "$sRESPONSE"
         #return 0
     else
-        DebugMessage "curl returned failure"
+        DebugMessage "'curl' returned failure"
         printf ''
         return 1
     fi
@@ -1229,13 +1229,13 @@ CleanUpVersion() {
     local sVERSION=${1-}
 
     [[ -z $sVERSION ]] && {
-        DebugMessage "Parameter error"
+        DebugMessage "Parameter error (NULL)"
         return 1
     }
 
     ((iDEBUG)) && {
         iLENGTH=${#sVERSION}
-        DebugMessage "before: \"$sVERSION\""
+        DebugMessage "Before: \"$sVERSION\""
     }
 
     # global upper case
@@ -1246,7 +1246,7 @@ CleanUpVersion() {
     sVERSION=${sVERSION%'.TAR.GZ'*}
 
     ((iDEBUG)) && {
-        DebugMessage "after: \"$sVERSION\""
+        DebugMessage "After: \"$sVERSION\""
         [[ $iLENGTH -ne ${#sVERSION} ]] && DebugMessage "removed $(( iLENGTH - ${#sVERSION} )) characters"
     }
 
@@ -1471,7 +1471,7 @@ DebugMessage() {
     # If debug mode is not active, do nothing
     ((iDEBUG)) || return 0
 
-    [[ -z $1 ]] && { echo "($LINENO) DebugMessage: NULL parameter error"; return 0; }
+    [[ -z $1 ]] && { echo "($LINENO) DebugMessage: Parameter error (NULL)"; return 0; }
 
     local sCALL_LINE=${BASH_LINENO[0]}
     local sCALL_FUNC=${FUNCNAME[1]}
@@ -1727,7 +1727,9 @@ Main() {
                     if InstallGEVersion; then
                         ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                         echo "Update succeeded"
-                        if IsSteamRunning; then echo "Please restart Steam to use the new version"; fi
+                        if IsSteamRunning; then
+                            echo "Restart Steam to use the new version"
+                        fi
                     else
                         ((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
                         echo "Update failed"
