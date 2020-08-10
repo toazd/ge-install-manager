@@ -596,7 +596,7 @@ ListInstalledGEVersions() {
             #sEXTRACTED_VERSION=${sEXTRACTED_VERSION#*[[:blank:]]}
             #if [[ -z $sEXTRACTED_VERSION ]] || [[ $sEXTRACTED_VERSION = "file not found" ]]; then sEXTRACTED_VERSION="error: version file not found"; fi
             #echo "  ${sNODE##*/} ($sEXTRACTED_VERSION)"
-            echo "  ${sNODE##*/} ($(du -sh "$sNODE"))"
+            echo "  ${sNODE##*/} ($(du -sh "$sNODE" | cut -f1))"
             ((iCOUNT++))
         fi
     done
@@ -610,12 +610,16 @@ ListInstalledGEVersions() {
             if [[ $iDEBUG -eq 1 ]]; then
                 DebugMessage "  ${sNODE##*/} (size: $(stat -c '%s' "$sNODE"), expected size: $(QueryGEAttribute "${sNODE##*/}" "size"))"
             else
-                echo "  ${sNODE##*/} ($(du -h "$sNODE")"
+                echo "  ${sNODE##*/} ($(du -h "$sNODE" | cut -f1))"
             fi
             ((iCOUNT++))
         fi
     done
-    [[ $iCOUNT -eq 0 ]] && echo "None found"
+    if [[ $iCOUNT -ge 1 ]]; then
+        echo "Saved packages disk usage: $(du -csh "$sGE_INSTALL_PATH/"*.tar.gz | tail -n1 | cut -f1)"
+    elif [[ $iCOUNT -eq 0 ]]; then
+        echo "None found"
+    fi
 
     return 0
 }
