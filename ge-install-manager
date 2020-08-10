@@ -76,8 +76,8 @@ sGE_RELEASES_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/
 # HTML data sources (reference only, this script does not currently support html data sources)
 # https://github.com/GloriousEggroll/proton-ge-custom/releases
 # https://github.com/GloriousEggroll/proton-ge-custom/tags
-sFILE_LATEST_JSON="$sSCRIPT_CACHE_PATH/latest.json"
-sFILE_RELEASES_JSON="$sSCRIPT_CACHE_PATH/releases.json"
+sFILE_LATEST_JSON="$sSCRIPT_CACHE_PATH"/latest.json
+sFILE_RELEASES_JSON="$sSCRIPT_CACHE_PATH"/releases.json
 # NOTE JSON is returned minified when a custom User-Agent is used.
 # This saves ~25KiB per releases file download and ~0.5KiB per latest file download
 sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
@@ -1388,20 +1388,9 @@ ReportEnvironmentInfo() {
     #-------------------------------------------------------------------------------------
 
     # WARNING there's no telling what will be here in any given version, or what damage it could cause
-    # NOTE It's safe to run -fzZ, but not this (no, I'm telling you how)
+    # NOTE It's safe to run -fzZ, but not this
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        CreateSedUnminifyJSONscript
-
-        sTEST=$(RequestURL "$sGE_LATEST_VERSION_URL")
-
-        if IsJSONminified "$sTEST"; then
-            #echo "JSON is minified"
-            printf '%s' "$sTEST" > "$sGE_INSTALL_PATH/test.minified"
-            ReformatJSONUsingSed "$sGE_INSTALL_PATH/test.minified"
-            ShowConsoleDiff "$sGE_INSTALL_PATH/test.minified" "$sGE_INSTALL_PATH/test.minified.sedbak"
-        fi
-        #ReformatJSONUsingSed "$sFILE_LATEST_JSON"
-        #ReformatJSONUsingSed "$sFILE_RELEASES_JSON"
+        :
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -1468,7 +1457,7 @@ CleanUp() {
 
     [[ -d $sTMP_DIR ]] && {
         if [[ $iDEBUG -eq 0 ]]; then
-            if ! $sCOMMAND_RM -rf "$sTMP_DIR"; then
+            if ! rm -rf "$sTMP_DIR"; then
                 echo "CleanUp: Failed to remove temporary path at $sTMP_DIR"
                 return 1
             fi
@@ -1554,7 +1543,9 @@ Main() {
     ((iDEBUG)) && echo "($LINENO) Main: Debug mode enabled" 1>&2
 
     #TODO
-    SetupEnvironment || exit 1
+    if ! SetupEnvironment; then
+        echo "($LINENO) Main: One or more environment setup tasks failed"
+    fi
 
     #TODO
     ConfigureOptionalCommands
@@ -1695,7 +1686,7 @@ Main() {
 
 ###############################################################################
 # EXIT trap
-trap '((iDEBUG)) && echo "(DEBUG) EXIT trap: Exit status (before CleanUp): $?" 1>&2; iFINAL_CLEANUP=1 CleanUp; ((iDEBUG)) && echo "(DEBUG) EXIT trap: Exit status (after CleanUp): $?" 1>&2; exit $iREAL_EXIT_STATUS' EXIT
+trap '((iDEBUG)) && echo "(DEBUG) EXIT trap: Exit status (before CleanUp): $?" 1>&2; iFINAL_CLEANUP=1 CleanUp; ((iDEBUG)) && echo "(DEBUG) EXIT trap: Exit status (after CleanUp): $?" 1>&2; exit $iREAL_EXIT_STATUS' EXIT INT
 
 ###############################################################################
 
