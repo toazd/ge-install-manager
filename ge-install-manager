@@ -59,6 +59,7 @@ set +e # WARNING DO NOT set -e
 # "Things that would be nice, but aren't required for main features" list
 #
 # TODO find a way to not download releases so often (updates to download_count update the mtime of the remote file)
+# TODO what if githubs anonymous reqeust rate limit is exceeded (60/hr)?
 #
 ###############################################################################
 # Global variables
@@ -609,7 +610,7 @@ ListInstalledGEVersions() {
     for sNODE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [[ -f $sNODE ]]; then
             if [[ $iDEBUG -eq 1 ]]; then
-                DebugMessage "  ${sNODE##*/} (size: $(stat -c '%s' "$sNODE"), expected size: $(QueryGEAttribute "${sNODE##*/}" "size"))"
+                DebugMessage "${sNODE##*/} (size: $(stat -c '%s' "$sNODE"), expected size: $(QueryGEAttribute "${sNODE##*/}" "size"))"
             else
                 echo "  ${sNODE##*/} ($(du -h "$sNODE" | cut -f1))"
             fi
@@ -1187,7 +1188,7 @@ RequestURL() {
             else
                 DebugMessage "IsJSONminified returned failure"
             fi
-            [[ -f $sFILE ]] && mv "$sFILE" "$sFILE".runtf.bak
+            [[ -f $sFILE ]] && mv "$sFILE" "$sFILE".rurlbak
             printf '%s' "$sRESPONSE" > "$sFILE"
         else
             DebugMessage "sRESPONSE is NULL"
