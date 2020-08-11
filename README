@@ -28,14 +28,14 @@ Help:
                       Combined with -U, -u will be ignored
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
-                      Combine with -f to also remove the saved package or to remove a package
-                      if the install path was already removed for <version>
+                      Combine with -f to also remove the saved package
     -d <version>  - Download the package for <version> and save it to the install path
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
                       -f is also required to confirm that you are sure
     -f            - Force install, upgrade, or remove
-                      Combined with -u and/or -i, remove saved package and download a new copy
+                      Combined with -U and/or -i, remove saved package and download a new copy
+                      Combined with -R to remove a saved package (even if that version is not installed)
     -z            - Enable debug mode
                       Enable extra output messages and preserve any temporary files created
 
