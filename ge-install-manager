@@ -87,6 +87,8 @@ sGE_LATEST_VERSION=''
 sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
 sFILE_SED_UNMINIFY_SCRIPT="$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consider moving to XDG_DATA_HOME
 sCOMMAND_RM="rm" # command 'trash' replaces 'rm' if it is found
+sTMP_BASE_PATH="/tmp"
+sTMP_PREFIX="$sSCRIPT_FULL_NAME.tmp."
 # some script functionality depends on the following being initiaized as 0
 iFORCE=0
 iDEBUG=0
@@ -94,7 +96,7 @@ iDOWNLOAD=0
 iINSTALL=0
 iREMOVE=0
 iUPDATE=0
-iFINAL_CLEANUP=0
+iVERIFY=0
 iREMOVE_INSTALL_PATH=0
 iREMOVE_SAVED_PACKAGES=0
 iLIST_INSTALLED_GE_VERSIONS=0
@@ -105,6 +107,7 @@ iSHOW_USAGE=0
 iCHECK_UPDATE=0
 iINTEGRATION_TESTING=0
 iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
+iREAL_EXIT_STATUS=0
 OPTERR=1 # make sure it's on
 
 ###############################################################################
@@ -117,7 +120,8 @@ ShowHelp() {
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
     Optional:       du (display disk usage of a path/file)
                     ps (is steam running)
-                    trash (used instead of rm)
+                    sort, cmp (verify)
+                    trash (used in place of of rm [excluding temporary files])
 
     Install path:          $sGE_INSTALL_PATH
     Latest version URL:    $sGE_LATEST_VERSION_URL
@@ -134,6 +138,10 @@ ShowHelp() {
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
                       Combine with -f to also remove the saved package
+    -V            - Verify each installation using its saved package
+                      Combined with -v, -V will be skipped
+                      Saved packages will be downloaded as needed
+    -v <version>  - Verify <version> using its saved package
     -d <version>  - Download the package for <version> and save it to the install path
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
@@ -188,13 +196,22 @@ Usage:
 
   - Order of operations if multiple unique parameters are supplied:
     > NOTE: -h and/or -H, and -fzZ will exit irrespective of other parameters
-      Force toggle, Report environment info (-fzZ), Show help,
-      Show usage, Debug toggle, Check for latest release, Remove install path,
+      Force toggle,
+      Report environment info (-fzZ),
+      Show help,
+      Show usage,
+      Debug toggle,
+      Check for latest release,
+      Remove install path,
       Remove saved packages (if remove install path is not active),
       Remove installed version (if remove install path is not active),
-      Download, Update, Install, List installed,
+      Download,
+      Update,
+      Install,
+      List installed,
       Report install path usage,
       Report specific version usage
+      Verify
 
 END_OF_USAGE
 
@@ -315,8 +332,8 @@ DownloadGEPackage() {
         DebugMessage "Parameter error (NULL)"
         return 1
     }
-    local sTMP_DIR=$(MkTempPath)
-    local sTMP_PACKAGE=$sTMP_DIR/Proton-${sVERSION}.tar.gz
+    local sTMP_PATH=$(MkTempPath)
+    local sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
     local sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
     local iSIZE_BYTES=''
 
@@ -548,29 +565,36 @@ RemoveGEVersion() {
 ###############################################################################
 # Extracts a saved package (Proton-*.tar.gz) in the install path to the install path
 # Accepts one required parameter, the version, in one of the acceptable formats described in usage
+# Accepts one optional second parameter, the path to extract the package to
 ExtractGEPackage() {
 
     local sVERSION=$(CleanUpVersion "$1")
     local sEXTRACT_FILE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
+    local sEXTRACT_PATH=${2:-$sGE_INSTALL_PATH}
 
     [[ -z $sVERSION ]] && {
         DebugMessage "Parameter error (NULL)"
         return 1
     }
 
-    printf '%s' "Extracting"
-    if tar --checkpoint=.10000 -C "$sGE_INSTALL_PATH" -xzf "$sEXTRACT_FILE" 2>/dev/null; then
+    [[ ! -d $sEXTRACT_PATH && -w $sEXTRACT_PATH ]] && {
+        DebugMessage "Parameter error (Not a valid path)"
+        return 1
+    }
+
+    printf '%s' "Extracting \"$sEXTRACT_FILE\" to \"$sEXTRACT_PATH\""
+    if tar --checkpoint=.10000 -C "$sEXTRACT_PATH" -xzf "$sEXTRACT_FILE" 2>/dev/null; then
         printf '\r\033[0K%s\n' "Package extracted successfully"
         return 0
     else
         printf '\r\033[0K%s\n' "Package extraction failed"
-        [[ -d $sGE_INSTALL_PATH/Proton-${sVERSION} ]] && {
-            DebugMessage "Removing failed extraction path \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
-            if $sCOMMAND_RM -rf "$sGE_INSTALL_PATH/Proton-${sVERSION}"; then
+        [[ -d $sEXTRACT_PATH/Proton-${sVERSION} ]] && {
+            DebugMessage "Removing failed extraction path \"$sEXTRACT_PATH/Proton-${sVERSION}\""
+            if $sCOMMAND_RM -rf "$sEXTRACT_PATH/Proton-${sVERSION}"; then
                 DebugMessage "Removal succeeded"
-                echo "Removed failed extraction path at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
+                echo "Removed failed extraction path at \"$sEXTRACT_PATH/Proton-${sVERSION}\""
             else
-                echo "Failed to remove path of failed extraction: \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
+                echo "Failed to remove path of failed extraction: \"$sEXTRACT_PATH/Proton-${sVERSION}\""
                 # TODO update/remove message when install verification is updated
                 echo "This script may interpret it as a valid install until it is removed"
             fi
@@ -586,7 +610,7 @@ ExtractGEPackage() {
 ListInstalledGEVersions() {
 
     local iCOUNT=0
-    local sNODE=''
+    local sNODE
     #local sEXTRACTED_VERSION=''
 
     DebugMessage "Install path: \"$sGE_INSTALL_PATH\""
@@ -754,6 +778,159 @@ RemoveGEInstallPath() {
         echo "Removal of install path \"$sGE_INSTALL_PATH\" failed"
         return 1
     fi
+
+    return 0
+}
+
+###############################################################################
+# TODO sort, cmp,
+VerifyGEInstall() {
+
+    local sNODE
+    local sTMP_PATH=$(MkTempPath)
+    local sVERSION=$1
+    local iaEXTRACTED=()
+    local iaINSTALLED=()
+    local iMATCH_COUNTER=0
+    local iMISSING_COUNTER=0
+    local iMISMATCH_COUNTER=0
+    local iFILE_COUNT_MATCH=0
+    local iCOUNTER=0
+    local iCOUNTER_EXTRACTED=0
+    local iCOUNTER_INSTALLED=0
+    local iSTART_TIME_SECONDS=0 # NOTE bash 5+ is required for EPOCHSECONDS
+    local iEND_TIME_SECONDS=0   # NOTE bash 4.2+ is required for printf $()T
+    local iPROGRESS=0
+    local iPREV_PROGRESS=1
+
+    # required external command (Arch: package diffutils)
+    if ! command -v cmp >/dev/null; then
+        echo "Command 'cmp' is required to use this function"
+        return 1
+    fi
+
+    # Check for install paths that don't have a saved package, download if missing
+    for sNODE in "$sGE_INSTALL_PATH/Proton-"*; do
+        [[ -d $sNODE ]] && {
+            # Verify that it is installed
+            IsInstalled "${sNODE##*/}" && {
+                # If no saved package exists for this version
+                [[ ! -f $sGE_INSTALL_PATH/${sNODE##*/}.tar.gz ]] && {
+                    echo "Package not found for installed version \"${sNODE##*/}\""
+                    DownloadGEPackage "${sNODE##*/Proton-}"
+                }
+            }
+        }
+    done
+
+    # For each saved package available, check each file of the contents against the install path if it exists
+    for sNODE in "$sGE_INSTALL_PATH"/Proton-${sVERSION:=*}.tar.gz; do
+        [[ -f $sNODE ]] && {
+            sVERSION=$(CleanUpVersion "${sNODE##*/}")
+            #[[ $sNODE != *Proton-5.9-GE-TEST-ST* ]] && continue
+            echo "Found a package for version \"$sVERSION\""
+            if ! IsInstalled "$sVERSION"; then
+                echo "Version \"$sVERSION\" is not installed"
+                continue
+            else
+                echo "Version \"$sVERSION\" is installed"
+                if ! ExtractGEPackage "$sVERSION" "$sTMP_PATH"; then
+                    return 1
+                fi
+
+                # create two indexed arrays, each containing a seperate list of files, one from the extracted path and the other from the installed path respectively
+                #printf '\033[s%s' "Indexing files to compare"
+                echo "Indexing files to compare"
+                while IFS= read -r sFILE_EXTRACTED; do
+                    iaEXTRACTED+=("$sFILE_EXTRACTED")
+                done < <(find "$sTMP_PATH/Proton-${sVERSION}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
+                while IFS= read -r sFILE_INSTALLED; do
+                    iaINSTALLED+=("$sFILE_INSTALLED")
+                done < <(find "$sGE_INSTALL_PATH/Proton-${sVERSION}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
+
+                # Report files found in each
+                #printf "\033[u\033[0K%s\n" "${#iaEXTRACTED[@]} (extracted files) vs ${#iaINSTALLED[@]} (installed files)"
+                echo "${#iaEXTRACTED[@]} (extracted) vs ${#iaINSTALLED[@]} (installed)"
+
+                # Based on array element sizes, decide on a method to compare files
+                #if [[ $iDEBUG -eq 1 ]]; then
+                if [[ ${#iaEXTRACTED[@]} -ne ${#iaINSTALLED[@]} ]]; then
+                    #DebugMessage "Array sizes do not match: ${#iaEXTRACTED[@]} vs ${#iaINSTALLED[@]}"
+                    DebugMessage "Array sizes are not equal"
+                    echo "Using slower method for comparing"
+                    iFILE_COUNT_MATCH=0
+                else
+                    #DebugMessage "Array sizes match: ${#iaEXTRACTED[@]} vs ${#iaINSTALLED[@]}"
+                    DebugMessage "Array sizes are equal"
+                    echo "Using faster method for comparing"
+                    iFILE_COUNT_MATCH=1
+                fi
+
+                # begin comparing, using the faster method
+                # NOTE do not output to console during the either compare loop
+                printf '%s\033[s' "Comparing files"
+                # if the number of entries match, check them directly against eachother
+                if [[ $iFILE_COUNT_MATCH -eq 1 ]]; then
+                    iTOTAL_FILES=${#iaEXTRACTED[@]}
+                    iSTART_TIME_SECONDS=$(date +%s)
+                    for iCOUNTER in "${!iaEXTRACTED[@]}"; do
+                        cmp -s "${iaEXTRACTED[iCOUNTER]}" "${iaINSTALLED[iCOUNTER]}"
+                        case $? in
+                            0) ((iMATCH_COUNTER++)) ;;
+                            1) ((iMISMATCH_COUNTER++)) ;;
+                            2) ((iMISSING_COUNTER++)) ;;
+                        esac
+                        unset 'iaEXTRACTED[iCOUNTER]'
+                        unset 'iaINSTALLED[iCOUNTER]'
+                        # Progress report
+                        iPROGRESS=$(((iCOUNTER*100)/iTOTAL_FILES))
+                        [[ $iPROGRESS -ne $iPREV_PROGRESS ]] && printf '\033[u%s' "... ${iPROGRESS}%" # Only update the progress when it actually changes
+                        iPREV_PROGRESS=$iPROGRESS
+                    done
+                    iEND_TIME_SECONDS=$(date +%s)
+                # begin comparing, using the slower method
+                # if the number of elements don't match, check only the files that appear in the archive
+                # NOTE this method is quite a bit slower TODO learn a better way
+                # for each file in iaEXTRACTED, find the entry in iaINSTALLED that matches it (as much as is possible), then compare them
+                elif [[ $iFILE_COUNT_MATCH -eq 0 ]]; then
+                    iTOTAL_FILES=${#iaEXTRACTED[@]}
+                    iSTART_TIME_SECONDS=$(date +%s)
+                    for iCOUNTER_EXTRACTED in "${!iaEXTRACTED[@]}"; do
+                        # strip away the part of the path that is different for the current file
+                        sCOMPARE_EXTRACTED=${iaEXTRACTED[iCOUNTER_EXTRACTED]/#$sTMP_PATH\/}
+
+                        for iCOUNTER_INSTALLED in "${!iaINSTALLED[@]}"; do
+                            # strip away the part of the path that is different for the current file
+                            sCOMPARE_INSTALLED=${iaINSTALLED[iCOUNTER_INSTALLED]/#$sGE_INSTALL_PATH\/}
+
+                            if [[ $sCOMPARE_INSTALLED = "$sCOMPARE_EXTRACTED" ]]; then
+                                cmp -s "${iaINSTALLED[iCOUNTER_INSTALLED]}" "${iaEXTRACTED[iCOUNTER_EXTRACTED]}"
+                                case $? in
+                                    0) ((iMATCH_COUNTER++)) ;;
+                                    1) ((iMISMATCH_COUNTER++)) ;;
+                                    2) ((iMISSING_COUNTER++)) ;;
+                                esac
+                                unset 'iaEXTRACTED[iCOUNTER_EXTRACTED]'
+                                unset 'iaINSTALLED[iCOUNTER_INSTALLED]'
+                            fi
+                        done
+
+                        # Progress report
+                        iPROGRESS=$(((iCOUNTER_EXTRACTED*100)/iTOTAL_FILES))
+                        [[ $iPROGRESS -ne $iPREV_PROGRESS ]] && printf '\033[u%s' "... ${iPROGRESS}%" # Only update the progress when it actually changes
+                        iPREV_PROGRESS=$iPROGRESS
+                    done
+                    iEND_TIME_SECONDS=$(date +%s)
+                fi
+                printf "\033[u\033[0K%s\n" ". Finished in $((iEND_TIME_SECONDS-iSTART_TIME_SECONDS)) seconds."
+
+                echo "$iMATCH_COUNTER files match. $iMISSING_COUNTER files are missing. $iMISMATCH_COUNTER do not match."
+            fi
+            #quit after one round
+            #return 0
+        }
+    done
+
 
     return 0
 }
@@ -1262,14 +1439,11 @@ CleanUpVersion() {
 # Accepts no parameters, returns the tmp path/file created
 MkTempFile() {
 
-    local sTMP_BASE_PATH
     local sTMP_FILE_CREATED
-
-    sTMP_BASE_PATH="/tmp"
 
     [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || return 1
 
-    sTMP_FILE_CREATED="$sTMP_BASE_PATH/$sSCRIPT_FULL_NAME.tmp.$(GenerateRandomAlphaNumericString 10)"
+    sTMP_FILE_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
 
     # Create the empty temp file
     printf '' > "$sTMP_FILE_CREATED"
@@ -1286,14 +1460,11 @@ MkTempFile() {
 # Accepts no parameters, returns the tmp path created
 MkTempPath() {
 
-    local sTMP_BASE_PATH
     local sTMP_PATH_CREATED
-
-    sTMP_BASE_PATH="/tmp"
 
     [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || return 1
 
-    sTMP_PATH_CREATED="$sTMP_BASE_PATH/$sSCRIPT_FULL_NAME.$(GenerateRandomAlphaNumericString 15)"
+    sTMP_PATH_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
 
     # Create the path
     mkdir -p "$sTMP_PATH_CREATED"
@@ -1508,7 +1679,7 @@ ReportEnvironmentInfo() {
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        DebugMessage "Hello World!"
+        :
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -1524,7 +1695,7 @@ ReportEnvironmentInfo() {
     echo "###############################################################################"
 
     # report found/not found status of commands used
-    command -V du find wc curl tar gzip ps stat sed
+    command -V du find wc curl tar gzip ps stat sed cmp sort
 
     echo "###############################################################################"
 
@@ -1567,38 +1738,38 @@ ConfigureOptionalCommands() {
 }
 
 ###############################################################################
-# Remove temporary path defined in sTMP_DIR on EXIT/manual invocation
-# TODO
+# Remove any temporary files/paths created by the script if debug mode is not enabled
 CleanUp() {
-    # NOTE must be first
-    # used to pass the exit status of the last command before CleanUp was invoked to the calling environment in case of unexpected failure
-    iREAL_EXIT_STATUS=$?
 
-    # paths
-    [[ -d $sTMP_DIR ]] && {
-        if ((iDEBUG)) && [[ $iFINAL_CLEANUP -ne 1 ]]; then
-            DebugMessage "Temporary path not removed: $sTMP_DIR"
-        fi
-        if [[ $iDEBUG -eq 0 ]]; then
-            if ! rm -rf "$sTMP_DIR"; then
-                echo "CleanUp: Failed to remove temporary path at $sTMP_DIR"
-                return 1
+    for sNODE in "$sTMP_BASE_PATH/$sTMP_PREFIX"*; do
+        # paths
+        [[ -d $sNODE ]] && {
+            DebugMessage "Temporary path found at \"$sNODE\""
+            if ((iDEBUG)); then
+                DebugMessage "Debug enabled. Temporary path not removed."
+            else
+                if rm -rf "$sNODE"; then
+                    DebugMessage "Temporary path removed"
+                else
+                    DebugMessage "Failed to remove temporary path"
+                fi
             fi
-        fi
-    }
+        }
 
-    # files
-    [[ -f $sTMP_DIR ]] && {
-        if ((iDEBUG)) && [[ $iFINAL_CLEANUP -ne 1 ]]; then
-            DebugMessage "Temporary file not removed: $sTMP_DIR"
-        fi
-        if [[ $iDEBUG -eq 0 ]]; then
-            if ! rm -rf "$sTMP_DIR"; then
-                echo "CleanUp: Failed to remove temporary file at $sTMP_DIR"
-                return 1
+        # files
+        [[ -f $sNODE ]] && {
+            DebugMessage "Tmp file found at \"$sNODE\""
+            if ((iDEBUG)); then
+                DebugMessage "Debug enabled. Temporary file not removed."
+            else
+                if rm -rf "$sNODE"; then
+                    DebugMessage "Temporary file removed"
+                else
+                    DebugMessage "Failed to remove temporary file"
+                fi
             fi
-        fi
-    }
+        }
+    done
 
     return 0
 }
@@ -1608,7 +1779,7 @@ CleanUp() {
 # requested. Order of operations for invocations that involve multiple parameters
 # are listed at the end of the usage section.
 ParseParameters() {
-    while getopts 'zZThHflSs:i:d:R:NuUX' sOPT; do
+    while getopts 'zZThHflSs:i:d:R:NuUXv:V' sOPT; do
         case "$sOPT" in
             (h) iSHOW_HELP=1 ;;
             (H) iSHOW_USAGE=1 ;;
@@ -1642,6 +1813,11 @@ ParseParameters() {
                 sINSTALL_VERSION=$OPTARG
             ;;
             (U) iUPDATE=1 ;;
+            (V) iVERIFY=1 ;;
+            (v)
+                iVERIFY=1
+                sVERIFY_VERSION=$OPTARG
+            ;;
             (":"|"?")
                 return 1
             ;;
@@ -1720,7 +1896,7 @@ Main() {
         echo "Skipping remove version/package because remove install path was also requested"
     fi
 
-    # Downlaod a package
+    # Download a package
     ((iDOWNLOAD)) && {
         DownloadGEPackage "$sDOWNLOAD_VERSION" # NOTE sDOWNLOAD_VERSION is set in getops
     }
@@ -1781,6 +1957,13 @@ Main() {
     # Report disk usage and file count for a specific version
     [[ $iREPORT_VERSION_USAGE -eq 1 ]] && ReportGEDiskUsage "$sREPORT_VERSION"
 
+    # Run verify if remove install path and remove saved packages wasn't requested
+    # TODO add support to verify even if remove saved packages and/or remove install path was invoked
+    # so long as some sort of install was also requested. Additionally, maybe support installing a version
+    # that is not installed when verify is called and force mode is active.
+    if [[ $iVERIFY -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -ne 1 && $iREMOVE_SAVED_PACKAGES -ne 1 ]]; then
+        VerifyGEInstall "$sVERIFY_VERSION"
+    fi
 
     # If no parameters were supplied, show help
     # NOTE ignore iFORCE and iDEBUG flags
@@ -1793,6 +1976,7 @@ Main() {
        [[ $iDOWNLOAD -eq 0 ]] && \
        [[ $iINSTALL -eq 0 ]] && \
        [[ $iCHECK_UPDATE -eq 0 ]] && \
+       [[ $iVERIFY -eq 0 ]] && \
        [[ $iUPDATE -eq 0 ]]; then
 
         ((iDEBUG)) && {
@@ -1820,7 +2004,7 @@ Main() {
 
 ###############################################################################
 # EXIT trap
-trap 'DebugMessage "[EXIT INT trap]: Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; DebugMessage "[EXIT INT trap]: Exit status (after CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT INT
+trap 'iREAL_EXIT_STATUS=$?; DebugMessage "[EXIT INT trap]: Exit status (before CleanUp): $iREAL_EXIT_STATUS"; CleanUp; DebugMessage "[EXIT INT trap]: Exit status (after CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT INT
 
 ###############################################################################
 

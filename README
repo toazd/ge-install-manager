@@ -16,6 +16,7 @@ Help:
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
     Optional:       du (display disk usage of a path/file)
                     ps (is steam running)
+                    sort, cmp (verify)
                     trash (used instead of rm)
 
     -h            - Show this help
@@ -29,6 +30,10 @@ Help:
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
                       Combine with -f to also remove the saved package
+    -V            - Verify each installation using its saved package
+                      Combined with -v, -V will be skipped
+                      Saved packages will be downloaded as needed
+    -v <version>  - Verify <version> using its saved package
     -d <version>  - Download the package for <version> and save it to the install path
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
@@ -89,3 +94,4 @@ Usage:
       List installed,
       Report install path usage,
       Report specific version usage
+      Verify
