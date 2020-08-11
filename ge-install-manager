@@ -803,8 +803,8 @@ VerifyGEInstall() {
     local iPROGRESS=0
     local iPREV_PROGRESS=1
 
-    # required external command (Arch: package diffutils)
-    if ! command -v cmp >/dev/null; then
+    # Required external commands
+    if ! command -v cmp >/dev/null && ! command -v sort >/dev/null; then
         echo "Command 'cmp' is required to use this function"
         return 1
     fi
@@ -840,6 +840,7 @@ VerifyGEInstall() {
 
                 # create two indexed arrays, each containing a seperate list of files, one from the extracted path and the other from the installed path respectively
                 #printf '\033[s%s' "Indexing files to compare"
+                # NOTE __pycache__ is created at runtime and will not be present in the saved packages
                 echo "Indexing files to compare"
                 while IFS= read -r sFILE_EXTRACTED; do
                     iaEXTRACTED+=("$sFILE_EXTRACTED")
