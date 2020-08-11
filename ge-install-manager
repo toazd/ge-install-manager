@@ -103,6 +103,7 @@ iSHOW_HELP=0
 iSHOW_USAGE=0
 iCHECK_UPDATE=0
 iINTEGRATION_TESTING=0
+iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
 OPTERR=1 # make sure it's on
 
 ###############################################################################
@@ -1025,8 +1026,8 @@ IsJSONminified() {
 # TODO
 CreateSedUnminifyJSONscript() {
 
-    if [[ ! -f $sFILE_SED_UNMINIFY_SCRIPT ]] || [[ $(stat -c '%s' "$sFILE_SED_UNMINIFY_SCRIPT") -ne 824 ]]; then
-        DebugMessage "'sed' script at \"$sFILE_SED_UNMINIFY_SCRIPT\" does not exist or is not the expected size"
+    if [[ ! -f $sFILE_SED_UNMINIFY_SCRIPT ]] || [[ $(stat -c '%s' "$sFILE_SED_UNMINIFY_SCRIPT") -ne $iSIZE_BYTES_SED_UNMINIFY_SCRIPT ]]; then
+        DebugMessage "'sed' script at \"$sFILE_SED_UNMINIFY_SCRIPT\" does not exist or is not the expected size ($iSIZE_BYTES_SED_UNMINIFY_SCRIPT)"
         cat > "$sFILE_SED_UNMINIFY_SCRIPT" <<"END_OF_SED_SCRIPT"
 #### begin minimum required for ge-install-manager
 # replace: ","
@@ -1079,7 +1080,7 @@ s/"}/"/g
 s/\["/"/g
 END_OF_SED_SCRIPT
     else
-        DebugMessage "'sed' script already exists at sFILE_SED_UNMINIFY_SCRIPT and is the expected size"
+        DebugMessage "'sed' script already exists at sFILE_SED_UNMINIFY_SCRIPT and is the expected size ($iSIZE_BYTES_SED_UNMINIFY_SCRIPT)"
     fi
 
     return 0
@@ -1247,7 +1248,7 @@ CleanUpVersion() {
 
     ((iDEBUG)) && {
         DebugMessage "After: \"$sVERSION\""
-        [[ $iLENGTH -ne ${#sVERSION} ]] && DebugMessage "removed $(( iLENGTH - ${#sVERSION} )) characters"
+        [[ $iLENGTH -ne ${#sVERSION} ]] && DebugMessage "Removed $(( iLENGTH - ${#sVERSION} )) characters"
     }
 
     printf '%s' "$sVERSION"
@@ -1471,14 +1472,31 @@ DebugMessage() {
     # If debug mode is not active, do nothing
     ((iDEBUG)) || return 0
 
-    [[ -z $1 ]] && { echo "($LINENO) DebugMessage: Parameter error (NULL)"; return 0; }
+    [[ -z $1 ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 0; }
 
-    local sCALL_LINE=${BASH_LINENO[0]}
-    local sCALL_FUNC=${FUNCNAME[1]}
+    #echo "Length: ${#FUNCNAME[@]}" 1>&2
+    #echo "FuncTrace: ${FUNCNAME[@]}" 1>&2
+    #echo "$((${#FUNCNAME[@]}-2))" 1>&2
 
+    # Show a function trace up to 4 functions back
+    # (excluding bash's main from the function trace)
+    # General format:
+    # Function stack {1..4}:
+    #   (Calling Line)[Function call order]: Message
+    # Function stack count >4:
+    #   (Calling Line)[(Function count before), Function call order]: Message
+    case $((${#FUNCNAME[@]}-2)) in
+        0) printf '%s\n' "$1" 1>&2 ;; # NOTE if ${#FUNCNAME[@]}-2 would be <= zero "0", the case checked is zero "0"
+        1) printf '%s\n' "(L${BASH_LINENO[0]})[${FUNCNAME[1]}]: $1" 1>&2 ;;
+        2) printf '%s\n' "(L${BASH_LINENO[0]})[${FUNCNAME[2]},${FUNCNAME[1]}]: $1" 1>&2 ;;
+        3) printf '%s\n' "(L${BASH_LINENO[0]})[${FUNCNAME[3]},${FUNCNAME[2]},${FUNCNAME[1]}]: $1" 1>&2 ;;
+        4) printf '%s\n' "(L${BASH_LINENO[0]})[${FUNCNAME[4]},${FUNCNAME[3]},${FUNCNAME[2]},${FUNCNAME[1]}]: $1" 1>&2 ;;
+        *) printf '%s\n' "(L${BASH_LINENO[0]})[($((${#FUNCNAME[@]}-5))),${FUNCNAME[3]},${FUNCNAME[2]},${FUNCNAME[1]}]: $1" 1>&2 ;;
+    esac
     # Output to stderr / fd2
-    printf '%s\n' "($sCALL_LINE) $sCALL_FUNC: $1" 1>&2
-
+    #if [[ -n ${FUNCNAME[3]} && -n ${FUNCNAME[2]} && ${FUNCNAME[1]} ]]; then
+    #    printf '%s\n' "(${BASH_LINENO[0]})(${#FUNCNAME[@]})[${FUNCNAME[3]}=>${FUNCNAME[2]}=>${FUNCNAME[1]}] $1" 1>&2
+    #fi
     return 0
 }
 
@@ -1653,7 +1671,7 @@ Main() {
     fi
 
     # debug mode
-    ((iDEBUG)) && echo "($LINENO) Main: Debug mode enabled" 1>&2
+    DebugMessage "Debug mode enabled"
 
     #TODO
     if ! SetupEnvironment; then
@@ -1780,7 +1798,7 @@ Main() {
             if IsSteamRunning; then
                 DebugMessage "Steam is running"
             else
-                DebugMessage "Steam is not running"s
+                DebugMessage "Steam is not running"
             fi
             DebugMessage "Nothing to do"
         }
@@ -1801,7 +1819,7 @@ Main() {
 
 ###############################################################################
 # EXIT trap
-trap 'DebugMessage "EXIT trap: Exit status (before CleanUp): $?" 1>&2; iFINAL_CLEANUP=1 CleanUp; DebugMessage "EXIT trap: Exit status (after CleanUp): $?" 1>&2; exit $iREAL_EXIT_STATUS' EXIT INT
+trap 'DebugMessage "[EXIT INT trap]: Exit status (before CleanUp): $?"; iFINAL_CLEANUP=1 CleanUp; DebugMessage "[EXIT INT trap]: Exit status (after CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT INT
 
 ###############################################################################
 
