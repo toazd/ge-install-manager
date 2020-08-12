@@ -63,7 +63,7 @@ set +e # WARNING DO NOT set -e
 #
 ###############################################################################
 # Global variables
-sSCRIPT_VERSION="0.7.2"
+sSCRIPT_VERSION="0.7.3"
 sSCRIPT_CODENAME="Cochrane Bonaventure"
 sGE_INSTALL_PATH="$HOME"/.steam/root/compatibilitytools.d
 #sSCRIPT_SHORT_NAME="ge-install-manager"
@@ -931,7 +931,6 @@ VerifyGEInstall() {
             #return 0
         }
     done
-
 
     return 0
 }
