@@ -67,9 +67,9 @@ sSCRIPT_VERSION="0.7.3"
 sSCRIPT_CODENAME="Cochrane Bonaventure"
 sGE_INSTALL_PATH="$HOME"/.steam/root/compatibilitytools.d
 #sSCRIPT_SHORT_NAME="ge-install-manager"
-sSCRIPT_FULL_NAME="ge-install-manager"
-sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME/.config"}/$sSCRIPT_FULL_NAME
-sSCRIPT_CACHE_PATH=${XDG_CACHE_HOME:-"$HOME/.cache"}/$sSCRIPT_FULL_NAME
+sSCRIPT_FULL_NAME=${0##*/}
+sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
+sSCRIPT_CACHE_PATH=${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME
 # JSON data sources TODO optional support for jq in addition to keeping sed as a fallback
 sGE_LATEST_VERSION_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
 sGE_RELEASES_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
@@ -87,7 +87,7 @@ sGE_LATEST_VERSION=''
 sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
 sFILE_SED_UNMINIFY_SCRIPT="$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consider moving to XDG_DATA_HOME
 sCOMMAND_RM="rm" # command 'trash' replaces 'rm' if it is found
-sTMP_BASE_PATH="/tmp"
+sTMP_BASE_PATH=/tmp
 sTMP_PREFIX="$sSCRIPT_FULL_NAME.tmp."
 # some script functionality depends on the following being initiaized as 0
 iFORCE=0
