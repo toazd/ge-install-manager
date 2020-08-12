@@ -328,35 +328,29 @@ UpdateSavedGEReleases() {
 DownloadGEPackage() {
 
     local sVERSION=$(CleanUpVersion "$1")
-    [[ -z $sVERSION ]] && {
-        DebugMessage "Parameter error (NULL)"
-        return 1
-    }
+    [[ -z $sVERSION ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
     local sTMP_PATH=$(MkTempPath)
     local sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
     local sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
     local iSIZE_BYTES=''
 
-    [[ -z $sGE_DOWNLOAD_URL ]] && {
-        DebugMessage "sVERSION is NULL"
-        return 1
-    }
+    [[ -z $sGE_DOWNLOAD_URL ]] && { DebugMessage "sGE_DOWNLOAD_URL is NULL"; return 1; }
 
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
         iSIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
         DebugMessage "Package size in bytes: \"$iSIZE_BYTES\""
-        if [[ $iSIZE_BYTES -eq 9 ]] && [[ $(cat "$sTMP_PACKAGE" 2>/dev/null) = "Not Found" ]]; then
+        if [[ $iSIZE_BYTES -eq 9 ]] || [[ $(cat "$sTMP_PACKAGE" 2>/dev/null) =~ ^[Nn]ot[[:blank:]]+[Ff]ound$ ]]; then
             echo "Server responded \"Not Found\" for version \"$sVERSION\""
             CleanUp
             return 1
         fi
         if [[ $iSIZE_BYTES = "$(QueryGEAttribute "$sVERSION" "size")" ]]; then
-            echo "Downloaded package size matches the expected size"
+            echo "Downloaded package is the expected size"
         else
             printf '%s\n%s\n' \
                    "Downloaded file size and expected size do not match" \
-                   "(\"$iSIZE_BYTES\" != \"$(QueryGEAttribute "$sVERSION" "size")\")"
+                   "(\"$iSIZE_BYTES\" vs \"$(QueryGEAttribute "$sVERSION" "size")\")"
            CleanUp
            return 1
         fi
@@ -366,7 +360,7 @@ DownloadGEPackage() {
             echo "Download succeeded"
             CleanUp
         else
-            DebugMessage "Copy package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\" failed"
+            DebugMessage "Copy package from \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\" failed"
             echo "Download failed"
             CleanUp
             return 1
@@ -412,17 +406,14 @@ InstallGEVersion() {
 
     sVERSION=$(CleanUpVersion "$1")
 
-    [[ -z $sVERSION ]] && {
-        DebugMessage "sVERSION is NULL"
-        return 1
-    }
+    [[ -z $sVERSION ]] && { DebugMessage "sVERSION is NULL"; return 1; }
 
     DebugMessage "Requested sVERSION is \"$sVERSION\""
 
     # Re-install a version that is already installed
     if IsInstalled "$sVERSION"; then
         if [[ $iFORCE -eq 0 ]]; then
-            echo "\"$sVERSION\" is already installed"
+            echo "Version \"$sVERSION\" is already installed"
             return 0
         elif [[ $iFORCE -eq 1 ]]; then
             if IsSteamRunning; then
@@ -446,9 +437,9 @@ InstallGEVersion() {
     elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
         echo "Removing saved package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
         if $sCOMMAND_RM "$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"; then
-            echo "Package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz removed\""
+            echo "Package removed"
         else
-            echo "Removing package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\" failed"
+            echo "Removing package failed"
             return 1
         fi
     fi
@@ -482,16 +473,7 @@ RemoveGEVersion() {
     local sREMOVE_PACKAGE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
     local sSIZE="0"
 
-    [[ -z $sVERSION ]] && {
-        DebugMessage "Parameter error (NULL)"
-        return 1
-    }
-
-    # NOTE do not do this
-    #if ! IsInstalled "$sVERSION"; then
-    #    echo "Version \"$sVERSION\" is not installed"
-    #    return 0
-    #fi
+    [[ -z $sVERSION ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
 
     DebugMessage "Requested sVERSION: \"$sVERSION\" sREMOVE_PATH: \"$sREMOVE_PATH\" sREMOVE_PACKAGE: \"$sREMOVE_PACKAGE\""
     # If force is enabled, remove the path and the package
@@ -499,7 +481,7 @@ RemoveGEVersion() {
         DebugMessage "Force mode is enabled"
         # Remove the path if it exists
         if [[ -d $sREMOVE_PATH ]]; then
-            DebugMessage "Path exists"
+            DebugMessage "sREMOVE_PATH exists"
             if ! IsSteamRunning; then
                 sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
                 sSIZE=${sSIZE%[[:space:]]*}
@@ -514,12 +496,12 @@ RemoveGEVersion() {
                 return 1
             fi
         else
-            DebugMessage "Path does not exist"
+            DebugMessage "sREMOVE_PACKAGE does not exist"
             echo "Install path not found for version \"$sVERSION\""
         fi
         # Remove the package if it exists
         if [[ -f $sREMOVE_PACKAGE ]]; then
-            DebugMessage "Package exists"
+            DebugMessage "sREMOVE_PACKAGE exists"
             sSIZE=$(du -h "$sREMOVE_PACKAGE" 2>/dev/null)
             sSIZE=${sSIZE%[[:space:]]*}
             if $sCOMMAND_RM -f "$sREMOVE_PACKAGE" >/dev/null; then
@@ -529,8 +511,8 @@ RemoveGEVersion() {
                 return 1
             fi
         else
-            DebugMessage "Package does not exist"
-            echo "Package for version \"$sVERSION\" not found"
+            DebugMessage "sREMOVE_PACKAGE does not exist"
+            echo "Package \"$sREMOVE_PACKAGE\" not found"
         fi
     # If force is not enabled, remove only the install path for sVERSION
     elif [[ $iFORCE -eq 0 ]]; then
@@ -788,7 +770,7 @@ VerifyGEInstall() {
 
     local sNODE
     local sTMP_PATH=$(MkTempPath)
-    local sVERSION=$1
+    local sVERSION=$(CleanUpVersion "$1")
     local iaEXTRACTED=()
     local iaINSTALLED=()
     local iMATCH_COUNTER=0
@@ -824,7 +806,7 @@ VerifyGEInstall() {
     done
 
     # For each saved package available, check each file of the contents against the install path if it exists
-    for sNODE in "$sGE_INSTALL_PATH"/Proton-${sVERSION:=*}.tar.gz; do
+    for sNODE in "$sGE_INSTALL_PATH"/Proton-${sVERSION:-*}.tar.gz; do
         [[ -f $sNODE ]] && {
             sVERSION=$(CleanUpVersion "${sNODE##*/}")
             #[[ $sNODE != *Proton-5.9-GE-TEST-ST* ]] && continue
@@ -854,7 +836,7 @@ VerifyGEInstall() {
                 echo "${#iaEXTRACTED[@]} (extracted) vs ${#iaINSTALLED[@]} (installed)"
 
                 # Based on array element sizes, decide on a method to compare files
-                #if [[ $iDEBUG -eq 1 ]]; then
+                #if [[ $(true) = "$(false)" ]]; then
                 if [[ ${#iaEXTRACTED[@]} -ne ${#iaINSTALLED[@]} ]]; then
                     #DebugMessage "Array sizes do not match: ${#iaEXTRACTED[@]} vs ${#iaINSTALLED[@]}"
                     DebugMessage "Array sizes are not equal"
@@ -877,12 +859,20 @@ VerifyGEInstall() {
                     for iCOUNTER in "${!iaEXTRACTED[@]}"; do
                         cmp -s "${iaEXTRACTED[iCOUNTER]}" "${iaINSTALLED[iCOUNTER]}"
                         case $? in
-                            0) ((iMATCH_COUNTER++)) ;;
-                            1) ((iMISMATCH_COUNTER++)) ;;
-                            2) ((iMISSING_COUNTER++)) ;;
+                            (0) ((iMATCH_COUNTER++)) ;;
+                            (1) ((iMISMATCH_COUNTER++)) ;;
+                            (2) ((iMISSING_COUNTER++)) ;;
                         esac
-                        unset 'iaEXTRACTED[iCOUNTER]'
-                        unset 'iaINSTALLED[iCOUNTER]'
+                        # 1 - do nothing - 5.9-GE-3-ST - 6 seconds
+                        # 2 - do nothing - 5.9-GE-3-ST - 6 seconds
+                        # 3 - do nothing - 5.9-GE-3-ST - 6 seconds
+
+                        # 1 - 5.9-GE-3-ST - 6 seconds
+                        # 2 - 5.9-GE-3-ST - 7 seconds
+                        # 3 - 5.9-GE-3-ST - 7 seconds
+                        #unset 'iaINSTALLED[iCOUNTER]'
+                        #unset 'iaEXTRACTED[iCOUNTER]'
+
                         # Progress report
                         iPROGRESS=$(((iCOUNTER*100)/iTOTAL_FILES))
                         [[ $iPROGRESS -ne $iPREV_PROGRESS ]] && printf '\033[u%s' "... ${iPROGRESS}%" # Only update the progress when it actually changes
@@ -907,12 +897,25 @@ VerifyGEInstall() {
                             if [[ $sCOMPARE_INSTALLED = "$sCOMPARE_EXTRACTED" ]]; then
                                 cmp -s "${iaINSTALLED[iCOUNTER_INSTALLED]}" "${iaEXTRACTED[iCOUNTER_EXTRACTED]}"
                                 case $? in
-                                    0) ((iMATCH_COUNTER++)) ;;
-                                    1) ((iMISMATCH_COUNTER++)) ;;
-                                    2) ((iMISSING_COUNTER++)) ;;
+                                    (0) ((iMATCH_COUNTER++)) ;;
+                                    (1) ((iMISMATCH_COUNTER++)) ;;
+                                    (2) ((iMISSING_COUNTER++)) ;;
                                 esac
-                                unset 'iaEXTRACTED[iCOUNTER_EXTRACTED]'
+                                # fastest - 5.9-GE-3-ST - 246 seconds
                                 unset 'iaINSTALLED[iCOUNTER_INSTALLED]'
+
+                                # do nothing1 - 5.9-GE-3-ST - 376 seconds
+                                # do nothing2 - 5.9-GE-3-ST - 484 seconds
+
+                                # 5.9-GE-3-ST - 486 seconds
+                                #iaINSTALLED=(${iaINSTALLED[@]:0:$iCOUNTER_INSTALLED} ${iaINSTALLED[@]:$((iCOUNTER_INSTALLED+1))})
+
+                                # 5.9-GE-3-ST - 398 seconds
+                                #iaINSTALLED=("${iaINSTALLED[@]:0:$iCOUNTER_INSTALLED}" "${iaINSTALLED[@]:$((iCOUNTER_INSTALLED+1))}")
+
+                                #unset 'iaEXTRACTED[iCOUNTER_EXTRACTED]'
+                                #iaEXTRACTED=(${iaEXTRACTED[@]:0:$iCOUNTER_EXTRACTED} ${iaEXTRACTED[@]:$((iCOUNTER_EXTRACTED+1))})
+                                #iTOTAL_FILES=${#iaEXTRACTED[@]}
                             fi
                         done
 
@@ -1270,6 +1273,8 @@ END_OF_SED_SCRIPT
 # NOTE Currently only checks if a path for the version exists
 # TODO better verification
 IsInstalled() {
+
+    local sVERSION
 
     [[ -z $1 ]] && {
         DebugMessage "Parameter error (NULL)"
