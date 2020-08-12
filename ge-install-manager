@@ -113,7 +113,7 @@ OPTERR=1 # make sure it's on
 ###############################################################################
 # TODO
 ShowHelp() {
-    cat <<END_OF_HELP
+    cat <<HELP_MESSAGE
 
     $(basename "$0")  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
 
@@ -152,7 +152,7 @@ ShowHelp() {
     -z            - Enable debug mode
                       Enable extra output messages and preserve any temporary files created
 
-END_OF_HELP
+HELP_MESSAGE
 
     return 0
 }
@@ -160,7 +160,7 @@ END_OF_HELP
 ###############################################################################
 # TODO
 ShowUsage() {
-    cat <<END_OF_USAGE
+    cat <<USAGE_MESSAGE
 Usage:
 
   - Acceptable formats for <version>:
@@ -213,7 +213,7 @@ Usage:
       Report specific version usage
       Verify
 
-END_OF_USAGE
+USAGE_MESSAGE
 
     return 0
 }
@@ -1400,6 +1400,97 @@ RequestURL() {
 }
 
 ###############################################################################
+ParseConfigFile() {
+
+    local sCONFIG_FILE=$1
+    local iNUM_LINES
+    local iCOUNTER
+
+    [[ -z $sCONFIG_FILE || ! -f $sCONFIG_FILE || ! -w $sCONFIG_FILE ]] && {
+        DebugMessage "Parameter error (sCONFIG_FILE NULL, not a file, or not writeable"
+        return 1
+    }
+
+    iNUM_LINES=$(wc -l < "$sCONFIG_FILE")
+    DebugMessage "sCONFIG_FILE \"$sCONFIG_FILE\" contains $iNUM_LINES newlines"
+
+    #[[ $iNUM_LINES -eq 0 ]] && {
+        cat <<DEFAULT_CONFIG > "$sCONFIG_FILE"
+#
+# $sSCRIPT_FULL_NAME v$sSCRIPT_VERSION default config file
+#
+DEFAULT_CONFIG
+        cat <<"DEFAULT_CONFIG" >> "$sCONFIG_FILE"
+# Lines begining with "#" or anything appear after "#" on a line are ignored
+#
+
+# default install path
+install_path=/home/toazd/.steam/root/compatibilitytools.d           #  partial comment
+invalid==format #exactly one = is required
+ # line start with blank and comment
+	# tab then comment
+installpath=/test/path
+key=value
+	 #tab-space-comment
+ops====typo
+DEFAULT_CONFIG
+
+    #}
+
+    while IFS= read -r; do
+        ((iCOUNTER++))
+        # Ignore lines that being with a #
+        [[ $REPLY =~ ^#.*$ ]] && { DebugMessage "Ignoring line $iCOUNTER (begins with #): \"$REPLY\""; continue; }
+
+        # Strip comments away and then any spaces/tabs that were before them
+        # trim lines that contain # not at the begining or only at the end
+        if [[ $REPLY =~ ^.*#.*$ ]] || [[ $REPLY =~ ^.*#$ ]]; then
+
+            DebugMessage "Trimming partially commented line $iCOUNTER: \"$REPLY\""
+            # remove the # and everything to the right of it
+            REPLY=${REPLY%%'#'*}
+
+            #DebugMessage "Before blank trim: \"${REPLY:$((${#REPLY}-1)):1}\""
+            # trim spaces and tabs from the end of the line
+            while [[ ${REPLY:$((${#REPLY}-1)):1} = [[:blank:]] ]]; do
+                #DebugMessage "Trimming one or more [[:blank:]] from \"$REPLY\""
+                REPLY=${REPLY:0:$((${#REPLY}-1))}
+            done
+            DebugMessage "After blank trim: \"$REPLY\""
+        fi
+        # end strip comments
+
+        # Ignore lines that are empty after stripping comments away
+        [[ $REPLY =~ ^$ ]] && { DebugMessage "Ignoring line $iCOUNTER (empty)"; continue; }
+
+        # Ignore lines that begin with one or more space or one or more tab and don't contain comments
+        [[ $REPLY =~ ^[[:blank:]]+ ]] && { DebugMessage "Ignoring line $iCOUNTER (begins with space or tab)"; continue; }
+
+        # Ignore lines that may contain a key and an = but nothing except spaces or tabs after the =
+        [[ $REPLY =~ ^.*=[[:blank:]]*$ ]] && { DebugMessage "Ignoring line $iCOUNTER (key with no value): \"$REPLY\""; continue; }
+
+        # Ignore lines that don't contain exactly one =
+        [[ $REPLY =~ (^|[^=])=($|[^=]) ]] || { DebugMessage "Ignoring line $iCOUNTER (more than one =): \"$REPLY\""; continue; }
+
+        echo "VALID($iCOUNTER): \"$REPLY\""
+
+        sKEY=${REPLY%=*}
+        sVALUE=${REPLY#*=}
+        case $REPLY in
+            (install_path=*|installpath=*)
+                echo "key: \"$sKEY\""
+                echo "value: \"$sVALUE\""
+            ;;
+
+        esac
+    done < "$sCONFIG_FILE"
+
+
+
+    return 0
+}
+
+###############################################################################
 # Support different formats for version specification
 # Internally, the script uses case-sensitive "base" versions such as "5.9-GE-5-ST" but
 # for parsing parameters many other variations are supported. Examples are in usage above.
@@ -1684,7 +1775,7 @@ ReportEnvironmentInfo() {
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        :
+        ParseConfigFile "$sFILE_SCRIPT_CONFIG"
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -1857,7 +1948,7 @@ Main() {
 
     #TODO
     if ! SetupEnvironment; then
-        echo "($LINENO) Main: One or more environment setup tasks failed"
+        DebugMessage "One or more environment setup tasks failed"
     fi
 
     #TODO
