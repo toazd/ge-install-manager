@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
+# WARNING - WARNING - OLD VERSION - DO NOT USE
+exit
 ###############################################################################
 #                                                                             #
 #      Toazd 2020 Unlicense https://unlicense.org/                            #
