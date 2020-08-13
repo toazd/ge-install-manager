@@ -24,7 +24,7 @@ set +e # WARNING DO NOT set -e
 #  (some 'int' designated variables may contain alphabetic characters temporarily before trimming away all but the digits)
 #    eg. iDEBUG will always contain digits and nothing else (integers). Mathematical operator usage involving these variables is always valid.
 #    eg. sGE_LATEST_VERSION can and will contain any variety of alphanumeric and/or special/control characters (string).
-#    eg. If any indexed or associative arrays are used in the future they will be prefixed with 'ia' and 'aa' respectively.
+#    eg. Indexed arrays or associative arrays are prefixed with 'ia' and 'aa' respectively.
 #
 #  All functions have appropriate return values. Currently, only two states are utilized, 1 (failure) and 0 (success).
 #    eg. IsSteamRunning => success(0) = yes, failure(1) = no
@@ -58,13 +58,16 @@ set +e # WARNING DO NOT set -e
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
 #
-# TODO find a way to not download releases so often (updates to download_count update the mtime of the remote file)
-# TODO what if githubs anonymous reqeust rate limit is exceeded (60/hr)?
+# TODO Find a way to not download releases so often (updates to download_count update the mtime of the remote file)
+# TODO What if githubs anonymous request rate limit is exceeded (60/hr)?
+# TODO The script has outgrown getopts. Support for multiple identical parameters per single invocation depends
+#      on using something else or simply making a parser
 #
 ###############################################################################
 # Global variables
 sSCRIPT_VERSION="0.7.3"
 sSCRIPT_CODENAME="Cochrane Bonaventure"
+# ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/
 sGE_INSTALL_PATH="$HOME"/.steam/root/compatibilitytools.d
 #sSCRIPT_SHORT_NAME="ge-install-manager"
 sSCRIPT_FULL_NAME=${0##*/}
@@ -1419,13 +1422,11 @@ ParseConfigFile() {
 #
 # $sSCRIPT_FULL_NAME v$sSCRIPT_VERSION default config file
 #
-DEFAULT_CONFIG
-        cat <<"DEFAULT_CONFIG" >> "$sCONFIG_FILE"
 # Lines begining with "#" or anything appear after "#" on a line are ignored
 #
 
 # default install path
-install_path=/home/toazd/.steam/root/compatibilitytools.d           #  partial comment
+install_path=$HOME/.steam/root/compatibilitytools.d           #  partial comment
 invalid==format #exactly one = is required
  # line start with blank and comment
 	# tab then comment
@@ -2105,3 +2106,4 @@ trap 'iREAL_EXIT_STATUS=$?; DebugMessage "[EXIT INT trap]: Exit status (before C
 ###############################################################################
 
 Main "$@"
+
