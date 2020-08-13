@@ -1,0 +1,43 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	0	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	0.0.0	/a3c87ab5/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+ShowHelp	ge-install-manager	/^ShowHelp() {$/;"	f
+ShowUsage	ge-install-manager	/^ShowUsage() {$/;"	f
+GetLatestGEVersion	ge-install-manager	/^GetLatestGEVersion() {$/;"	f
+UpdateSavedGELatestRelease	ge-install-manager	/^UpdateSavedGELatestRelease() {$/;"	f
+UpdateSavedGEReleases	ge-install-manager	/^UpdateSavedGEReleases() {$/;"	f
+DownloadGEPackage	ge-install-manager	/^DownloadGEPackage() {$/;"	f
+InstallGEVersion	ge-install-manager	/^InstallGEVersion() {$/;"	f
+RemoveGEVersion	ge-install-manager	/^RemoveGEVersion() {$/;"	f
+ExtractGEPackage	ge-install-manager	/^ExtractGEPackage() {$/;"	f
+ListInstalledGEVersions	ge-install-manager	/^ListInstalledGEVersions() {$/;"	f
+ReportGEDiskUsage	ge-install-manager	/^ReportGEDiskUsage() {$/;"	f
+RemoveSavedPackages	ge-install-manager	/^RemoveSavedPackages() {$/;"	f
+RemoveGEInstallPath	ge-install-manager	/^RemoveGEInstallPath() {$/;"	f
+VerifyGEInstall	ge-install-manager	/^VerifyGEInstall() {$/;"	f
+QueryGEAttribute	ge-install-manager	/^QueryGEAttribute() {$/;"	f
+QueryJSONAttribute	ge-install-manager	/^QueryJSONAttribute() {$/;"	f
+ReformatJSONUsingSed	ge-install-manager	/^ReformatJSONUsingSed() {$/;"	f
+IsJSONminified	ge-install-manager	/^IsJSONminified() {$/;"	f
+CreateSedUnminifyJSONscript	ge-install-manager	/^CreateSedUnminifyJSONscript() {$/;"	f
+IsInstalled	ge-install-manager	/^IsInstalled() {$/;"	f
+IsSteamRunning	ge-install-manager	/^IsSteamRunning() {$/;"	f
+RequestURL	ge-install-manager	/^RequestURL() {$/;"	f
+ParseConfigFile	ge-install-manager	/^ParseConfigFile() {$/;"	f
+CleanUpVersion	ge-install-manager	/^CleanUpVersion() {$/;"	f
+MkTempFile	ge-install-manager	/^MkTempFile() {$/;"	f
+MkTempPath	ge-install-manager	/^MkTempPath() {$/;"	f
+GenerateRandomAlphaNumericString	ge-install-manager	/^GenerateRandomAlphaNumericString() {$/;"	f
+SetupEnvironment	ge-install-manager	/^SetupEnvironment() {$/;"	f
+ShowConsoleDiff	ge-install-manager	/^ShowConsoleDiff() {$/;"	f
+DebugMessage	ge-install-manager	/^DebugMessage() {$/;"	f
+ReportEnvironmentInfo	ge-install-manager	/^ReportEnvironmentInfo() {$/;"	f
+ConfigureOptionalCommands	ge-install-manager	/^ConfigureOptionalCommands() {$/;"	f
+CleanUp	ge-install-manager	/^CleanUp() {$/;"	f
+ParseParameters	ge-install-manager	/^ParseParameters() {$/;"	f
+Main	ge-install-manager	/^Main() {$/;"	f

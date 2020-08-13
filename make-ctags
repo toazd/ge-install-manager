@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+ctags --language-force=Sh --sort=no --kinds-Sh='{function}' ge-install-manager
+# Then, edit ctags and remove initialized indexed arrays eg. iaARRAY=()
+
