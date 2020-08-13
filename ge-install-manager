@@ -62,6 +62,7 @@ set +e # WARNING DO NOT set -e
 # TODO What if githubs anonymous request rate limit is exceeded (60/hr)?
 # TODO The script has outgrown getopts. Support for multiple identical parameters per single invocation depends
 #      on using something else or simply making a parser
+# TODO support for using jq if sed fails to reformat minified JSON how the script expects (or just use jq first if it's available)
 #
 ###############################################################################
 # Global variables
@@ -72,7 +73,7 @@ sGE_INSTALL_PATH="$HOME"/.steam/root/compatibilitytools.d
 #sSCRIPT_SHORT_NAME="ge-install-manager"
 sSCRIPT_FULL_NAME=${0##*/}
 sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
-sSCRIPT_CACHE_PATH=${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME
+sSCRIPT_CACHE_PATH=${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME # TODO consider moving saved packages to here instead
 # JSON data sources TODO optional support for jq in addition to keeping sed as a fallback
 sGE_LATEST_VERSION_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
 sGE_RELEASES_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
@@ -92,7 +93,7 @@ sFILE_SED_UNMINIFY_SCRIPT="$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consid
 sCOMMAND_RM="rm" # command 'trash' replaces 'rm' if it is found
 sTMP_BASE_PATH=/tmp
 sTMP_PREFIX="$sSCRIPT_FULL_NAME.tmp."
-# some script functionality depends on the following being initiaized as 0
+# some script functionality depends on the following being initialized as 0
 iFORCE=0
 iDEBUG=0
 iDOWNLOAD=0
@@ -149,6 +150,7 @@ ShowHelp() {
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
                       -f is also required to confirm that you are sure
+                      NOTE: Saved packages are currently stored in the installation path
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
                       Combined with -R to remove a saved package (even if that version is not installed)
