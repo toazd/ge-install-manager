@@ -12,7 +12,7 @@ Help:
     Optional:       du (display disk usage of a path/file)
                     ps (is steam running)
                     sort, cmp (verify)
-                    trash (used instead of rm)
+                    trash (used in place of of rm [excluding temporary files])
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
