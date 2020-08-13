@@ -1,6 +1,6 @@
 Version 0.7.3
 
-Default sSCRIPT_FULL_NAME:  ${0##*/}
+Default sSCRIPT_FULL_NAME:  ${0##*/} (ge-install-manager)
 Default installation path:  "$HOME"/.steam/root/compatibilitytools.d
 Default config path:        ${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME (not fully implemented yet)
 Default cache path:         ${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME
