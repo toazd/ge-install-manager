@@ -1381,7 +1381,7 @@ CreateDefaultConfigFile() {
 #
 # Keys with no values are ignored (eg. "key=" and "key").
 #
-# Environment variables will be expanded.
+# Environment variables and script global variables will be expanded.
 #
 # Do not quote variables outside parameter expansions (:+, :-, :=, or :?) unless
 # you want them included.
@@ -1396,10 +1396,10 @@ tmp_path=/tmp
 install_path=$HOME/.steam/root/compatibilitytools.d
 
 # Default config path
-config_path=${XDG_CONFIG_HOME:-"$HOME"/.config}
+config_path=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
 
 # Default cache path
-cache_path=${XDG_CACHE_HOME:-"$HOME"/.cache}
+cache_path=${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME
 
 # Default command used instead of rm (for removing all but temporary files)
 # NOTE: Any command and its parameters that support the last parameter being either a file or a path is supported
@@ -1968,22 +1968,18 @@ ShowConsoleDiff() {
 # Almost mimic the caller built-in but exclude the source file name
 DebugMessage() {
 
-    local i
-
     # If debug mode is not active, do nothing
     ((iDEBUG)) || return 0
-
     [[ -z $1 ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
 
-    printf '%s' "(L${BASH_LINENO[0]})[" 1>&2
+    local i
 
+    printf '%s' "(L${BASH_LINENO[0]})[" 1>&2
     for (( i=$((${#FUNCNAME[@]}-2)); i>1; i-- )); do
         printf '%s' "${FUNCNAME[i]}," 1>&2
     done
-
     printf '%s' "${FUNCNAME[i]}]: " 1>&2
-
-    printf '%s\n' "$1"  1>&2
+    printf '%s\n' "$1" 1>&2
 
     return 0
 }
@@ -2323,6 +2319,8 @@ Main() {
             else
                 echo "The latest version \"$sGE_LATEST_VERSION\" is not installed"
             fi
+        else
+            echo "An error occured while checking for the latest release"
         fi
         ShowHelp
     fi
