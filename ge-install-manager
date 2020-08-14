@@ -69,14 +69,14 @@ set +e # WARNING DO NOT set -e
 sSCRIPT_VERSION="0.7.3"
 sSCRIPT_CODENAME="Cochrane Bonaventure"
 # ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/
-sGE_INSTALL_PATH="$HOME"/.steam/root/compatibilitytools.d
+sGE_INSTALL_PATH= #"$HOME"/.steam/root/compatibilitytools.d
 #sSCRIPT_SHORT_NAME="ge-install-manager"
 sSCRIPT_FULL_NAME=${0##*/}
 sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
-sSCRIPT_CACHE_PATH=${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME # TODO consider moving saved packages to here instead
+sSCRIPT_CACHE_PATH= #${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME # TODO consider moving saved packages to here instead
 # JSON data sources TODO optional support for jq in addition to keeping sed as a fallback
-sGE_LATEST_VERSION_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
-sGE_RELEASES_URL="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
+sGE_LATEST_VERSION_URL= #"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
+sGE_RELEASES_URL= #"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
 # HTML data sources (reference only, this script does not currently support html data sources)
 # https://github.com/GloriousEggroll/proton-ge-custom/releases
 # https://github.com/GloriousEggroll/proton-ge-custom/tags
@@ -89,8 +89,8 @@ sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
 sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
 sGE_LATEST_VERSION=''
 sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
-sFILE_SED_UNMINIFY_SCRIPT="$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consider moving to XDG_DATA_HOME
-sCOMMAND_RM="rm" # command 'trash' replaces 'rm' if it is found
+sFILE_SED_UNMINIFY_SCRIPT= #"$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consider moving to XDG_DATA_HOME
+sCOMMAND_RM= #"trash" # Used in place of rm for all but temporary files if it is found
 sTMP_BASE_PATH=/tmp
 sTMP_PREFIX="$sSCRIPT_FULL_NAME.tmp."
 # some script functionality depends on the following being initialized as 0
@@ -126,10 +126,6 @@ ShowHelp() {
                     ps (is steam running)
                     sort, cmp (verify)
                     trash (used in place of of rm [excluding temporary files])
-
-    Install path:          $sGE_INSTALL_PATH
-    Latest version URL:    $sGE_LATEST_VERSION_URL
-    Releases URL:          $sGE_RELEASES_URL
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
@@ -490,7 +486,7 @@ RemoveGEVersion() {
             if ! IsSteamRunning; then
                 sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
                 sSIZE=${sSIZE%[[:space:]]*}
-                if $sCOMMAND_RM -rf "$sREMOVE_PATH" >/dev/null; then
+                if $sCOMMAND_RM "$sREMOVE_PATH" >/dev/null; then
                     echo "Removed path \"$sREMOVE_PATH\" (${sSIZE:-'error'})"
                 else
                     echo "Failed to remove \"$sREMOVE_PATH\""
@@ -509,7 +505,7 @@ RemoveGEVersion() {
             DebugMessage "sREMOVE_PACKAGE exists"
             sSIZE=$(du -h "$sREMOVE_PACKAGE" 2>/dev/null)
             sSIZE=${sSIZE%[[:space:]]*}
-            if $sCOMMAND_RM -f "$sREMOVE_PACKAGE" >/dev/null; then
+            if $sCOMMAND_RM "$sREMOVE_PACKAGE" >/dev/null; then
                 echo "Removed package \"$sREMOVE_PACKAGE\" (${sSIZE:-'error'})"
             else
                 echo "Failed to remove package \"$sREMOVE_PACKAGE\""
@@ -577,7 +573,7 @@ ExtractGEPackage() {
         printf '\r\033[0K%s\n' "Package extraction failed"
         [[ -d $sEXTRACT_PATH/Proton-${sVERSION} ]] && {
             DebugMessage "Removing failed extraction path \"$sEXTRACT_PATH/Proton-${sVERSION}\""
-            if $sCOMMAND_RM -rf "$sEXTRACT_PATH/Proton-${sVERSION}"; then
+            if $sCOMMAND_RM "$sEXTRACT_PATH/Proton-${sVERSION}"; then
                 DebugMessage "Removal succeeded"
                 echo "Removed failed extraction path at \"$sEXTRACT_PATH/Proton-${sVERSION}\""
             else
@@ -706,7 +702,7 @@ RemoveSavedPackages() {
 
     for sPACKAGE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
         if [[ -f $sPACKAGE ]]; then
-            if $sCOMMAND_RM -f "$sPACKAGE"; then
+            if $sCOMMAND_RM "$sPACKAGE"; then
                 if [[ $iDEBUG -eq 1 ]]; then
                     DebugMessage "Package \"$sPACKAGE\" removed"
                 else
@@ -748,7 +744,7 @@ RemoveGEInstallPath() {
         sSIZE="unknown"
     fi
 
-    if $sCOMMAND_RM -rf "$sGE_INSTALL_PATH"; then
+    if $sCOMMAND_RM "$sGE_INSTALL_PATH"; then
         echo "Remove install path succeeded ( ${sSIZE%%[[:blank:]]*} removed )"
         DebugMessage "Recreating install path at \"$sGE_INSTALL_PATH\""
         if mkdir -p "$sGE_INSTALL_PATH"; then
@@ -1214,7 +1210,7 @@ CreateSedUnminifyJSONscript() {
 
     if [[ ! -f $sFILE_SED_UNMINIFY_SCRIPT ]] || [[ $(stat -c '%s' "$sFILE_SED_UNMINIFY_SCRIPT") -ne $iSIZE_BYTES_SED_UNMINIFY_SCRIPT ]]; then
         DebugMessage "'sed' script at \"$sFILE_SED_UNMINIFY_SCRIPT\" does not exist or is not the expected size ($iSIZE_BYTES_SED_UNMINIFY_SCRIPT)"
-        cat > "$sFILE_SED_UNMINIFY_SCRIPT" <<"END_OF_SED_SCRIPT"
+        cat <<"END_OF_SED_SCRIPT" > "$sFILE_SED_UNMINIFY_SCRIPT"
 #### begin minimum required for ge-install-manager
 # replace: ","
 # with:    ",newline"
@@ -1405,92 +1401,297 @@ RequestURL() {
 }
 
 ###############################################################################
-ParseConfigFile() {
-
-    local sCONFIG_FILE=$1
-    local iNUM_LINES
-    local iCOUNTER
-
-    [[ -z $sCONFIG_FILE || ! -f $sCONFIG_FILE || ! -w $sCONFIG_FILE ]] && {
-        DebugMessage "Parameter error (sCONFIG_FILE NULL, not a file, or not writeable"
-        return 1
-    }
-
-    iNUM_LINES=$(wc -l < "$sCONFIG_FILE")
-    DebugMessage "sCONFIG_FILE \"$sCONFIG_FILE\" contains $iNUM_LINES newlines"
-
-    #[[ $iNUM_LINES -eq 0 ]] && {
-        cat <<DEFAULT_CONFIG > "$sCONFIG_FILE"
 #
-# $sSCRIPT_FULL_NAME v$sSCRIPT_VERSION default config file
-#
-# Lines begining with "#" or anything appear after "#" on a line are ignored
-#
+CreateDefaultConfigFile() {
 
-# default install path
-install_path=$HOME/.steam/root/compatibilitytools.d           #  partial comment
-invalid==format #exactly one = is required
- # line start with blank and comment
-	# tab then comment
-installpath=/test/path
-key=value
-	 #tab-space-comment
-ops====typo
+    cat <<DEFAULT_CONFIG > "$sFILE_SCRIPT_CONFIG"
+#
+# $sSCRIPT_FULL_NAME v$sSCRIPT_VERSION Default configuration file
+#
+# Quick start format:
+# #comment
+# key=value #comment
+#
+# Lines begining with an octothorpe "#" are considered comment lines and are ignored.
+# Anything appearing after an octothorpe "#" on a line is considered a comment and ignored.
+# Empty lines and lines that begin with space/tab are ignored.
+# Lines that contain one or more semi-colon(s) ";" will be ignored.
+# Lines that contain potential escape codes are ignored.
+#
+# Keys with no values are ignored (eg. "key=" and "key").
+#
+# Environment variables will be expanded.
+#
+# Do not quote variables outside parameter expansions (:+, :-, :=, or :?) unless
+# you want them included.
+#
+DEFAULT_CONFIG
+    cat <<"DEFAULT_CONFIG" >> "$sFILE_SCRIPT_CONFIG"
+
+# Default temporary file path
+tmp_path=/tmp
+
+# Default install path
+install_path=$HOME/.steam/root/compatibilitytools.d
+
+# Default config path
+config_path=${XDG_CONFIG_HOME:-"$HOME"/.config}
+
+# Default cache path
+cache_path=${XDG_CACHE_HOME:-"$HOME"/.cache}
+
+# Default command used instead of rm (for removing all but temporary files)
+# NOTE: Any command and its parameters that support the last parameter being either a file or a path is supported
+rm_command=trash
+
+# Default URL used to retrieve 'latest' JSON
+latest_version_url=https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest
+
+# Default URL used to retrieve 'releases' JSON
+releases_url=https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases
 DEFAULT_CONFIG
 
-    #}
+    return 0
+}
+
+
+###############################################################################
+# TODO
+ParseConfigFile() {
+
+    local iNUM_LINES=0
+    local iCOUNTER=0
+    local iFAILED=0
+
+    iNUM_LINES=$(wc -l 2>/dev/null < "$sFILE_SCRIPT_CONFIG")
+    [[ -z $iNUM_LINES ]] && {
+        DebugMessage "Generating a default config file at: \"$sFILE_SCRIPT_CONFIG\""
+        if ! CreateDefaultConfigFile; then
+            DebugMessage "CreateDefaultConfigFile returned failure status"
+            return 1
+        fi
+    }
+    DebugMessage "sFILE_SCRIPT_CONFIG \"$sFILE_SCRIPT_CONFIG\" contains $iNUM_LINES newlines"
+
+    [[ -z $sFILE_SCRIPT_CONFIG || ! -f $sFILE_SCRIPT_CONFIG || ! -w $sFILE_SCRIPT_CONFIG ]] && {
+        DebugMessage "sFILE_SCRIPT_CONFIG error (NULL, not a file, or not writeable)"
+        return 1
+    }
 
     while IFS= read -r; do
         ((iCOUNTER++))
         # Ignore lines that being with a #
-        [[ $REPLY =~ ^#.*$ ]] && { DebugMessage "Ignoring line $iCOUNTER (begins with #): \"$REPLY\""; continue; }
+        [[ $REPLY =~ ^#.*$ ]] && { DebugMessage "Ignoring line $iCOUNTER (begins with a \"#\")"; continue; }
 
-        # Strip comments away and then any spaces/tabs that were before them
-        # trim lines that contain # not at the begining or only at the end
+        # Ignore lines that contain one or more semi-colon ";"
+        [[ $REPLY =~ ^.*\;+.*$ ]] && { DebugMessage "Ignoring line $iCOUNTER (contains one or more \";\")"; continue; }
+
+        # Lines containing potential escape codes are ignored
+        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { DebugMessage "Ignoring line $iCOUNTER (contains potential escape code)"; continue; }
+
+        # Trim comments that don't appear at the begining away and then trim any remaining trailing spaces/tabs
         if [[ $REPLY =~ ^.*#.*$ ]] || [[ $REPLY =~ ^.*#$ ]]; then
-
-            DebugMessage "Trimming partially commented line $iCOUNTER: \"$REPLY\""
+            DebugMessage "Partially commented line $iCOUNTER: \"$REPLY\""
             # remove the # and everything to the right of it
             REPLY=${REPLY%%'#'*}
-
-            #DebugMessage "Before blank trim: \"${REPLY:$((${#REPLY}-1)):1}\""
-            # trim spaces and tabs from the end of the line
-            while [[ ${REPLY:$((${#REPLY}-1)):1} = [[:blank:]] ]]; do
-                #DebugMessage "Trimming one or more [[:blank:]] from \"$REPLY\""
-                REPLY=${REPLY:0:$((${#REPLY}-1))}
-            done
-            DebugMessage "After blank trim: \"$REPLY\""
         fi
-        # end strip comments
 
         # Ignore lines that are empty after stripping comments away
         [[ $REPLY =~ ^$ ]] && { DebugMessage "Ignoring line $iCOUNTER (empty)"; continue; }
 
-        # Ignore lines that begin with one or more space or one or more tab and don't contain comments
+        # Ignore lines that begin with one or more space/tab
         [[ $REPLY =~ ^[[:blank:]]+ ]] && { DebugMessage "Ignoring line $iCOUNTER (begins with space or tab)"; continue; }
 
-        # Ignore lines that may contain a key and an = but nothing except spaces or tabs after the =
-        [[ $REPLY =~ ^.*=[[:blank:]]*$ ]] && { DebugMessage "Ignoring line $iCOUNTER (key with no value): \"$REPLY\""; continue; }
+        # Ignore lines that may contain a key and an = and the value would be nothing or have a leading space/tab
+        [[ $REPLY =~ ^.*=[[:blank:]]*$|^.*=$ ]] && { DebugMessage "Ignoring line $iCOUNTER (key with no value)"; continue; }
 
         # Ignore lines that don't contain exactly one =
-        [[ $REPLY =~ (^|[^=])=($|[^=]) ]] || { DebugMessage "Ignoring line $iCOUNTER (more than one =): \"$REPLY\""; continue; }
+        [[ $REPLY =~ (^|[^=])=($|[^=]) ]] || { DebugMessage "Ignoring line $iCOUNTER (more than one =)"; continue; }
 
-        echo "VALID($iCOUNTER): \"$REPLY\""
+        # Trim lines that still have space/tab at the end
+        while [[ ${REPLY:$((${#REPLY}-1)):1} = [[:blank:]] ]]; do
+            DebugMessage "Trim trailing [[:blank:]] ($iCOUNTER): \"$REPLY\""
+            REPLY=${REPLY:0:$((${#REPLY}-1))}
+        done
 
-        sKEY=${REPLY%=*}
+        DebugMessage "Valid config ($iCOUNTER): \"$REPLY\""
+
+        sKEY=${REPLY%%=*}
         sVALUE=${REPLY#*=}
-        case $REPLY in
-            (install_path=*|installpath=*)
-                echo "key: \"$sKEY\""
-                echo "value: \"$sVALUE\""
+
+        DebugMessage "($iCOUNTER) Key: \"$sKEY\" Value: \"$sVALUE\""
+
+        # expand any variables in the config, additionaly supporting some basic parameter expansion
+        # such as :-, :=, :?, and/or :+
+        #
+        # NOTE: If sVALUE contains a :+, :-, :=, or :? envsubst does not handle parameter expansion
+        if [[ $sVALUE =~ ^.*:[+-=?]{1}.*$ ]]; then
+            DebugMessage "Using 'eval' to expand sVALUE: \"$sVALUE\""
+            sVALUE=$(eval printf '%s' "$sVALUE")
+            #echo "value: $(eval echo "$sVALUE")"
+            DebugMessage "sVALUE expanded to: \"$sVALUE\""
+        else
+            if command -v envsubst >/dev/null; then
+                DebugMessage "Using 'envsubst' to expand sVALUE: \"$sVALUE\""
+                sVALUE=$(envsubst <<< "$sVALUE")
+                # If there is still a $ in sVALUE it contained a variable envsubst can't handle
+                [[ $sVALUE =~ ^.*\$+.*$ ]] && {
+                    DebugMessage "sVALUE still contains one or more $ after envsubst"
+                    sVALUE=$(eval printf '%s' "$sVALUE")
+                    DebugMessage "sVALUE expanded again with 'eval' to: \"$sVALUE\""
+                }
+                DebugMessage "sVALUE expanded to: \"$sVALUE\""
+            else
+                DebugMessage "Command 'envsubst' not available, using 'eval' to expand sVALUE: \"$sVALUE\""
+                sVALUE=$(eval printf '%s' "$sVALUE")
+                DebugMessage "sVALUE expanded to: \"$sVALUE\""
+            fi
+        fi
+
+        # Validate values for recognized keys and set global variables accordingly
+        case $sKEY in
+            (install_path)
+                if [[ -d $sVALUE && -w $sVALUE ]]; then
+                    DebugMessage "sVALUE is a directory and the script has write permission to it"
+                    sGE_INSTALL_PATH=$sVALUE
+                else
+                    DebugMessage "sVALUE is not a valid path, attempting to create it"
+                    if mkdir -p "$sVALUE"; then
+                        if [[ -w $sVALUE ]]; then
+                            DebugMessage "script has write permission to sVALUE"
+                            sGE_INSTALL_PATH=$sVALUE
+                        else
+                            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                            iFAILED=1
+                        fi
+                    else
+                        echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                        iFAILED=1
+                    fi
+                fi
             ;;
-
+            (config_path)
+                if [[ -d $sVALUE && -w $sVALUE ]]; then
+                    DebugMessage "sVALUE is a directory and the script has write permission to it"
+                    sSCRIPT_CONFIG_PATH=$sVALUE
+                else
+                    DebugMessage "sVALUE is not a valid path, attempting to create it"
+                    if mkdir -p "$sVALUE"; then
+                        if [[ -w $sVALUE ]]; then
+                            DebugMessage "script has write permission to sVALUE"
+                            sSCRIPT_CONFIG_PATH=$sVALUE
+                        else
+                            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                            iFAILED=1
+                        fi
+                    else
+                        echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                        iFAILED=1
+                    fi
+                fi
+            ;;
+            (cache_path)
+                if [[ -d $sVALUE && -w $sVALUE ]]; then
+                    DebugMessage "sVALUE is a directory and the script has write permission to it"
+                    sSCRIPT_CACHE_PATH=$sVALUE
+                else
+                    DebugMessage "sVALUE is not a valid path, attempting to create it"
+                    if mkdir -p "$sVALUE"; then
+                        if [[ -w $sVALUE ]]; then
+                            DebugMessage "script has write permission to sVALUE"
+                            sSCRIPT_CACHE_PATH=$sVALUE
+                        else
+                            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                            iFAILED=1
+                        fi
+                    else
+                        echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                        iFAILED=1
+                    fi
+                fi
+            ;;
+            (tmp_path) # sTMP_BASE_PATH
+               if [[ -d $sVALUE && -w $sVALUE ]]; then
+                    DebugMessage "sVALUE is a directory and the script has write permission to it"
+                    sTMP_BASE_PATH=$sVALUE
+                else
+                    DebugMessage "sVALUE is not a valid path, attempting to create it"
+                    if mkdir -p "$sVALUE"; then
+                        if [[ -w $sVALUE ]]; then
+                            DebugMessage "script has write permission to sVALUE"
+                            sTMP_BASE_PATH=$sVALUE
+                        else
+                            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                            iFAILED=1
+                        fi
+                    else
+                        echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                        iFAILED=1
+                    fi
+                fi
+            ;;
+            (rm_command)
+                if command -v "$sVALUE" >/dev/null; then
+                    sCOMMAND_RM=$sVALUE
+                    DebugMessage "sCOMMAND_RM set to: \"$sCOMMAND_RM\""
+                else
+                    DebugMessage "command -v \"$sVALUE\" failed"
+                    echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                    echo "($LINENO) ParseConfigFile: If you don't want to use 'rm' then fix it"
+                    sCOMMAND_RM="rm"
+                fi
+            ;;
+            (latest_version_url)
+                if curl -sLI "$sVALUE" >/dev/null; then
+                    sGE_LATEST_VERSION_URL=$sVALUE
+                    DebugMessage "sGE_LATEST_VERSION_URL set to: \"$sGE_LATEST_VERSION_URL\""
+                else
+                    echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                    iFAILED=1
+                fi
+            ;;
+            (releases_url)
+                if curl -sLI "$sVALUE" >/dev/null; then
+                    sGE_RELEASES_URL=$sVALUE
+                    DebugMessage "sGE_RELEASES_URL set to: \"$sGE_RELEASES_URL\""
+                else
+                    echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+                    iFAILED=1
+                fi
+            ;;
         esac
-    done < "$sCONFIG_FILE"
+    done < "$sFILE_SCRIPT_CONFIG"
+
+    # Report the install_path, config_path, or cache_path if the setting was valid
+    # NOTE cp --parents requires GNU cp (not on mac by default)
+    # NOTE cp -Rp
 
 
+    DebugMessage "Install path set to: \"$sGE_INSTALL_PATH\""
 
-    return 0
+    DebugMessage "Temp file path set to: \"$sTMP_BASE_PATH\""
+
+    DebugMessage "Config path set to: \"$sSCRIPT_CONFIG_PATH\""
+    # update global variables that depend on this one
+    sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
+    DebugMessage "sFILE_SCRIPT_CONFIG set to: \"$sFILE_SCRIPT_CONFIG\""
+    sFILE_SED_UNMINIFY_SCRIPT="$sSCRIPT_CONFIG_PATH/unminify-JSON.sed"
+    DebugMessage "sFILE_SED_UNMINIFY_SCRIPT set to: \"$sFILE_SED_UNMINIFY_SCRIPT\""
+
+    DebugMessage "Cache path set to: \"$sSCRIPT_CACHE_PATH\""
+    # update global variables that depend on this one
+    sFILE_LATEST_JSON="$sSCRIPT_CACHE_PATH"/latest.json
+    DebugMessage "sFILE_LATEST_JSON set to: \"$sFILE_LATEST_JSON\""
+    sFILE_RELEASES_JSON="$sSCRIPT_CACHE_PATH"/releases.json
+    DebugMessage "sFILE_RELEASES_JSON set to: \"$sFILE_RELEASES_JSON\""
+
+    if [[ $iFAILED -eq 1 ]]; then
+        DebugMessage "One or more tasks failed"
+        return 1
+    else
+        DebugMessage "All tasks and checks passed"
+        return 0
+    fi
 }
 
 ###############################################################################
@@ -1704,6 +1905,38 @@ SetupEnvironment() {
         fi
     fi
 
+    # check for all required commands
+
+    if ! command -v curl >/dev/null; then
+        echo "($LINENO) SetupEnvironment: Command 'curl' is required"
+        iFAILED=1
+    fi
+
+    if ! command -v sed >/dev/null; then
+        echo "($LINENO) SetupEnvironment: Command 'sed' is required"
+        iFAILED=1
+    fi
+
+    if ! command -v tar >/dev/null; then
+        echo "($LINENO) SetupEnvironment: Command 'tar' is required"
+        iFAILED=1
+    fi
+
+    if ! command -v gzip >/dev/null; then
+        echo "($LINENO) SetupEnvironment: Command 'gzip' is required"
+        iFAILED=1
+    fi
+
+    if ! command -v stat >/dev/null; then
+        echo "($LINENO) SetupEnvironment: Command 'stat' is required"
+        iFAILED=1
+    fi
+
+    if ! command -v wc >/dev/null; then
+        echo "($LINENO) SetupEnvironment: Command 'wc' is required"
+        iFAILED=1
+    fi
+
     if [[ $iFAILED -eq 0 ]]; then
         DebugMessage "All tasks succeeded"
         return 0
@@ -1724,7 +1957,7 @@ ShowConsoleDiff() {
 
     # iCOLUMNS=$(stty size)
     # iCOLUMNS=${iCOLUMNS##*[[:space:]]}
-    if [[ $(shopt checkwinsize) =~ ^checkwinsize.*off$ ]]; then
+    if [[ $(shopt checkwinsize) =~ ^checkwinsize[[:blank:]]+off$ ]]; then
         shopt -s checkwinsize
         diff --color -csaW${COLUMNS} "$1" "$2"
         shopt -u checkwinsize
@@ -1778,7 +2011,7 @@ ReportEnvironmentInfo() {
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        ParseConfigFile "$sFILE_SCRIPT_CONFIG"
+        :
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -1825,16 +2058,16 @@ ReportEnvironmentInfo() {
 
 ###############################################################################
 # Optional command support
-ConfigureOptionalCommands() {
+#ConfigureOptionalCommands() {
 
-    if command -v trash >/dev/null; then
-        sCOMMAND_RM="trash"
-    fi
+#    if command -v trash >/dev/null; then
+#        sCOMMAND_RM="trash"
+#    fi
 
-    DebugMessage "sCOMMAND_RM: \"$sCOMMAND_RM\""
+#    DebugMessage "sCOMMAND_RM: \"$sCOMMAND_RM\""
 
-    return 0
-}
+#    return 0
+#}
 
 ###############################################################################
 # Remove any temporary files/paths created by the script if debug mode is not enabled
@@ -1949,13 +2182,28 @@ Main() {
     # debug mode
     DebugMessage "Debug mode enabled"
 
-    #TODO
-    if ! SetupEnvironment; then
-        DebugMessage "One or more environment setup tasks failed"
+    # TODO
+    if ParseConfigFile; then
+        DebugMessage "ParseConfigFile returned success"
+        if SetupEnvironment; then
+            DebugMessage "SetupEnvironment returned success"
+        else
+            DebugMessage "One or more environment setup tasks failed"
+            return 1
+        fi
+    else
+        DebugMessage "ParseConfigFile returned failure"
+        return 1
     fi
 
     #TODO
-    ConfigureOptionalCommands
+
+
+    # TODO
+    # NOTE ParseConfigFile must come after SetupEnvironment and before ConfigureOptionalCommands
+    # ParseConfigFile
+
+    #ConfigureOptionalCommands
 
     #TODO
     CreateSedUnminifyJSONscript
@@ -2108,4 +2356,6 @@ trap 'iREAL_EXIT_STATUS=$?; DebugMessage "[EXIT INT trap]: Exit status (before C
 ###############################################################################
 
 Main "$@"
+
+# vim: nowrap
 
