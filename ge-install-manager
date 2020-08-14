@@ -152,7 +152,6 @@ ShowHelp() {
                       Combined with -R to remove a saved package (even if that version is not installed)
     -z            - Enable debug mode
                       Enable extra output messages and preserve any temporary files created
-
 HELP_MESSAGE
 
     return 0
@@ -214,6 +213,7 @@ Usage:
       Report specific version usage
       Verify
 
+  - Debug message format: (calling line)[function trace]: message
 USAGE_MESSAGE
 
     return 0
@@ -1466,7 +1466,30 @@ ParseConfigFile() {
     iNUM_LINES=$(wc -l 2>/dev/null < "$sFILE_SCRIPT_CONFIG")
     [[ -z $iNUM_LINES ]] && {
         DebugMessage "Generating a default config file at: \"$sFILE_SCRIPT_CONFIG\""
-        if ! CreateDefaultConfigFile; then
+        if CreateDefaultConfigFile; then
+            DebugMessage "CreateDefaultConfigFile returned success"
+            echo "Default configuration created at \"$sFILE_SCRIPT_CONFIG\""
+            if [[ -n $EDITOR ]]; then
+                while :; do
+                    read -rp "Would you like to open it with ${EDITOR}? "
+                    case ${REPLY,,} in
+                        ("y"|"yes")
+                            $EDITOR "$sFILE_SCRIPT_CONFIG"
+                            exit 0
+                        ;;
+                        ("n"|"no")
+                            exit 0
+                        ;;
+                        ("*")
+                            echo "Please enter (y)es or (n)o"
+                        ;;
+                    esac
+                done
+            else
+                :
+            fi
+            exit 0
+        else
             DebugMessage "CreateDefaultConfigFile returned failure status"
             return 1
         fi
@@ -1973,34 +1996,23 @@ ShowConsoleDiff() {
 # Almost mimic the caller built-in but exclude the source file name
 DebugMessage() {
 
+    local i
+
     # If debug mode is not active, do nothing
     ((iDEBUG)) || return 0
 
-    [[ -z $1 ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 0; }
+    [[ -z $1 ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
 
-    #echo "Length: ${#FUNCNAME[@]}" 1>&2
-    #echo "FuncTrace: ${FUNCNAME[@]}" 1>&2
-    #echo "$((${#FUNCNAME[@]}-2))" 1>&2
+    printf '%s' "(L${BASH_LINENO[0]})[" 1>&2
 
-    # Show a function trace up to 4 functions back
-    # (excluding bash's main from the function trace)
-    # General format:
-    # Function stack {1..4}:
-    #   (Calling Line)[Function call order]: Message
-    # Function stack count >4:
-    #   (Calling Line)[(Function count before), Function call order]: Message
-    case $((${#FUNCNAME[@]}-2)) in
-        0) printf '%s\n' "$1" 1>&2 ;; # NOTE if ${#FUNCNAME[@]}-2 would be <= zero "0", the case checked is zero "0"
-        1) printf '%s\n' "(L${BASH_LINENO[0]})[${FUNCNAME[1]}]: $1" 1>&2 ;;
-        2) printf '%s\n' "(L${BASH_LINENO[0]})[${FUNCNAME[2]},${FUNCNAME[1]}]: $1" 1>&2 ;;
-        3) printf '%s\n' "(L${BASH_LINENO[0]})[${FUNCNAME[3]},${FUNCNAME[2]},${FUNCNAME[1]}]: $1" 1>&2 ;;
-        4) printf '%s\n' "(L${BASH_LINENO[0]})[${FUNCNAME[4]},${FUNCNAME[3]},${FUNCNAME[2]},${FUNCNAME[1]}]: $1" 1>&2 ;;
-        *) printf '%s\n' "(L${BASH_LINENO[0]})[($((${#FUNCNAME[@]}-5))),${FUNCNAME[3]},${FUNCNAME[2]},${FUNCNAME[1]}]: $1" 1>&2 ;;
-    esac
-    # Output to stderr / fd2
-    #if [[ -n ${FUNCNAME[3]} && -n ${FUNCNAME[2]} && ${FUNCNAME[1]} ]]; then
-    #    printf '%s\n' "(${BASH_LINENO[0]})(${#FUNCNAME[@]})[${FUNCNAME[3]}=>${FUNCNAME[2]}=>${FUNCNAME[1]}] $1" 1>&2
-    #fi
+    for (( i=$((${#FUNCNAME[@]}-2)); i>1; i-- )); do
+        printf '%s' "${FUNCNAME[i]}," 1>&2
+    done
+
+    printf '%s' "${FUNCNAME[i]}]: " 1>&2
+
+    printf '%s\n' "$1"  1>&2
+
     return 0
 }
 
@@ -2011,7 +2023,11 @@ ReportEnvironmentInfo() {
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        :
+        echo "0: ${FUNCNAME[0]}"
+        echo "1: ${FUNCNAME[1]}"
+        echo "2: ${FUNCNAME[2]}"
+        echo "3: ${FUNCNAME[3]}"
+        echo "4: ${FUNCNAME[4]}"
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -2348,7 +2364,7 @@ Main() {
 
 ###############################################################################
 # EXIT trap
-trap 'iREAL_EXIT_STATUS=$?; DebugMessage "[EXIT INT trap]: Exit status (before CleanUp): $iREAL_EXIT_STATUS"; CleanUp; DebugMessage "[EXIT INT trap]: Exit status (after CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT INT
+trap 'iREAL_EXIT_STATUS=$?; DebugMessage "Exit status (before CleanUp): $iREAL_EXIT_STATUS"; CleanUp; DebugMessage "Exit status (after CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT INT
 
 ###############################################################################
 

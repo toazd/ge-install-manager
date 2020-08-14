@@ -87,3 +87,5 @@ Usage:
       Report install path usage,
       Report specific version usage
       Verify
+
+  - Debug message format: (calling line)[function trace]: message
