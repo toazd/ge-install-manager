@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set nowrap et sta shiftwidth=4 ts=8 sts=0
 #
-#shellcheck disable=SC2155
+#shellcheck disable=SC2155,SC2034
 # https://github.com/koalaman/shellcheck/wiki/SC2155
 
 ###############################################################################
@@ -48,7 +48,7 @@ sFILE_RELEASES_JSON="$sSCRIPT_CACHE_PATH"/releases.json
 sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
 sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
 sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
-sGE_LATEST_VERSION=''
+sGE_LATEST_VERSION=
 sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
 sFILE_SED_UNMINIFY_SCRIPT= #"$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consider moving to XDG_DATA_HOME
 sCOMMAND_RM= #"trash" # Used in place of rm for all but temporary files if it is found
@@ -191,7 +191,7 @@ GetLatestGEVersion() {
     if UpdateSavedGELatestRelease; then
         while IFS= read -r; do
             # WARNING do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST",
-            #         they are not always the same name as the package
+            #         they are not always the same as the version name in browser_download_url
             # NOTE must be compatible with all 3 of the following potential formats
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
@@ -396,7 +396,7 @@ InstallGEVersion() {
             return 1
         fi
     # if a saved package exists and force mode is active
-    elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
+elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
         echo "Removing saved package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
         if $sCOMMAND_RM "$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"; then
             echo "Package removed"
@@ -928,7 +928,7 @@ QueryGEAttribute() {
         DebugMessage "QueryJSONAttribute returned failure"
     elif [[ $iDEBUG -eq 1 && $iEXIT_STATUS -eq 0 ]]; then
         DebugMessage "QueryJSONAttribute returned success"
-    elif ((iDEBUG)); then
+    elif [[ $iDEBUG -eq 1 ]]; then
         DebugMessage "QueryJSONAttribute unknown exit status \$?: \"$?\""
     fi
 
@@ -942,7 +942,7 @@ QueryGEAttribute() {
 
         sVALUE=$(QueryJSONAttribute "$sFILE_RELEASES_JSON" "$sVERSION" "$sATTRIBUTE")
         iEXIT_STATUS=$?
-        ((iDEBUG)) && {
+        [[ $iDEBUG -eq 1 ]] && {
             if [[ $iEXIT_STATUS -gt 0 ]]; then
                 DebugMessage "QueryJSONAttribute returned failure status"
             elif [[ $iEXIT_STATUS -eq 0 ]]; then
@@ -1055,7 +1055,7 @@ QueryJSONAttribute() {
     done < "$1" 2>/dev/null
 
     # debug messages
-    ((iDEBUG)) && {
+    [[ $iDEBUG -eq 1 ]] && {
         if [[ $iFLAG_VERSION_FOUND -eq 0 ]]; then
             DebugMessage "Version match not found"
         elif [[ $iFLAG_VERSION_FOUND -eq 1 ]]; then
@@ -1362,6 +1362,91 @@ RequestURL() {
 }
 
 ###############################################################################
+# TODO
+# NOTE 1597756 kB (1x package + 1x extracted package)
+# https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0a
+MemFree() {
+
+    local iMEM_AVAILABLE=0
+    local iNEED_FREE_KB=$1
+
+    [[ -z $iNEED_FREE_KB ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
+
+    # If MemAvailable is present in /proc/meminfo
+    while IFS= read -r; do
+        [[ ${REPLY,,} == *memavailable* ]] && {
+            REPLY=${REPLY%[[:blank:]]*}
+            iMEM_AVAILABLE=${REPLY##*[[:blank:]]}
+            [[ $iMEM_AVAILABLE =~ ^[[:digit:]]+$ ]] && {
+                DebugMessage "MemAvailable found in /proc/meminfo"
+                #echo "MemAvailable: $iMEM_AVAILABLE"
+                return $((iMEM_AVAILABLE > iNEED_FREE_KB ? 0 : 1))
+            }
+        }
+    done < <(cat /proc/meminfo)
+
+    # If MemAvailable is not available
+
+    local iSUM_LOW_WATERMARKS=0
+    local iMEM_FREE=0
+    local iTOTAL_PAGE_CACHE=0
+    local iSRECLAIMABLE=0
+    local iAVAILABLE=0
+
+    # Get the sum of the low water marks across all zones
+    while IFS= read -r; do
+        [[ ${REPLY,,} == *low* ]] && {
+            REPLY=${REPLY//[[:alpha:]]}
+            REPLY=${REPLY//[[:blank:]]}
+            iSUM_LOW_WATERMARKS=$((iSUM_LOW_WATERMARKS+REPLY))
+        }
+    done < <(cat /proc/zoneinfo)
+    [[ $iSUM_LOW_WATERMARKS -le 0 ]] && return 1
+
+    # Parse /proc/meminfo
+    while IFS= read -r; do
+        # MemFree
+        [[ ${REPLY,,} == *memfree* ]] && {
+            REPLY=${REPLY%[[:blank:]]*}
+            iMEM_FREE=${REPLY##*[[:blank:]]}
+            iAVAILABLE=$((iMEM_FREE-iSUM_LOW_WATERMARKS))
+        }
+        # SReclaimable
+        [[ ${REPLY,,} == *sreclaimable* ]] && {
+            REPLY=${REPLY%[[:blank:]]*}
+            iSRECLAIMABLE=${REPLY##*[[:blank:]]}
+        }
+        # PageCache [ active(file) + inactive(file) ]
+        if [[ ${REPLY,,} == *active\(file\)* ]] || [[ ${REPLY,,} == *inactive\(file\)* ]]; then
+            REPLY=${REPLY%[[:blank:]]*}
+            REPLY=${REPLY##*[[:blank:]]}
+            iTOTAL_PAGE_CACHE=$((iTOTAL_PAGE_CACHE+REPLY)) # NOTE two iterations are required to add both
+        fi
+    done < <(cat /proc/meminfo)
+
+    # pagecache -= min(pagecache / 2, wmark_low);
+    # subtract the lower of the two (iTOTAL_PAGE_CACHE/2) vs iSUM_LOW_WATERMARKS
+    if [[ $iSUM_LOW_WATERMARKS -lt $((iTOTAL_PAGE_CACHE/2)) ]]; then
+        iTOTAL_PAGE_CACHE=$((iTOTAL_PAGE_CACHE - iSUM_LOW_WATERMARKS))
+    elif [[ $((iTOTAL_PAGE_CACHE/2)) -lt $iSUM_LOW_WATERMARKS ]]; then
+        iTOTAL_PAGE_CACHE=$((iTOTAL_PAGE_CACHE - (iTOTAL_PAGE_CACHE/2) ))
+    fi
+
+    # reclaimable
+    # subtract the lower of the two (iSRECLAIMABLE/2) vs iSUM_LOW_WATERMARKS
+    if [[ $iSUM_LOW_WATERMARKS -lt $((iSRECLAIMABLE/2)) ]]; then
+        iSRECLAIMABLE=$((iSRECLAIMABLE - iSUM_LOW_WATERMARKS ))
+    elif [[ $((iSRECLAIMABLE/2)) -lt $iSUM_LOW_WATERMARKS ]]; then
+        iSRECLAIMABLE=$((iSRECLAIMABLE - (iSRECLAIMABLE/2) ))
+    fi
+
+    # Add both to iAVAILABLE for the grand total
+    iAVAILABLE=$((iAVAILABLE + iTOTAL_PAGE_CACHE + iSRECLAIMABLE))
+
+    return $((iAVAILABLE > iNEED_FREE_KB ? 0 : 1))
+}
+
+###############################################################################
 #
 CreateDefaultConfigFile() {
 
@@ -1393,7 +1478,7 @@ DEFAULT_CONFIG
 tmp_path=/tmp
 
 # Default install path
-install_path=$HOME/.steam/root/compatibilitytools.d
+install_path=${XDG_DATA_HOME:-"$HOME"/.local/share/Steam/compatibilitytools.d}
 
 # Default config path
 config_path=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
@@ -1696,7 +1781,7 @@ CleanUpVersion() {
         return 1
     }
 
-    ((iDEBUG)) && {
+    [[ $iDEBUG -eq 1 ]] && {
         iLENGTH=${#sVERSION}
         DebugMessage "Before: \"$sVERSION\""
     }
@@ -1708,7 +1793,7 @@ CleanUpVersion() {
     # anchored right, remove a single ".TAR.GZ" and anything to the right of it
     sVERSION=${sVERSION%'.TAR.GZ'*}
 
-    ((iDEBUG)) && {
+    [[ $iDEBUG -eq 1 ]] && {
         DebugMessage "After: \"$sVERSION\""
         [[ $iLENGTH -ne ${#sVERSION} ]] && DebugMessage "Removed $(( iLENGTH - ${#sVERSION} )) characters"
     }
@@ -1800,12 +1885,34 @@ GenerateRandomAlphaNumericString() {
 
 ###############################################################################
 # TODO
-# NOTE /usr/share/steam/compatibilitytools.d
+# NOTE ~/.steam/root/compatibilitytools.d #proton-ge-custom install notes
+#      /usr/share/steam/compatibilitytools.d
 #      /usr/local/share/steam/compatibilitytools.d
 #      Colon-separated global paths in $STEAM_EXTRA_COMPAT_TOOLS_PATHS
-#      ~/.steam/root/compatibilitytools.d (steam install folder symlink)
+#      ~/.steam/root/compatibilitytools.d (steam install folder symlink) || ~/.local/share/Steam/compatibilitytools.d
+#
+# flatpak
+#      ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/ #proton-ge-custom install notes
+#      ~/.var/app/com.valvesoftware.Steam/.local/share/Steam
+#      ~/.var/app/com.valvesoftware.Steam/.steam
 DetectSteamInstallPath () {
-    :
+
+    local sSTEAMSH
+    local iSTEAMSH_FOUND=0
+    local sXDG_LOCAL_SHARE=${XDG_DATA_HOME:-"$HOME"/.local/share/Steam/compatibilitytools.d}
+    local sSTEAM_HOME_SYMLINK="$HOME"/.steam/root/compatibilitytools.d
+    local sSTEAM_USR_SHARE=/usr/share/steam/compatibilitytools.d
+    local sSTEAM_USR_LOCAL=/usr/local/share/steam/compatibilitytools.d
+    local sFLATPAK_LOCAL="$HOME"/.var/app/com.valvesoftware.Steam/.local/share/Steam
+    local sFLATPAK_DOTSTEAM="$HOME"/.var/app/com.valvesoftware.Steam/.steam
+
+    sSTEAMSH=$(find / -type f -name "steam.sh" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
+
+    if [[ -d ${XDG_DATA_HOME:-"$HOME"/.local/share/Steam/compatibilitytools.d} ]]; then
+        :
+    elif [[ -d ${XDG_DATA_HOME:-"$HOME"} ]]; then
+        :
+    fi
 
 }
 
@@ -1816,7 +1923,7 @@ SetupEnvironment() {
 
     local iFAILED=0
 
-    # NOTE ((iDEBUG)) && echo "($LINENO) SetupEnvironment: "
+    # NOTE [[ $iDEBUG -eq 1 ]] && echo "($LINENO) SetupEnvironment: "
 
     # sGE_INSTALL_PATH
     if [[ -d $sGE_INSTALL_PATH ]]; then
@@ -1965,17 +2072,17 @@ ShowConsoleDiff() {
 
 ###############################################################################
 # Output to stderr a message and also report the calling line and calling function
-# Almost mimic the caller built-in but exclude the source file name
+# Almost mimic the caller built-in but exclude the source file name and 'main' from Bash
 DebugMessage() {
 
     # If debug mode is not active, do nothing
-    ((iDEBUG)) || return 0
+    [[ $iDEBUG -eq 1 ]] || return 0
     [[ -z $1 ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
 
     local i
 
     printf '%s' "(L${BASH_LINENO[0]})[" 1>&2
-    for (( i=$((${#FUNCNAME[@]}-2)); i>1; i-- )); do
+    for ((i=$((${#FUNCNAME[@]}-2));i>1;i--)); do
         printf '%s' "${FUNCNAME[i]}," 1>&2
     done
     printf '%s' "${FUNCNAME[i]}]: " 1>&2
@@ -1991,7 +2098,11 @@ ReportEnvironmentInfo() {
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        :
+        if MemFree "1597756"; then
+            DebugMessage "MemFree returned success"
+        else
+            DebugMessage "MemFree returned failure"
+        fi
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -2028,26 +2139,12 @@ ReportEnvironmentInfo() {
     echo "LC_MESSAGES: \"$LC_MESSAGES\""
     echo "LC_ALL: \"$LC_ALL\""
     echo "EUID: \"$EUID\""
-    #echo "${FUNCNAME[@]}"
     echo "GROUPS: ${GROUPS[*]}"
 
     echo "###############################################################################"
 
     exit 0
 }
-
-###############################################################################
-# Optional command support
-#ConfigureOptionalCommands() {
-
-#    if command -v trash >/dev/null; then
-#        sCOMMAND_RM="trash"
-#    fi
-
-#    DebugMessage "sCOMMAND_RM: \"$sCOMMAND_RM\""
-
-#    return 0
-#}
 
 ###############################################################################
 # Remove any temporary files/paths created by the script if debug mode is not enabled
@@ -2057,7 +2154,7 @@ CleanUp() {
         # paths
         [[ -d $sNODE ]] && {
             DebugMessage "Temporary path found at \"$sNODE\""
-            if ((iDEBUG)); then
+            if [[ $iDEBUG -eq 1 ]]; then
                 DebugMessage "Debug enabled. Temporary path not removed."
             else
                 if rm -rf "$sNODE"; then
@@ -2071,7 +2168,7 @@ CleanUp() {
         # files
         [[ -f $sNODE ]] && {
             DebugMessage "Tmp file found at \"$sNODE\""
-            if ((iDEBUG)); then
+            if [[ $iDEBUG -eq 1 ]]; then
                 DebugMessage "Debug enabled. Temporary file not removed."
             else
                 if rm -rf "$sNODE"; then
@@ -2159,7 +2256,7 @@ Main() {
         exit 0
     fi
 
-    # debug mode
+    # Report if debug mode is enabled
     DebugMessage "Debug mode enabled"
 
     # TODO
@@ -2238,19 +2335,19 @@ Main() {
                         fi
                     fi
                 elif IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 0 ]]; then # Latest version is installed and -f was not supplied
-                    #((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
+                    #[[ $iDEBUG -eq 1 ]] && printf '%s' "($LINENO) Main: Update: " 1>&2
                     echo "Latest version is already installed ($sGE_LATEST_VERSION)"
                 elif ! IsInstalled "$sGE_LATEST_VERSION"; then # Latest version is not installed
-                    #((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
+                    #[[ $iDEBUG -eq 1 ]] && printf '%s' "($LINENO) Main: Update: " 1>&2
                     echo "Latest version is not installed"
                     if InstallGEVersion; then
-                        #((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
+                        #[[ $iDEBUG -eq 1 ]] && printf '%s' "($LINENO) Main: Update: " 1>&2
                         echo "Update succeeded"
                         if IsSteamRunning; then
                             echo "Restart Steam to use the new version"
                         fi
                     else
-                        #((iDEBUG)) && printf '%s' "($LINENO) Main: Update: " 1>&2
+                        #[[ $iDEBUG -eq 1 ]] && printf '%s' "($LINENO) Main: Update: " 1>&2
                         echo "Update failed"
                     fi
                 fi
@@ -2303,13 +2400,13 @@ Main() {
        [[ $iVERIFY -eq 0 ]] && \
        [[ $iUPDATE -eq 0 ]]; then
 
-        ((iDEBUG)) && {
+        [[ $iDEBUG -eq 1 ]] && {
             if IsSteamRunning; then
                 DebugMessage "Steam is running"
             else
                 DebugMessage "Steam is not running"
             fi
-            DebugMessage "Nothing to do"
+            DebugMessage "Nothing to do, checking if the latest release is installed and showing help"
         }
 
         # report latest version installed status
