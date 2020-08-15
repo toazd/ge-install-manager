@@ -1372,26 +1372,31 @@ MemFree() {
 
     [[ -z $iNEED_FREE_KB ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
 
-    # If MemAvailable is present in /proc/meminfo
+    DebugMessage "Requested free: $iNEED_FREE_KB"
+
+    # If MemAvailable is present in /proc/meminfo (kernel >= 3.14)
     while IFS= read -r; do
         [[ ${REPLY,,} == *memavailable* ]] && {
             REPLY=${REPLY%[[:blank:]]*}
             iMEM_AVAILABLE=${REPLY##*[[:blank:]]}
             [[ $iMEM_AVAILABLE =~ ^[[:digit:]]+$ ]] && {
                 DebugMessage "MemAvailable found in /proc/meminfo"
-                #echo "MemAvailable: $iMEM_AVAILABLE"
+                DebugMessage "MemAvailable: $iMEM_AVAILABLE"
                 return $((iMEM_AVAILABLE > iNEED_FREE_KB ? 0 : 1))
             }
         }
     done < <(cat /proc/meminfo)
 
-    # If MemAvailable is not available
+    # If MemAvailable is not available in /proc/meminfo - adds support for older kernel versions ( v2.6 < [uname -r] < v3.14)
+    # It is expected that the second method will return slightly larger available
+    DebugMessage "MemAvailable not found, using older methods"
 
     local iSUM_LOW_WATERMARKS=0
     local iMEM_FREE=0
     local iTOTAL_PAGE_CACHE=0
     local iSRECLAIMABLE=0
     local iAVAILABLE=0
+    local iSLAB_UNRECLAIMABLE=0
 
     # Get the sum of the low water marks across all zones
     while IFS= read -r; do
@@ -1400,8 +1405,15 @@ MemFree() {
             REPLY=${REPLY//[[:blank:]]}
             iSUM_LOW_WATERMARKS=$((iSUM_LOW_WATERMARKS+REPLY))
         }
+        # Get nr_slab_unreclaimable if available (v4.8+)
+        [[ ${REPLY,,} == *nr_slab_unreclaimable* ]] && {
+            REPLY=${REPLY##*[[:blank:]]}
+            REPLY=${REPLY%[[:blank:]]*} # Not needed on my system, kept just in case
+            iSLAB_UNRECLAIMABLE=$REPLY
+        }
     done < <(cat /proc/zoneinfo)
-    [[ $iSUM_LOW_WATERMARKS -le 0 ]] && return 1
+    # TODO 0 could indicate a serious problem or a customization?
+    #[[ $iSUM_LOW_WATERMARKS -le 0 ]] && return 1
 
     # Parse /proc/meminfo
     while IFS= read -r; do
@@ -1441,8 +1453,15 @@ MemFree() {
     fi
 
     # Add both to iAVAILABLE for the grand total
-    iAVAILABLE=$((iAVAILABLE + iTOTAL_PAGE_CACHE + iSRECLAIMABLE))
-
+    # NOTE nr_slab_unreclaimable may not be available on [uname -r] < 4.8
+    if [[ $iSLAB_UNRECLAIMABLE -gt 0 ]]; then
+        DebugMessage "Using kernel v4.8+ calculation"
+        iAVAILABLE=$(( (iAVAILABLE + iTOTAL_PAGE_CACHE + iSRECLAIMABLE) - iSLAB_UNRECLAIMABLE ))
+    else
+        DebugMessage "Using kernel <4.8 calculation"
+        iAVAILABLE=$(( (iAVAILABLE + iTOTAL_PAGE_CACHE + iSRECLAIMABLE) - (12 * iSUM_LOW_WATERMARKS) ))
+    fi
+    DebugMessage "Available: $iAVAILABLE"
     return $((iAVAILABLE > iNEED_FREE_KB ? 0 : 1))
 }
 
