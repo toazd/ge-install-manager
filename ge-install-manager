@@ -89,6 +89,7 @@ ShowHelp() {
     Optional:       du (display disk usage of a path/file)
                     ps (is steam running)
                     sort, cmp (verify)
+                    envsubst (config file parsing)
                     trash (used in place of of rm [excluding temporary files])
 
     -h            - Show this help
