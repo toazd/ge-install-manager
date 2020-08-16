@@ -1386,17 +1386,34 @@ RequestURL() {
 }
 
 ###############################################################################
-# Given a path, use stat to calculate the kiB remaining by multiplying the
-# filesystem block size by the number of remaining blocks
-KiBRemaining() {
+# Given a path (filesystem) and a unit (binary prefix), use stat to calculate the
+# remaining space on a filesystem by multiplying the filesystem block size by the
+# number of remaining blocks and return the value in the unit requested
+# NOTE bash arithmatic supports upto 1024^6
+SpaceRemaining() {
 
     local sFILE_SYSTEM=$1
+    local sBINARY_PREFIX=$2
+    local iPOWEROF=0
 
-    [[ -z $sFILE_SYSTEM ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
+    [[ -z $sFILE_SYSTEM || -z $sBINARY_PREFIX ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
+
+    [[ ! -d $sFILE_SYSTEM ]] && { DebugMessage "Parameter error (not a directory)"; return 1; }
+
+    case ${sBINARY_PREFIX,,} in
+        (b|byte|bytes) iPOWEROF=0 ;;
+        (k|kibi|kibibyte) iPOWEROF=1 ;;
+        (m|mebi|mebibyte) iPOWEROF=2 ;;
+        (g|gibi|gibibyte) iPOWEROF=3 ;;
+        (t|tebi|tebibyte) iPOWEROF=4 ;;
+        (p|pebi|pebibyte) iPOWEROF=5 ;;
+        (e|exbi|exbibyte) iPOWEROF=6 ;;
+        (*) DebugMessage "Parameter error (invalid unit requested)"; return 1 ;;
+    esac
 
     DebugMessage "Checking \"$sFILE_SYSTEM\""
 
-    if printf '%s' "$(( ($(stat -c '%s' -f "$sFILE_SYSTEM") * $(stat -c '%a' -f "$sFILE_SYSTEM")) / 1024 ))"; then
+    if printf '%s' "$(( ($(stat -c '%s' -f "$sFILE_SYSTEM") * $(stat -c '%a' -f "$sFILE_SYSTEM")) / ( 1024 ** iPOWEROF ) ))"; then
         return 0
     else
         return 1
@@ -2322,12 +2339,18 @@ ReportEnvironmentInfo() {
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        if MemFree "1597756"; then
-            DebugMessage "MemFree returned success"
-        else
-            DebugMessage "MemFree returned failure"
-        fi
-        DebugMessage "$(KiBRemaining "$sTMP_BASE_PATH") KiB remaining on $sTMP_BASE_PATH"
+        #if MemFree "1597756"; then
+        #    DebugMessage "MemFree returned success"
+        #else
+        #    DebugMessage "MemFree returned failure"
+        #fi
+        DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "b") bytes remaining on $sTMP_BASE_PATH"
+        DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "k") kibibytes remaining on $sTMP_BASE_PATH"
+        DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "m") mebibytes remaining on $sTMP_BASE_PATH"
+        DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "g") gibibytes remaining on $sTMP_BASE_PATH"
+        DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "t") tebibytes remaining on $sTMP_BASE_PATH"
+        DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "p") pebibytes remaining on $sTMP_BASE_PATH"
+        DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "e") exbibytes remaining on $sTMP_BASE_PATH"
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
