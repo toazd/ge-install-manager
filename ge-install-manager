@@ -15,6 +15,8 @@
 ###############################################################################
 
 set +e # WARNING DO NOT set -e
+set -huo pipefail
+#set -T # If set, the DEBUG and RETURN traps are inherited by shell functions.
 
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
@@ -183,7 +185,10 @@ USAGE_MESSAGE
 ###############################################################################
 # Sets the global variable sGE_LATEST_VERSION to the latest version
 # TODO *might* want to check releases if latest fails.
+# NOTE rate limied exceeded [[ $(stat -c '%s' "$sFILE_LATEST_JSON") -eq 245 ]]
 GetLatestGEVersion() {
+
+    local iRATE_LIMITED_EXCEEDED=0
 
     # WARNING DO NOT make this local
     sGE_LATEST_VERSION=''
@@ -204,7 +209,23 @@ GetLatestGEVersion() {
                 DebugMessage "sGE_LATEST_VERSION set to \"$sGE_LATEST_VERSION\""
                 break
             }
+            [[ ${REPLY,,} == *"rate limit exceeded"* ]] && {
+                iRATE_LIMITED_EXCEEDED=1
+                break
+            }
         done < "$sFILE_LATEST_JSON"
+
+        [[ $iRATE_LIMITED_EXCEEDED -eq 1 ]] && {
+            if [[ $iDEBUG -eq 1 ]]; then
+                DebugMessage "Github API rate limited exceeded"
+            elif [[ $iDEBUG -eq 0 ]]; then
+                printf '%s\n%s\n%s\n' \
+                       "Github API rate limited exceeded" \
+                       "\"For unauthenticated requests, the rate limit allows for up to 60 requests per hour.\"" \
+                       "[https://developer.github.com/v3/#rate-limiting]"
+            fi
+            return 1
+        }
 
         [[ -z $sGE_LATEST_VERSION ]] && {
             DebugMessage "sGE_LATEST_VERSION is NULL (no match or not found)"
@@ -1365,6 +1386,7 @@ RequestURL() {
 # TODO
 # NOTE 1597756 kB (1x package + 1x extracted package)
 # https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0a
+# https://github.com/torvalds/linux/blob/6aa303defb7454a2520c4ddcdf6b081f62a15890/mm/page_alloc.c#L4025
 MemFree() {
 
     local iMEM_AVAILABLE=0
@@ -1917,21 +1939,125 @@ GenerateRandomAlphaNumericString() {
 DetectSteamInstallPath () {
 
     local sSTEAMSH
+    local sSTEAMCOMPATTOOLSD
     local iSTEAMSH_FOUND=0
-    local sXDG_LOCAL_SHARE=${XDG_DATA_HOME:-"$HOME"/.local/share/Steam/compatibilitytools.d}
-    local sSTEAM_HOME_SYMLINK="$HOME"/.steam/root/compatibilitytools.d
-    local sSTEAM_USR_SHARE=/usr/share/steam/compatibilitytools.d
-    local sSTEAM_USR_LOCAL=/usr/local/share/steam/compatibilitytools.d
+    local iFOUND=0
+    local iFOUND_HOME_SYMLINK=0
+    local iLOCAL_SHARE_HOME_SYMLINK_DIFFER=0
+
+    local sXDG_LOCAL_SHARE=${XDG_DATA_HOME:-"$HOME"/.local/share/Steam}
+    local sSTEAM_HOME_SYMLINK="$HOME"/.steam/root #1
+
+    local sSTEAM_USR_SHARE=/usr/share/steam
+    local sSTEAM_USR_LOCAL=/usr/local/share/steam
     local sFLATPAK_LOCAL="$HOME"/.var/app/com.valvesoftware.Steam/.local/share/Steam
     local sFLATPAK_DOTSTEAM="$HOME"/.var/app/com.valvesoftware.Steam/.steam
 
-    sSTEAMSH=$(find / -type f -name "steam.sh" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
+    local sFLATPAK_DATA_STEAM="$HOME"/.var/app/com.valvesoftware.Steam/data/Steam #2
 
-    if [[ -d ${XDG_DATA_HOME:-"$HOME"/.local/share/Steam/compatibilitytools.d} ]]; then
-        :
-    elif [[ -d ${XDG_DATA_HOME:-"$HOME"} ]]; then
-        :
+    #sSTEAMSH=$(find / -xdev -type f -name "steam.sh" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
+    #sSTEAMCOMPATTOOLSD=$(find / -xdev -type d -name "compatibilitytools.d" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
+
+    #echo "sSTEAMSH: ${sSTEAMSH[*]}"
+    #echo "sSTEAMCOMPATTOOLSD: ${sSTEAMCOMPATTOOLSD[*]}"
+
+    # ~/.local/share/Steam/compatibilitytools.d
+    # prefer the absolute path
+    if [[ -d $sXDG_LOCAL_SHARE ]]; then
+        DebugMessage "sXDG_LOCAL_SHARE exists at: $sXDG_LOCAL_SHARE"
+        ((iFOUND++))
+    else
+        DebugMessage "sXDG_LOCAL_SHARE not found at: $sXDG_LOCAL_SHARE"
     fi
+
+    # ~/.steam/root/compatibilitytools.d
+    if [[ -d $sSTEAM_HOME_SYMLINK ]]; then
+        DebugMessage "sSTEAM_HOME_SYMLINK exists at: $sSTEAM_HOME_SYMLINK"
+        if [[ -f $sSTEAM_HOME_SYMLINK/steam.sh ]]; then
+            DebugMessage "steam.sh found in $sSTEAM_HOME_SYMLINK"
+            ((iFOUND++))
+        else
+            DebugMessage "steam.sh not found in $sSTEAM_HOME_SYMLINK"
+        fi
+        ((iFOUND_HOME_SYMLINK++))
+        if [[ $sXDG_LOCAL_SHARE -ef "$sSTEAM_HOME_SYMLINK" ]]; then
+            DebugMessage "sXDG_LOCAL_SHARE and sSTEAM_HOME_SYMLINK are the same physical path"
+            ((iFOUND--))
+        else
+            iLOCAL_SHARE_HOME_SYMLINK_DIFFER=1
+        fi
+    else
+        DebugMessage "sSTEAM_HOME_SYMLINK not found at: $sSTEAM_HOME_SYMLINK"
+    fi
+
+    # ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d
+    if [[ -d $sFLATPAK_DATA_STEAM ]]; then
+        if [[ -f $sFLATPAK_DATA_STEAM/steam.sh ]]; then
+            DebugMessage "steam.sh found in $sFLATPAK_DATA_STEAM"
+            ((iFOUND++))
+        else
+            DebugMessage "steam.sh not found in $sFLATPAK_DATA_STEAM"
+        fi
+    else
+        DebugMessage "sFLATPAK_DATA_STEAM not found at: $sFLATPAK_DATA_STEAM"
+    fi
+
+   # ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d
+    if [[ -d $sSTEAM_USR_SHARE ]]; then
+        DebugMessage "sSTEAM_USR_SHARE exists at: $sSTEAM_USR_SHARE"
+        if [[ -f $sSTEAM_USR_SHARE/steam.sh ]]; then
+            DebugMessage "steam.sh found in $sSTEAM_USR_SHARE"
+            ((iFOUND++))
+        else
+            DebugMessage "steam.sh not found in $sSTEAM_USR_SHARE"
+        fi
+    else
+        DebugMessage "sSTEAM_USR_SHARE not found at: $sSTEAM_USR_SHARE"
+    fi
+
+   # ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d
+    if [[ -d $sSTEAM_USR_LOCAL ]]; then
+        DebugMessage "sSTEAM_USR_LOCAL exists at: $sSTEAM_USR_LOCAL"
+        if [[ -f $sSTEAM_USR_LOCAL/steam.sh ]]; then
+            DebugMessage "steam.sh found in $sSTEAM_USR_LOCAL"
+            ((iFOUND++))
+        else
+            DebugMessage "steam.sh not found in $sSTEAM_USR_LOCAL"
+        fi
+    else
+        DebugMessage "sSTEAM_USR_LOCAL not found at: $sSTEAM_USR_LOCAL"
+    fi
+
+   # ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d
+    if [[ -d $sFLATPAK_LOCAL ]]; then
+        DebugMessage "sFLATPAK_LOCAL exists at: $sFLATPAK_LOCAL"
+        if [[ -f $sFLATPAK_LOCAL/steam.sh ]]; then
+            DebugMessage "steam.sh found in $sFLATPAK_LOCAL"
+            ((iFOUND++))
+        else
+            DebugMessage "steam.sh not found in $sFLATPAK_LOCAL"
+        fi
+    else
+        DebugMessage "sFLATPAK_LOCAL not found at: $sFLATPAK_LOCAL"
+    fi
+
+   # ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d
+    if [[ -d $sFLATPAK_DOTSTEAM ]]; then
+        DebugMessage "sFLATPAK_DOTSTEAM exists at: $sFLATPAK_DOTSTEAM"
+        if [[ -f $sFLATPAK_DOTSTEAM/steam.sh ]]; then
+            DebugMessage "steam.sh found in $sFLATPAK_DOTSTEAM"
+            ((iFOUND++))
+        else
+            DebugMessage "steam.sh not found in $sFLATPAK_DOTSTEAM"
+        fi
+    else
+        DebugMessage "sFLATPAK_DOTSTEAM not found at: $sFLATPAK_DOTSTEAM"
+    fi
+
+    DebugMessage "iFOUND: $iFOUND"
+
+    #
+
 
 }
 
@@ -2122,6 +2248,7 @@ ReportEnvironmentInfo() {
         else
             DebugMessage "MemFree returned failure"
         fi
+        DetectSteamInstallPath
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
