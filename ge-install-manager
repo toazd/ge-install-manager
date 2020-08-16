@@ -1716,17 +1716,21 @@ ParseConfigFile() {
                 [[ ${sVALUE,,} = "auto" ]] && {
                     DebugMessage "$sKEY is set to $sVALUE, Running DetectSteamInstallPath"
                     DetectSteamInstallPath
-                    [[ -n $sOVERRIDE_DEFAULT_INSTALL_PATH ]] && {
+                    if [[ -n $sOVERRIDE_DEFAULT_INSTALL_PATH && ${sOVERRIDE_DEFAULT_INSTALL_PATH,,} != "auto" ]]; then
                         sVALUE=$sOVERRIDE_DEFAULT_INSTALL_PATH/compatibilitytools.d
                         iUPDATE_GEINSTALL_PATH=1
-                    }
+                    else
+                        # set it back to null
+                        #sVALUE=$sOVERRIDE_DEFAULT_INSTALL_PATH
+                        return 1
+                    fi
                 }
                 if [[ -d $sVALUE && -w $sVALUE ]]; then
-                    DebugMessage "sVALUE is a directory and the script has write permission to it"
+                    DebugMessage "$sVALUE is a directory and the script has write permission to it"
                     sGE_INSTALL_PATH=$sVALUE
                     iUPDATE_GEINSTALL_PATH=1 # probably not needed, unless things change
                 else
-                    DebugMessage "sVALUE is not a valid path, attempting to create it"
+                    DebugMessage "$sVALUE is not a valid path, attempting to create it"
                     if mkdir -p "$sVALUE"; then
                         if [[ -w $sVALUE ]]; then
                             DebugMessage "script has write permission to sVALUE"
@@ -1745,10 +1749,10 @@ ParseConfigFile() {
             ;;
             (config_path)
                 if [[ -d $sVALUE && -w $sVALUE ]]; then
-                    DebugMessage "sVALUE is a directory and the script has write permission to it"
+                    DebugMessage "$sVALUE is a directory and the script has write permission to it"
                     sSCRIPT_CONFIG_PATH=$sVALUE
                 else
-                    DebugMessage "sVALUE is not a valid path, attempting to create it"
+                    DebugMessage "$sVALUE is not a valid path, attempting to create it"
                     if mkdir -p "$sVALUE"; then
                         if [[ -w $sVALUE ]]; then
                             DebugMessage "script has write permission to sVALUE"
@@ -1765,10 +1769,10 @@ ParseConfigFile() {
             ;;
             (cache_path)
                 if [[ -d $sVALUE && -w $sVALUE ]]; then
-                    DebugMessage "sVALUE is a directory and the script has write permission to it"
+                    DebugMessage "$sVALUE is a directory and the script has write permission to it"
                     sSCRIPT_CACHE_PATH=$sVALUE
                 else
-                    DebugMessage "sVALUE is not a valid path, attempting to create it"
+                    DebugMessage "$sVALUE is not a valid path, attempting to create it"
                     if mkdir -p "$sVALUE"; then
                         if [[ -w $sVALUE ]]; then
                             DebugMessage "script has write permission to sVALUE"
@@ -1785,10 +1789,10 @@ ParseConfigFile() {
             ;;
             (tmp_path) # sTMP_BASE_PATH
                if [[ -d $sVALUE && -w $sVALUE ]]; then
-                    DebugMessage "sVALUE is a directory and the script has write permission to it"
+                    DebugMessage "$sVALUE is a directory and the script has write permission to it"
                     sTMP_BASE_PATH=$sVALUE
                 else
-                    DebugMessage "sVALUE is not a valid path, attempting to create it"
+                    DebugMessage "$sVALUE is not a valid path, attempting to create it"
                     if mkdir -p "$sVALUE"; then
                         if [[ -w $sVALUE ]]; then
                             DebugMessage "script has write permission to sVALUE"
@@ -2128,6 +2132,7 @@ DetectSteamInstallPath () {
         [[ -z $sOVERRIDE_DEFAULT_INSTALL_PATH ]] && {
             echo "You will need to manually set install_path in the configuration file"
             echo "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME/$sSCRIPT_FULL_NAME.conf)"
+            sOVERRIDE_DEFAULT_INSTALL_PATH="auto"
         }
     fi
 
