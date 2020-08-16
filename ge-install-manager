@@ -1386,6 +1386,24 @@ RequestURL() {
 }
 
 ###############################################################################
+# Given a path, use stat to calculate the kiB remaining by multiplying the
+# filesystem block size by the number of remaining blocks
+KiBRemaining() {
+
+    local sFILE_SYSTEM=$1
+
+    [[ -z $sFILE_SYSTEM ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
+
+    DebugMessage "Checking \"$sFILE_SYSTEM\""
+
+    if printf '%s' "$(( $(stat -c '%s' -f "$sFILE_SYSTEM") * $(stat -c '%a' -f "$sFILE_SYSTEM") ))"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+###############################################################################
 # TODO
 # NOTE 1597756 kB (1x package + 1x extracted package)
 # https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0a
@@ -2309,7 +2327,7 @@ ReportEnvironmentInfo() {
         else
             DebugMessage "MemFree returned failure"
         fi
-        DetectSteamInstallPath
+        DebugMessage "$(KiBRemaining "$sTMP_BASE_PATH") KiB remaining on $sTMP_BASE_PATH"
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
