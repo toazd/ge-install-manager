@@ -1548,6 +1548,9 @@ CreateDefaultConfigFile() {
 # Lines that contain potential escape codes are ignored.
 # Keys with no values are ignored (eg. "key=" and "key").
 #
+# Paths (install, config, cache, and tmp) do not have to exist but
+# the script will need write permission to create them for you.
+#
 # When install_path is set to the special value "auto", the script will
 # attempt to auto-detect the Steam installation path.
 #
@@ -2240,6 +2243,27 @@ SetupEnvironment() {
         fi
     fi
 
+    # sTMP_BASE_PATH
+    if [[ -d $sTMP_BASE_PATH ]]; then
+        DebugMessage "Found existing sTMP_BASE_PATH at \"$sTMP_BASE_PATH\""
+        if [[ -w $sTMP_BASE_PATH ]]; then
+            DebugMessage "Script has write access to sTMP_BASE_PATH"
+        else
+            DebugMessage "Script does not have write access to sTMP_BASE_PATH"
+            echo "Invalid tmp_path path: \"$sTMP_BASE_PATH\""
+            iFAILED=1
+        fi
+    elif [[ ! -d $sTMP_BASE_PATH ]]; then
+        DebugMessage "sTMP_BASE_PATH not found. Creating at \"$sTMP_BASE_PATH\""
+        if mkdir -p "$sTMP_BASE_PATH" 2>/dev/null; then
+            DebugMessage "Create cache path succeeded"
+        else
+            DebugMessage "Create cache path failed"
+            echo "Invalid tmp_path path: \"$sTMP_BASE_PATH\""
+            iFAILED=1
+        fi
+    fi
+
     if [[ $iFAILED -eq 0 ]]; then
         DebugMessage "All tasks succeeded"
         return 0
@@ -2372,7 +2396,7 @@ ReportEnvironmentInfo() {
     echo "###############################################################################"
 
     # report found/not found status of commands used
-    command -V du find wc curl tar gzip ps stat sed cmp sort
+    command -V du find wc curl tar gzip ps stat sed cmp sort envsubst printf
 
     echo "###############################################################################"
 
