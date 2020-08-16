@@ -2506,6 +2506,8 @@ Main() {
        [[ $iINSTALL -eq 0 ]] && \
        [[ $iCHECK_UPDATE -eq 0 ]] && \
        [[ $iVERIFY -eq 0 ]] && \
+       [[ $iSHOW_HELP -eq 0 ]] && \
+       [[ $iSHOW_USAGE -eq 0 ]] && \
        [[ $iUPDATE -eq 0 ]]; then
 
         [[ $iDEBUG -eq 1 ]] && {
