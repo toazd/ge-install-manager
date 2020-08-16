@@ -28,13 +28,17 @@ CreateSedUnminifyJSONscript	ge-install-manager	/^CreateSedUnminifyJSONscript() {
 IsInstalled	ge-install-manager	/^IsInstalled() {$/;"	f
 IsSteamRunning	ge-install-manager	/^IsSteamRunning() {$/;"	f
 RequestURL	ge-install-manager	/^RequestURL() {$/;"	f
+SpaceRemaining	ge-install-manager	/^SpaceRemaining() {$/;"	f
+MemFree	ge-install-manager	/^MemFree() {$/;"	f
 CreateDefaultConfigFile	ge-install-manager	/^CreateDefaultConfigFile() {$/;"	f
 ParseConfigFile	ge-install-manager	/^ParseConfigFile() {$/;"	f
 CleanUpVersion	ge-install-manager	/^CleanUpVersion() {$/;"	f
 MkTempFile	ge-install-manager	/^MkTempFile() {$/;"	f
 MkTempPath	ge-install-manager	/^MkTempPath() {$/;"	f
 GenerateRandomAlphaNumericString	ge-install-manager	/^GenerateRandomAlphaNumericString() {$/;"	f
+DetectSteamInstallPath	ge-install-manager	/^DetectSteamInstallPath () {$/;"	f
 SetupEnvironment	ge-install-manager	/^SetupEnvironment() {$/;"	f
+CheckRequirements	ge-install-manager	/^CheckRequirements() {$/;"	f
 ShowConsoleDiff	ge-install-manager	/^ShowConsoleDiff() {$/;"	f
 DebugMessage	ge-install-manager	/^DebugMessage() {$/;"	f
 ReportEnvironmentInfo	ge-install-manager	/^ReportEnvironmentInfo() {$/;"	f
