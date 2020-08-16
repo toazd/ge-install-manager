@@ -1396,7 +1396,7 @@ KiBRemaining() {
 
     DebugMessage "Checking \"$sFILE_SYSTEM\""
 
-    if printf '%s' "$(( $(stat -c '%s' -f "$sFILE_SYSTEM") * $(stat -c '%a' -f "$sFILE_SYSTEM") ))"; then
+    if printf '%s' "$(( ($(stat -c '%s' -f "$sFILE_SYSTEM") * $(stat -c '%a' -f "$sFILE_SYSTEM")) / 1024 ))"; then
         return 0
     else
         return 1
