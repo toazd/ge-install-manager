@@ -17,7 +17,8 @@ RemoveGEVersion	ge-install-manager	/^RemoveGEVersion() {$/;"	f
 ExtractGEPackage	ge-install-manager	/^ExtractGEPackage() {$/;"	f
 ListInstalledGEVersions	ge-install-manager	/^ListInstalledGEVersions() {$/;"	f
 ReportGEDiskUsage	ge-install-manager	/^ReportGEDiskUsage() {$/;"	f
-RemoveSavedPackages	ge-install-manager	/^RemoveSavedPackages() {$/;"	f
+RemoveSavedPackage	ge-install-manager	/^RemoveSavedPackage() {$/;"	f
+RemoveAllSavedPackages	ge-install-manager	/^RemoveAllSavedPackages() {$/;"	f
 RemoveGEInstallPath	ge-install-manager	/^RemoveGEInstallPath() {$/;"	f
 VerifyGEInstall	ge-install-manager	/^VerifyGEInstall() {$/;"	f
 QueryGEAttribute	ge-install-manager	/^QueryGEAttribute() {$/;"	f
