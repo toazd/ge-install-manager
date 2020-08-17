@@ -224,7 +224,7 @@ GetLatestGEVersion() {
                 DebugMessage "Github API rate limited exceeded"
             elif [[ $iDEBUG -eq 0 ]]; then
                 printf '%s\n%s\n%s\n' \
-                       "Github API rate limited exceeded" \
+                       "Github API rate limit exceeded. Try again later." \
                        "\"For unauthenticated requests, the rate limit allows for up to 60 requests per hour.\"" \
                        "https://developer.github.com/v3/#rate-limiting"
             fi
