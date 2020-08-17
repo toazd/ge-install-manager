@@ -62,11 +62,12 @@ iFORCE=0
 iDEBUG=0
 iDOWNLOAD=0
 iINSTALL=0
-iREMOVE=0
+iREMOVE_INSTALLED_VERSION=0
 iUPDATE=0
 iVERIFY=0
 iREMOVE_INSTALL_PATH=0
-iREMOVE_SAVED_PACKAGES=0
+iREMOVE_SAVED_PACKAGE=0
+iREMOVE_ALL_SAVED_PACKAGES=0
 iLIST_INSTALLED_GE_VERSIONS=0
 iREPORT_VERSION_USAGE=0
 iREPORT_INSTALL_PATH_USAGE=0
@@ -102,12 +103,12 @@ ShowHelp() {
                       Combined with -U, -u will be ignored
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
-                      Combine with -f to also remove the saved package
+    -r <version>  - Remove saved package <version>
     -V            - Verify each installation using its saved package
                       Combined with -v, -V will be skipped
                       Saved packages will be downloaded as needed
     -v <version>  - Verify <version> using its saved package
-    -d <version>  - Download the package for <version> and save it to the install path
+    -d <version>  - Download and save the package for <version>
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
                       -f is also required to confirm that you are sure
@@ -170,6 +171,7 @@ Usage:
       Remove install path,
       Remove saved packages (if remove install path is not active),
       Remove installed version (if remove install path is not active),
+      Remove saved package (if remove install path is not active),
       Download,
       Update,
       Install,
@@ -314,7 +316,7 @@ UpdateSavedGEReleases() {
 # Accepts one required parameter, the version, in one of the acceptable formats described in usage
 DownloadGEPackage() {
 
-    local sVERSION=$(CleanUpVersion "$1")
+    local sVERSION=$(CleanUpVersion "${1-}")
     [[ -z $sVERSION ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
     local sTMP_PATH=$(MkTempPath)
     local sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
@@ -385,13 +387,13 @@ InstallGEVersion() {
         }
     elif [[ $iUPDATE -eq 0 ]]; then
         DebugMessage "Install mode active"
-        sVERSION=${sINSTALL_VERSION:-$(CleanUpVersion "$1")}
+        sVERSION=${sINSTALL_VERSION:-$(CleanUpVersion "${1-}")}
     else
         DebugMessage "Unknown error detecting install mode"
         return 1
     fi
 
-    sVERSION=$(CleanUpVersion "$1")
+    sVERSION=$(CleanUpVersion "${1-}")
 
     [[ -z $sVERSION ]] && { DebugMessage "sVERSION is NULL"; return 1; }
 
@@ -449,83 +451,36 @@ elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]
 }
 
 ###############################################################################
-# Removes an installed version path and package (if -f is also supplied)
+# Removes an installed version
 # Accepts one parameter, the version, in one of the acceptable formats described in usage
-# NOTE supports removing the package specified by version even if that version is not installed
-#      when the -f parameter is combined with -R
 RemoveGEVersion() {
 
-    local sVERSION=$(CleanUpVersion "$1")
+    local sVERSION=$(CleanUpVersion "${1-}")
     local sREMOVE_PATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
-    local sREMOVE_PACKAGE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
     local sSIZE="0"
 
     [[ -z $sVERSION ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
 
-    DebugMessage "Requested sVERSION: \"$sVERSION\" sREMOVE_PATH: \"$sREMOVE_PATH\" sREMOVE_PACKAGE: \"$sREMOVE_PACKAGE\""
-    # If force is enabled, remove the path and the package
-    if [[ $iFORCE -eq 1 ]]; then
-        DebugMessage "Force mode is enabled"
-        # Remove the path if it exists
-        if [[ -d $sREMOVE_PATH ]]; then
-            DebugMessage "sREMOVE_PATH exists"
-            if ! IsSteamRunning; then
-                sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
-                sSIZE=${sSIZE%[[:space:]]*}
-                if $sCOMMAND_RM "$sREMOVE_PATH" >/dev/null; then
-                    echo "Removed path \"$sREMOVE_PATH\" (${sSIZE:-'error'})"
-                else
-                    echo "Failed to remove \"$sREMOVE_PATH\""
-                    return 1
-                fi
-            else
-                echo "Please close Steam before removing an install path"
-                return 1
-            fi
-        else
-            DebugMessage "sREMOVE_PACKAGE does not exist"
-            echo "Install path not found for version \"$sVERSION\""
-        fi
-        # Remove the package if it exists
-        if [[ -f $sREMOVE_PACKAGE ]]; then
-            DebugMessage "sREMOVE_PACKAGE exists"
-            sSIZE=$(du -h "$sREMOVE_PACKAGE" 2>/dev/null)
+    DebugMessage "Requested sVERSION: \"$sVERSION\" sREMOVE_PATH: \"$sREMOVE_PATH\""
+
+    # Remove the path if it exists
+    if [[ -d $sREMOVE_PATH ]]; then
+        if ! IsSteamRunning; then
+            sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
             sSIZE=${sSIZE%[[:space:]]*}
-            if $sCOMMAND_RM "$sREMOVE_PACKAGE" >/dev/null; then
-                echo "Removed package \"$sREMOVE_PACKAGE\" (${sSIZE:-'error'})"
+            if $sCOMMAND_RM -rf "$sREMOVE_PATH" >/dev/null; then
+                echo "Removed path \"$sREMOVE_PATH\" (${sSIZE:-'error'})"
             else
-                echo "Failed to remove package \"$sREMOVE_PACKAGE\""
+                echo "Failed to remove \"$sREMOVE_PATH\""
                 return 1
             fi
         else
-            DebugMessage "sREMOVE_PACKAGE does not exist"
-            echo "Package \"$sREMOVE_PACKAGE\" not found"
+            echo "Please close Steam before removing an install path"
+            return 1
         fi
-    # If force is not enabled, remove only the install path for sVERSION
-    elif [[ $iFORCE -eq 0 ]]; then
-        DebugMessage "Force is not enabled"
-        # Remove the path if it exists
-        if [[ -d $sREMOVE_PATH ]]; then
-            if ! IsSteamRunning; then
-                sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
-                sSIZE=${sSIZE%[[:space:]]*}
-                if $sCOMMAND_RM -rf "$sREMOVE_PATH" >/dev/null; then
-                    echo "Removed path \"$sREMOVE_PATH\" (${sSIZE:-'error'})"
-                else
-                    echo "Failed to remove \"$sREMOVE_PATH\""
-                    return 1
-                fi
-            else
-                echo "Please close Steam before removing an install path"
-                return 1
-            fi
-        else
-            DebugMessage "Install path does not exist"
-            echo "Install path not found for version \"$sVERSION\""
-        fi
-        [[ -f $sREMOVE_PACKAGE ]] && {
-            echo "Saved package not removed \"$sREMOVE_PACKAGE\" (include -f to remove it)"
-        }
+    else
+        DebugMessage "Install path does not exist"
+        echo "Install path not found for version \"$sVERSION\""
     fi
 
     return 0
@@ -537,7 +492,7 @@ RemoveGEVersion() {
 # Accepts one optional second parameter, the path to extract the package to
 ExtractGEPackage() {
 
-    local sVERSION=$(CleanUpVersion "$1")
+    local sVERSION=$(CleanUpVersion "${1-}")
     local sEXTRACT_FILE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
     local sEXTRACT_PATH=${2:-$sGE_INSTALL_PATH}
 
@@ -624,7 +579,7 @@ ListInstalledGEVersions() {
 # Accepts one optional parameter, the version, in one of the acceptable formats described in usage
 ReportGEDiskUsage() {
 
-    local sVERSION=$(CleanUpVersion "$1")
+    local sVERSION=$(CleanUpVersion "${1-}")
     local sPATH=''
     local sSIZE="0"
     local iFAILED=0
@@ -677,9 +632,43 @@ ReportGEDiskUsage() {
 }
 
 ###############################################################################
+# Remove a saved package
+# Accepts one required parameter, the version, in one of the acceptable formats described in usage
+RemoveSavedPackage() {
+
+    local sVERSION=$(CleanUpVersion "${1-}")
+    local sPACKAGE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
+
+    [[ -z $sVERSION ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
+
+    if [[ -f $sPACKAGE ]]; then
+        if [[ -w $sPACKAGE ]]; then
+            if $sCOMMAND_RM "$sPACKAGE"; then
+                echo "Removed \"$sPACKAGE\""
+                return 0
+            else
+                DebugMessage "sCOMMAND_RM: \"$sCOMMAND_RM\" sPACKAGE: \"$sPACKAGE\""
+                echo "Failed to remove version \"$sVERSION\" (rm command failed)"
+                return 1
+            fi
+        else
+            DebugMessage "No write access to \"$sPACKAGE\""
+            echo "Failed to remove version \"$sVERSION\" (no write permission)"
+            return 1
+        fi
+    else
+        DebugMessage "sPACKAGE is not a regular file: \"$sPACKAGE\""
+        echo "Failed to remove version \"$sVERSION\" (file not found)"
+        return 1
+    fi
+
+    return 0
+}
+
+###############################################################################
 # Removes all saved packages in the install path defined by the global variable sGE_INSTALL_PATH
 # NOTE a package is any regular file that matches the glob pattern "Proton-*.tar.gz"
-RemoveSavedPackages() {
+RemoveAllSavedPackages() {
 
     local iSUCCESS=0
     local iFAILED=0
@@ -692,7 +681,7 @@ RemoveSavedPackages() {
                 if [[ $iDEBUG -eq 1 ]]; then
                     DebugMessage "Package \"$sPACKAGE\" removed"
                 else
-                    echo "Removed package \"$sPACKAGE\""
+                    echo "Removed \"$sPACKAGE\""
                 fi
                 ((iSUCCESS++))
             else
@@ -757,7 +746,7 @@ VerifyGEInstall() {
 
     local sNODE
     local sTMP_PATH=$(MkTempPath)
-    local sVERSION=$(CleanUpVersion "$1")
+    local sVERSION=$(CleanUpVersion "${1-}")
     local iaEXTRACTED=()
     local iaINSTALLED=()
     local iMATCH_COUNTER=0
@@ -936,7 +925,7 @@ QueryGEAttribute() {
         return 1
     }
 
-    local sVERSION=$(CleanUpVersion "$1")
+    local sVERSION=$(CleanUpVersion "${1-}")
     local sVALUE=''
     local sATTRIBUTE=$2
     local iEXIT_STATUS
@@ -1268,7 +1257,7 @@ IsInstalled() {
         return 1
     }
 
-    sVERSION=$(CleanUpVersion "$1")
+    sVERSION=$(CleanUpVersion "${1-}")
 
     DebugMessage "Checking for version \"$sVERSION\" at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
 
@@ -1896,7 +1885,8 @@ CleanUpVersion() {
     local sVERSION=${1-}
 
     [[ -z $sVERSION ]] && {
-        DebugMessage "Parameter error (NULL)"
+        DebugMessage "sVERSION is NULL"
+        printf ''
         return 1
     }
 
@@ -2343,7 +2333,7 @@ ShowConsoleDiff() {
 
 ###############################################################################
 # Output to stderr a message and also report the calling line and calling function
-# Almost mimic the caller built-in but exclude the source file name and 'main' from Bash
+# Almost mimic the caller built-in but exclude the source file name and 'main'
 DebugMessage() {
 
     # If debug mode is not active, do nothing
@@ -2352,11 +2342,15 @@ DebugMessage() {
 
     local i
 
+    # Calling line number
     printf '%s' "(L${BASH_LINENO[0]})[" 1>&2
     for ((i=$((${#FUNCNAME[@]}-2));i>1;i--)); do
+        # Function trace (excluding 'main')
         printf '%s' "${FUNCNAME[i]}," 1>&2
     done
+    # Function trace, last one doesn't get a comma suffix
     printf '%s' "${FUNCNAME[i]}]: " 1>&2
+    # Message
     printf '%s\n' "$1" 1>&2
 
     return 0
@@ -2466,7 +2460,7 @@ CleanUp() {
 # requested. Order of operations for invocations that involve multiple parameters
 # are listed at the end of the usage section.
 ParseParameters() {
-    while getopts 'zZThHflSs:i:d:R:NuUXv:V' sOPT; do
+    while getopts 'zZThHflSs:i:d:R:r:NuUXv:V' sOPT; do
         case "$sOPT" in
             (h) iSHOW_HELP=1 ;;
             (H) iSHOW_USAGE=1 ;;
@@ -2480,10 +2474,14 @@ ParseParameters() {
             ;;
             (u) iCHECK_UPDATE=1 ;;
             (X) iREMOVE_INSTALL_PATH=1 ;;
-            (N) iREMOVE_SAVED_PACKAGES=1 ;;
+            (N) iREMOVE_ALL_SAVED_PACKAGES=1 ;;
             (R)
-                iREMOVE=1
-                sREMOVE_VERSION=$OPTARG
+                iREMOVE_INSTALLED_VERSION=1
+                sREMOVE_INSTALLED_VERSION=$OPTARG
+            ;;
+            (r)
+                iREMOVE_SAVED_PACKAGE=1
+                sREMOVE_SAVED_VERSION=$OPTARG
             ;;
             (l) iLIST_INSTALLED_GE_VERSIONS=1 ;;
             (s)
@@ -2527,8 +2525,9 @@ Main() {
     # If no parameters were supplied, show help
     # NOTE ignore iFORCE and iDEBUG flags
     if [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && \
-       [[ $iREMOVE_SAVED_PACKAGES -eq 0 ]] && \
-       [[ $iREMOVE -eq 0 ]] && \
+       [[ $iREMOVE_ALL_SAVED_PACKAGES -eq 0 ]] && \
+       [[ $iREMOVE_INSTALLED_VERSION -eq 0 ]] && \
+       [[ $iREMOVE_SAVED_PACKAGE -eq 0 ]] && \
        [[ $iLIST_INSTALLED_GE_VERSIONS -eq 0 ]] && \
        [[ $iREPORT_VERSION_USAGE -eq 0 ]] && \
        [[ $iREPORT_INSTALL_PATH_USAGE -eq 0 ]] && \
@@ -2595,12 +2594,6 @@ Main() {
         exit 1
     fi
 
-    # TODO
-    # NOTE ParseConfigFile must come after SetupEnvironment and before ConfigureOptionalCommands
-    # ParseConfigFile
-
-    #ConfigureOptionalCommands
-
     #TODO
     CreateSedUnminifyJSONscript
 
@@ -2627,15 +2620,23 @@ Main() {
     fi
 
     # remove saved packages
-    if [[ $iREMOVE_SAVED_PACKAGES -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]]; then
-        RemoveSavedPackages # TODO -f required?
+    if [[ $iREMOVE_ALL_SAVED_PACKAGES -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]]; then
+        RemoveAllSavedPackages # TODO -f required?
     fi
 
-    # Remove an installed version or package
-    if [[ $iREMOVE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && [[ $iREMOVE_SAVED_PACKAGES -eq 0 ]]; then
-        RemoveGEVersion "$sREMOVE_VERSION" # NOTE sREMOVE_VERSION is set in getops
+    # Remove an installed version
+    if [[ $iREMOVE_INSTALLED_VERSION -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && [[ $iREMOVE_ALL_SAVED_PACKAGES -eq 0 ]]; then
+        RemoveGEVersion "$sREMOVE_INSTALLED_VERSION" # NOTE sREMOVE_VERSION is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
-    elif [[ $iREMOVE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 1 ]]; then
+    elif [[ $iREMOVE_INSTALLED_VERSION -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 1 ]]; then
+        echo "Skipping remove version/package because remove install path was also requested"
+    fi
+
+    # Remove a saved package
+    if [[ $iREMOVE_SAVED_PACKAGE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && [[ $iREMOVE_ALL_SAVED_PACKAGES -eq 0 ]]; then
+        RemoveSavedPackage "$sREMOVE_SAVED_VERSION" # NOTE sREMOVE_VERSION is set in getops
+    # If remove install path was requested in the same invocation, skip removing version/package
+    elif [[ $iREMOVE_SAVED_PACKAGE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 1 ]]; then
         echo "Skipping remove version/package because remove install path was also requested"
     fi
 
@@ -2704,7 +2705,7 @@ Main() {
     # TODO add support to verify even if remove saved packages and/or remove install path was invoked
     # so long as some sort of install was also requested. Additionally, maybe support installing a version
     # that is not installed when verify is called and force mode is active.
-    if [[ $iVERIFY -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -ne 1 && $iREMOVE_SAVED_PACKAGES -ne 1 ]]; then
+    if [[ $iVERIFY -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -ne 1 && $iREMOVE_ALL_SAVED_PACKAGES -ne 1 ]]; then
         VerifyGEInstall "$sVERIFY_VERSION"
     fi
 
