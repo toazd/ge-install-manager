@@ -1924,7 +1924,8 @@ ParseConfigFile() {
         [[ -n $sOVERRIDE_DEFAULT_INSTALL_PATH ]] && {
             sGE_INSTALL_PATH=$sOVERRIDE_DEFAULT_INSTALL_PATH/compatibilitytools.d
             # update install_path in the config file
-            sed -i.bak "s|install_path=auto|install_path=$sGE_INSTALL_PATH|" "$sFILE_SCRIPT_CONFIG"
+            [[ -f $sFILE_SCRIPT_CONFIG ]] && CreateBackup "$sFILE_SCRIPT_CONFIG"
+            sed -i "s|install_path=auto|install_path=$sGE_INSTALL_PATH|" "$sFILE_SCRIPT_CONFIG"
         }
     }
 
