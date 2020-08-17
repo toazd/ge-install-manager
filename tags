@@ -29,6 +29,7 @@ CreateSedUnminifyJSONscript	ge-install-manager	/^CreateSedUnminifyJSONscript() {
 IsInstalled	ge-install-manager	/^IsInstalled() {$/;"	f
 IsSteamRunning	ge-install-manager	/^IsSteamRunning() {$/;"	f
 RequestURL	ge-install-manager	/^RequestURL() {$/;"	f
+CreateBackup	ge-install-manager	/^CreateBackup() {$/;"	f
 SpaceRemaining	ge-install-manager	/^SpaceRemaining() {$/;"	f
 MemFree	ge-install-manager	/^MemFree() {$/;"	f
 CreateDefaultConfigFile	ge-install-manager	/^CreateDefaultConfigFile() {$/;"	f
