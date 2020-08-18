@@ -3,7 +3,7 @@ Version 0.7.4
 Help:
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
-    Optional:       du (display disk usage of a path/file)
+    Optional:       du, tail, cut (disk usage, file count)
                     ps (is steam running)
                     sort, cmp (verify)
                     envsubst (config file parsing)
