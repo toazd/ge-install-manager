@@ -29,54 +29,54 @@ set -huo pipefail
 #
 ###############################################################################
 # Global variables
-sSCRIPT_VERSION="0.7.4"
-sSCRIPT_CODENAME="Cochrane Bonaventure"
+declare -g sSCRIPT_VERSION="0.7.4"
+declare -g sSCRIPT_CODENAME="Cochrane Bonaventure"
 # ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/
-sGE_INSTALL_PATH='' #"$HOME"/.steam/root/compatibilitytools.d
+declare -g sGE_INSTALL_PATH #"$HOME"/.steam/root/compatibilitytools.d
 #sSCRIPT_SHORT_NAME="ge-install-manager"
-sSCRIPT_FULL_NAME=${0##*/}
-sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
-sSCRIPT_CACHE_PATH= #${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME # TODO consider moving saved packages to here instead
+declare -g sSCRIPT_FULL_NAME=${0##*/}
+declare -g sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
+declare -g sSCRIPT_CACHE_PATH #${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME # TODO consider moving saved packages to here instead
 # JSON data sources TODO optional support for jq in addition to keeping sed as a fallback
-sGE_LATEST_VERSION_URL='' #"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
-sGE_RELEASES_URL='' #"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
+declare -g sGE_LATEST_VERSION_URL #"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
+declare -g sGE_RELEASES_URL #"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
 # HTML data sources (reference only, this script does not currently support html data sources)
 # https://github.com/GloriousEggroll/proton-ge-custom/releases
 # https://github.com/GloriousEggroll/proton-ge-custom/tags
-sFILE_LATEST_JSON="$sSCRIPT_CACHE_PATH"/latest.json
-sFILE_RELEASES_JSON="$sSCRIPT_CACHE_PATH"/releases.json
+declare -g sFILE_LATEST_JSON #="$sSCRIPT_CACHE_PATH"/latest.json
+declare -g sFILE_RELEASES_JSON #="$sSCRIPT_CACHE_PATH"/releases.json
 # NOTE JSON is returned minified when a custom User-Agent is used.
 # This saves ~25KiB per releases file download and ~0.5KiB per latest file download
-sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
-sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
-sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
-sGE_LATEST_VERSION=''
-sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
-sFILE_SED_UNMINIFY_SCRIPT= #"$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consider moving to XDG_DATA_HOME
-sOVERRIDE_DEFAULT_INSTALL_PATH=''
-sCOMMAND_RM='' #"trash" # Used in place of rm for all but temporary files if it is found
-sTMP_BASE_PATH=/tmp
-sTMP_PREFIX=$sSCRIPT_FULL_NAME.tmp.
+declare -g sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
+declare -g sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
+declare -g sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
+declare -g sGE_LATEST_VERSION
+declare -g sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
+declare -g sFILE_SED_UNMINIFY_SCRIPT #"$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consider moving to XDG_DATA_HOME
+declare -g sOVERRIDE_DEFAULT_INSTALL_PATH
+declare -g sCOMMAND_RM #"trash" # Used in place of rm for all but temporary files if it is found
+declare -g sTMP_BASE_PATH=/tmp
+declare -g sTMP_PREFIX=$sSCRIPT_FULL_NAME.tmp.
 # some script functionality depends on the following being initialized as 0
-iFORCE=0
-iDEBUG=0
-iDOWNLOAD=0
-iINSTALL=0
-iREMOVE_INSTALLED_VERSION=0
-iUPDATE=0
-iVERIFY=0
-iREMOVE_INSTALL_PATH=0
-iREMOVE_SAVED_PACKAGE=0
-iREMOVE_ALL_SAVED_PACKAGES=0
-iLIST_INSTALLED_GE_VERSIONS=0
-iREPORT_VERSION_USAGE=0
-iREPORT_INSTALL_PATH_USAGE=0
-iSHOW_HELP=0
-iSHOW_USAGE=0
-iCHECK_UPDATE=0
-iINTEGRATION_TESTING=0
-iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
-iREAL_EXIT_STATUS=0
+declare -g iFORCE=0
+declare -g iDEBUG=0
+declare -g iDOWNLOAD=0
+declare -g iINSTALL=0
+declare -g iREMOVE_INSTALLED_VERSION=0
+declare -g iUPDATE=0
+declare -g iVERIFY=0
+declare -g iREMOVE_INSTALL_PATH=0
+declare -g iREMOVE_SAVED_PACKAGE=0
+declare -g iREMOVE_ALL_SAVED_PACKAGES=0
+declare -g iLIST_INSTALLED_GE_VERSIONS=0
+declare -g iREPORT_VERSION_USAGE=0
+declare -g iREPORT_INSTALL_PATH_USAGE=0
+declare -g iSHOW_HELP=0
+declare -g iSHOW_USAGE=0
+declare -g iCHECK_UPDATE=0
+declare -g iINTEGRATION_TESTING=0
+declare -g iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
+declare -g iREAL_EXIT_STATUS=0
 OPTERR=1 # make sure it's on
 
 ###############################################################################
@@ -319,7 +319,7 @@ DownloadGEPackage() {
     local sTMP_PATH=$(MkTempPath)
     local sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
     local sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
-    local iSIZE_BYTES=''
+    local iSIZE_BYTES=0
 
     [[ -z $sGE_DOWNLOAD_URL ]] && { DebugMessage "sGE_DOWNLOAD_URL is NULL"; return 1; }
 
@@ -421,7 +421,7 @@ InstallGEVersion() {
             return 1
         fi
     # if a saved package exists and force mode is active
-elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
+    elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
         echo "Removing saved package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
         if $sCOMMAND_RM "$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"; then
             echo "Package removed"
@@ -455,7 +455,7 @@ RemoveGEVersion() {
 
     local sVERSION=$(CleanUpVersion "${1-}")
     local sREMOVE_PATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
-    local sSIZE="0"
+    local sSIZE
 
     [[ -z $sVERSION ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
 
@@ -571,7 +571,8 @@ ListInstalledGEVersions() {
 ReportGEDiskUsage() {
 
     local sVERSION=$(CleanUpVersion "${1-}")
-    local sPATH=''
+    local sPATH
+    local sFILE_COUNT
     local sSIZE="0"
     local iFAILED=0
 
@@ -918,7 +919,7 @@ QueryGEAttribute() {
     [[ -z $1 || -z $2 || $# -ne 2 ]] && { DebugMessage "Parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\""; return 1; }
 
     local sVERSION=$(CleanUpVersion "${1-}")
-    local sVALUE=''
+    local sVALUE
     local sATTRIBUTE=$2
     local iEXIT_STATUS
 
@@ -989,10 +990,11 @@ QueryJSONAttribute() {
 
     [[ ${3,,} != @(size|browser_download_url) ]] && { DebugMessage "Unsupported attribute requested \"$2\""; return 1; }
 
-    local sVERSION=''
-    local iSIZE=''
-    local sBROWSER_URL=''
-    local sATTRIBUTE=''
+    local sVERSION
+    local iSIZE
+    local sFILE_JSON=${1-}
+    local sBROWSER_URL
+    local sATTRIBUTE
     local iLINE_COUNTER=0
     local iLINE_VERSION_FOUND=0
     local iLINE_SIZE_FOUND=0
@@ -1051,7 +1053,7 @@ QueryJSONAttribute() {
                 break
             }
         }
-    done < "$1" 2>/dev/null
+    done < "$sFILE_JSON" 2>/dev/null
 
     # debug messages
     [[ $iDEBUG -eq 1 ]] && {
@@ -1101,7 +1103,7 @@ QueryJSONAttribute() {
 # TODO
 ReformatJSONUsingSed() {
 
-    local sFILE_JSON=$1
+    local sFILE_JSON=${1-}
 
     [[ -z $sFILE_JSON ]] && { DebugMessage "Parameter error (NULL or not a file)"; return 1; }
     [[ -f $sFILE_JSON ]] || { DebugMessage "Parameter error (not a file)"; return 1; }
@@ -1133,6 +1135,7 @@ ReformatJSONUsingSed() {
 IsJSONminified() {
 
     local sJSON=$1
+    local iLINES
 
     [[ -z $sJSON ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
 
@@ -1299,8 +1302,8 @@ IsSteamRunning() {
 # TODO
 RequestURL() {
 
-    local sURL=$1
-    local sFILE=$2
+    local sURL=${1-}
+    local sFILE=${2-}
     local sRESPONSE
     local sMODIFIED_RESPONSE
 
@@ -1436,7 +1439,7 @@ CreateBackup() {
         for ((iINDEX; iINDEX>=1; iINDEX--)); do
             #DebugMessage "File: \"${iaBACKUP_FILES[iINDEX-1]}\""
             #DebugMessage "Newname: \"${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}\""
-            if mv -v "${iaBACKUP_FILES[iINDEX-1]}" "${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}"; then
+            if mv "${iaBACKUP_FILES[iINDEX-1]}" "${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}"; then
                 DebugMessage "${iaBACKUP_FILES[iINDEX-1]} renamed to ${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}"
             else
                 DebugMessage "Failed to rename backup file: \"${iaBACKUP_FILES[iINDEX-1]}\""
@@ -1446,12 +1449,11 @@ CreateBackup() {
     else
         DebugMessage "Skipping renaming backups, index 1 not found"
     fi
-    sync
+
     DebugMessage "sBACKUP_PATH: $sBACKUP_PATH"
     DebugMessage "sBACKUP_BASENAME: $sBACKUP_BASENAME"
-    cd "$sBACKUP_PATH" || exit 1
-    sync
-    if tar -cf - "$sBACKUP_BASENAME" | gzip - > "$sBACKUP_PATH/${sBACKUP_BASENAME}_1.tar.gz"; then
+
+    if tar -C "$sBACKUP_PATH" -cf "$sBACKUP_PATH/${sBACKUP_BASENAME}_1.tar.gz" -z "$sBACKUP_BASENAME"; then
         DebugMessage "Created new backup at: \"${sBACKUP_PATH}/${sBACKUP_BASENAME}_1.tar.gz\""
         return 0
     else
@@ -1508,8 +1510,16 @@ SpaceRemaining() {
 # https://github.com/torvalds/linux/blob/6aa303defb7454a2520c4ddcdf6b081f62a15890/mm/page_alloc.c#L4025
 MemFree() {
 
+    # MemAvailable
     local iMEM_AVAILABLE=0
-    local iNEED_FREE_KB=$1
+    local iNEED_FREE_KB=${1:-0}
+    # MemAvailable not available
+    local iSUM_LOW_WATERMARKS=0
+    local iMEM_FREE=0
+    local iTOTAL_PAGE_CACHE=0
+    local iSRECLAIMABLE=0
+    local iAVAILABLE=0
+    local iSLAB_UNRECLAIMABLE=0
 
     [[ -z $iNEED_FREE_KB ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
 
@@ -1531,13 +1541,6 @@ MemFree() {
 
     # If MemAvailable is not available in /proc/meminfo - adds support for older kernel versions ( v2.6 < [uname -r] < v3.14)
     DebugMessage "MemAvailable not found, using older methods"
-
-    local iSUM_LOW_WATERMARKS=0
-    local iMEM_FREE=0
-    local iTOTAL_PAGE_CACHE=0
-    local iSRECLAIMABLE=0
-    local iAVAILABLE=0
-    local iSLAB_UNRECLAIMABLE=0
 
     # Get the sum of the low water marks across all zones
     while IFS= read -r; do
@@ -1682,6 +1685,8 @@ ParseConfigFile() {
     local iCOUNTER=0
     local iFAILED=0
     local iUPDATE_GEINSTALL_PATH=0
+    local sKEY
+    local sVALUE
 
     iNUM_LINES=$(wc -l 2>/dev/null < "$sFILE_SCRIPT_CONFIG")
     [[ -z $iNUM_LINES ]] && {
@@ -1753,7 +1758,7 @@ ParseConfigFile() {
         # Ignore lines that don't contain exactly one =
         [[ $REPLY =~ (^|[^=])=($|[^=]) ]] || { DebugMessage "Ignoring line $iCOUNTER (more than one =)"; continue; }
 
-        # Trim lines that still have space/tab at the end
+        # Trim lines that still have a sspace/tab at the end
         while [[ ${REPLY:$((${#REPLY}-1)):1} = [[:blank:]] ]]; do
             DebugMessage "Trim trailing [[:blank:]] ($iCOUNTER): \"$REPLY\""
             REPLY=${REPLY:0:$((${#REPLY}-1))}
@@ -1900,7 +1905,7 @@ ParseConfigFile() {
                 else
                     DebugMessage "command -v \"$sVALUE\" failed"
                     echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                    echo "($LINENO) ParseConfigFile: If you don't want to use 'rm' then fix it"
+                    echo "($LINENO) ParseConfigFile: If you don't want to use 'rm' then change it"
                     sCOMMAND_RM="rm"
                 fi
             ;;
@@ -1927,7 +1932,7 @@ ParseConfigFile() {
 
     # Update install_path in the configuration file if necessary
     [[ $iUPDATE_GEINSTALL_PATH -eq 1 ]] && {
-        [[ -n $sOVERRIDE_DEFAULT_INSTALL_PATH ]] && {
+        [[ -n ${sOVERRIDE_DEFAULT_INSTALL_PATH-} ]] && {
             sGE_INSTALL_PATH=$sOVERRIDE_DEFAULT_INSTALL_PATH/compatibilitytools.d
             # update install_path in the config file
             [[ -f $sFILE_SCRIPT_CONFIG ]] && CreateBackup "$sFILE_SCRIPT_CONFIG"
@@ -2105,6 +2110,8 @@ DetectSteamInstallPath () {
 
     sOVERRIDE_DEFAULT_INSTALL_PATH=''
 
+    local i=0
+    local sCHECK_PATH
     local iaVALID_PATHS=()
     local iaSEARCH_PATHS=("$HOME/.steam/root" \
                           "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
@@ -2430,7 +2437,7 @@ DebugMessage() {
 
     # If debug mode is not active, do nothing
     [[ $iDEBUG -eq 1 ]] || return 0
-    [[ -z $1 ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
+    [[ -z ${1-} ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
 
     local i
 
@@ -2469,9 +2476,10 @@ ReportEnvironmentInfo() {
         #DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "p") pebibytes remaining on $sTMP_BASE_PATH"
         #DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "e") exbibytes remaining on $sTMP_BASE_PATH"
 
-        CreateBackup "/home/toazd/.config/ge-install-manager/ge-install-manager.conf"
-        CreateBackup "/home/toazd/github/personal/scripts/bash/ge-install-manager/tmp"
+        #CreateBackup "/home/toazd/.config/ge-install-manager/ge-install-manager.conf"
+        #CreateBackup "/home/toazd/github/personal/scripts/bash/ge-install-manager/tmp"
 
+        :
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
@@ -2518,6 +2526,8 @@ ReportEnvironmentInfo() {
 ###############################################################################
 # Remove any temporary files/paths created by the script if debug mode is not enabled
 CleanUp() {
+
+    local sNODE
 
     for sNODE in "$sTMP_BASE_PATH/$sTMP_PREFIX"*; do
         # paths
@@ -2740,7 +2750,7 @@ Main() {
     fi
 
     # Download a package
-    ((iDOWNLOAD)) && {
+    [[ $iDOWNLOAD -eq 1 ]] && {
         DownloadGEPackage "$sDOWNLOAD_VERSION" # NOTE sDOWNLOAD_VERSION is set in getops
     }
 
