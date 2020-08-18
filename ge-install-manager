@@ -771,7 +771,11 @@ VerifyGEInstall() {
                 if ! ExtractGEPackage "$sVERSION" "$sTMP_PATH"; then
                     return 1
                 fi
-
+                
+                # Reset counters
+                iMATCH_COUNTER=0
+                iMISMATCH_COUNTER=0
+                iMISSING_COUNTER=0
                 # create two indexed arrays, each containing a seperate list of files, one from the extracted path and the other from the installed path respectively
                 #printf '\033[s%s' "Indexing files to compare"
                 # NOTE __pycache__ is created at runtime and will not be present in the saved packages
