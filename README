@@ -31,7 +31,6 @@ Help:
                       NOTE: Saved packages are currently stored in the installation path
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
-                      Combined with -R to remove a saved package (even if that version is not installed)
     -z            - Enable debug mode
                       Enable extra output messages and preserve any temporary files created
 
