@@ -1422,7 +1422,7 @@ CreateBackup() {
 
     if [[ $iRENAME_BACKUPS -eq 1 ]]; then
         iINDEX=$iCOUNTER
-        if [[ $iINDEX -gt $iMAX_NUM_BACKUPS ]]; then
+        if [[ $iINDEX -ge $iMAX_NUM_BACKUPS ]]; then
             # Remove the oldest (highest index) backup until iMAX_NUM_BACKUPS is reached
             while [[ $iINDEX -ge $iMAX_NUM_BACKUPS ]]; do
                 if $sCOMMAND_RM "${iaBACKUP_FILES[iINDEX-1]}"; then
