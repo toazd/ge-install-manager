@@ -57,6 +57,7 @@ declare -g sOVERRIDE_DEFAULT_INSTALL_PATH
 declare -g sCOMMAND_RM #"trash" # Used in place of rm for all but temporary files if it is found
 declare -g sTMP_BASE_PATH=/tmp
 declare -g sTMP_PREFIX=$sSCRIPT_FULL_NAME.tmp.
+declare -g sVERIFY_VERSION
 # some script functionality depends on the following being initialized as 0
 declare -g iFORCE=0
 declare -g iDEBUG=0
@@ -716,7 +717,7 @@ VerifyGEInstall() {
 
     local sNODE
     local sTMP_PATH=$(MkTempPath)
-    local sVERSION=$(CleanUpVersion "${1-}")i
+    local sVERSION=$(CleanUpVersion "${1-}")
     local sFILE_EXTRACTED
     local sFILE_INSTALLED
     local iaEXTRACTED=()
@@ -1941,7 +1942,7 @@ MkTempFile() {
 
     [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || { ((iDEBUG)) && DebugMessage "sTMP_BASE_PATH is not a valid path or no write access: \"$sTMP_BASE_PATH\""; return 1; }
 
-    sTMP_FILE_CREATED=$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)
+    sTMP_FILE_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
 
     # Create the empty temp file
     printf '' > "$sTMP_FILE_CREATED"
@@ -1962,10 +1963,10 @@ MkTempPath() {
 
     [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || { ((iDEBUG)) && DebugMessage "sTMP_BASE_PATH is not a valid path or no write access: \"$sTMP_BASE_PATH\""; return 1; }
 
-    sTMP_PATH_CREATED=$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)
+    sTMP_PATH_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
 
     # Create the path
-    mkdir -p "$sTMP_PATH_CREATED" 2>dev/null
+    mkdir -p "$sTMP_PATH_CREATED" 2>/dev/null
 
     # "Return" the path and filename,
     # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
@@ -1981,7 +1982,7 @@ GenerateRandomAlphaNumericString() {
 
     local sLIST
     local iLEN=${1:-10}
-    local sRESULT
+    local sRESULT=''
     local i=1
 
     sLIST=$(printf '%s' {a..z}{0..9}{A..Z})
@@ -1991,7 +1992,7 @@ GenerateRandomAlphaNumericString() {
     [[ $iLEN -gt 32767 ]] && iLEN=32767
 
     # Loop iLEN times
-    for (( i; i<=iLEN; i++ )) do
+    for (( i=1; i<=iLEN; i++ )); do
 
         # Randomly choose one offset of length one from sLIST
         sCHAR=${sLIST:$RANDOM%${#sLIST}:1}
@@ -2723,7 +2724,7 @@ Main() {
     # so long as some sort of install was also requested. Additionally, maybe support installing a version
     # that is not installed when verify is called and force mode is active.
     if [[ $iVERIFY -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -ne 1 && $iREMOVE_ALL_SAVED_PACKAGES -ne 1 ]]; then
-        VerifyGEInstall "$sVERIFY_VERSION"
+        VerifyGEInstall "${sVERIFY_VERSION-}"
     fi
 
     return 0
