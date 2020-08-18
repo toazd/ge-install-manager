@@ -228,8 +228,6 @@ GetLatestGEVersion() {
                        "\"For unauthenticated requests, the rate limit allows for up to 60 requests per hour.\"" \
                        "https://developer.github.com/v3/#rate-limiting"
             fi
-            # needs to be removed or RequestURL won't grab a new one right away
-            rm "$sFILE_LATEST_JSON"
             return 1
         }
 
@@ -258,6 +256,7 @@ UpdateSavedGELatestRelease() {
         DebugMessage "RequestURL returned success"
     else
         DebugMessage "RequestURL returned failure"
+        return 1
     fi
 
     # check the response and report and respond accordingly
@@ -291,6 +290,7 @@ UpdateSavedGEReleases() {
         DebugMessage "RequestURL returned success"
     else
         DebugMessage "RequestURL returned failure"
+        return 1
     fi
 
     if [[ -n $sGE_RELEASES_JSON ]]; then
@@ -1103,11 +1103,12 @@ ReformatJSONUsingSed() {
 
     local sFILE_JSON=$1
 
-    [[ -z $sFILE_JSON || ! -f $sFILE_JSON ]] && { DebugMessage "Parameter error (NULL or not a file)"; return 1; }
+    [[ -z $sFILE_JSON ]] && { DebugMessage "Parameter error (NULL or not a file)"; return 1; }
+    [[ -f $sFILE_JSON ]] || { DebugMessage "Parameter error (not a file)"; return 1; }
 
     DebugMessage "sFILE_JSON: \"$sFILE_JSON\""
 
-    if [[ -f $sFILE_JSON && -w $sFILE_JSON ]]; then
+    if [[ -w $sFILE_JSON ]]; then
         CreateBackup "$sFILE_JSON"
         if sed -f "$sFILE_SED_UNMINIFY_SCRIPT" -i "$sFILE_JSON"; then
             DebugMessage "'sed' returned success"
@@ -1117,7 +1118,7 @@ ReformatJSONUsingSed() {
             return 1
         fi
     else
-        DebugMessage "Invalid file requested: \"$sFILE_JSON\""
+        DebugMessage "No write access: \"$sFILE_JSON\""
         return 1
     fi
 
@@ -1338,10 +1339,12 @@ RequestURL() {
     # NOTE the current un-minify script works on both minified and unminified JSON
     # NOTE It needs to run on both to enable future support for displaying the body_text (update notes) section because
     #      it also transforms literal \n in the body_text to newlines
+    echo "sFILE: \"$sFILE\""
     if ReformatJSONUsingSed "$sFILE"; then
         DebugMessage "ReformatJSONUsingSed returned success"
-        sMODIFIED_RESPONSE=$(cat "$sFILE" 2>/dev/null)
-        printf '%s' "${sMODIFIED_RESPONSE%$'\n'}" # remove the newline added by cat
+        sMODIFIED_RESPONSE=$(cat "$sFILE")
+        #printf '%s' "${sMODIFIED_RESPONSE%$'\n'}" # remove the newline added by cat
+        printf '%s' "${sMODIFIED_RESPONSE}"
         return 0
     else
         DebugMessage "ReformatJSONUsingSed returned failure"
@@ -1366,6 +1369,7 @@ CreateBackup() {
     local iINDEX=0
     local iRENAME_BACKUPS=0
     local iaBACKUP_FILES=()
+    local sFILE
     shopt -s nullglob dotglob
 
     [[ -z $sBACKUP ]] && { DebugMessage "Parameter error (NULL)"; return 1; }
@@ -1385,15 +1389,15 @@ CreateBackup() {
         DebugMessage "sBACKUP is a path"
         # get one path above the path to backup
         # BUG this may not work in all target environments
-        sBACKUP_PATH=$(realpath "$(dirname "$sBACKUP")")
+        sBACKUP_PATH=$(realpath "$(dirname "$sBACKUP" 2>/dev/null)" 2>/dev/null)
     fi
 
     sBACKUP_BASENAME=${sBACKUP##*/}
-    DebugMessage "sBACKUP_BASENAME set to $sBACKUP_BASENAME"
-    DebugMessage "sBACKUP_PATH is $sBACKUP_PATH"
+    #DebugMessage "sBACKUP_BASENAME set to $sBACKUP_BASENAME"
+    #DebugMessage "sBACKUP_PATH is $sBACKUP_PATH"
 
     # determine the basename suffix to use
-    for sFILE in "$sBACKUP_PATH/$sBACKUP_BASENAME"*.tar.gz; do
+    for sFILE in "$sBACKUP_PATH/$sBACKUP_BASENAME"_?.tar.gz; do
         DebugMessage "Testing if a backup: $sFILE"
         if [[ $sFILE =~ ^.*[^_]_[[:digit:]]{1}\.tar\.gz$ ]]; then
             DebugMessage "Passed regex test \"$sFILE\""
@@ -1415,7 +1419,7 @@ CreateBackup() {
 
     if [[ $iRENAME_BACKUPS -eq 1 ]]; then
         iINDEX=$iCOUNTER
-        if [[ $iINDEX -ge $iMAX_NUM_BACKUPS ]]; then
+        if [[ $iINDEX -gt $iMAX_NUM_BACKUPS ]]; then
             # Remove the oldest (highest index) backup until iMAX_NUM_BACKUPS is reached
             while [[ $iINDEX -ge $iMAX_NUM_BACKUPS ]]; do
                 if $sCOMMAND_RM "${iaBACKUP_FILES[iINDEX-1]}"; then
@@ -1430,9 +1434,9 @@ CreateBackup() {
 
         # Rename existing backups, leaving room for a new index 1
         for ((iINDEX; iINDEX>=1; iINDEX--)); do
-            DebugMessage "File: \"${iaBACKUP_FILES[iINDEX-1]}\""
-            DebugMessage "Newname: \"${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}\""
-            if mv "${iaBACKUP_FILES[iINDEX-1]}" "${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}"; then
+            #DebugMessage "File: \"${iaBACKUP_FILES[iINDEX-1]}\""
+            #DebugMessage "Newname: \"${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}\""
+            if mv -v "${iaBACKUP_FILES[iINDEX-1]}" "${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}"; then
                 DebugMessage "${iaBACKUP_FILES[iINDEX-1]} renamed to ${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}"
             else
                 DebugMessage "Failed to rename backup file: \"${iaBACKUP_FILES[iINDEX-1]}\""
@@ -1442,11 +1446,13 @@ CreateBackup() {
     else
         DebugMessage "Skipping renaming backups, index 1 not found"
     fi
-
+    sync
     DebugMessage "sBACKUP_PATH: $sBACKUP_PATH"
     DebugMessage "sBACKUP_BASENAME: $sBACKUP_BASENAME"
-    if tar -C "$sBACKUP_PATH" -czf "$sBACKUP_PATH/${sBACKUP_BASENAME}_1.tar.gz" "$sBACKUP_BASENAME"; then
-        DebugMessage "Created new backup at: \"${sBACKUP}_1.tar.gz\""
+    cd "$sBACKUP_PATH" || exit 1
+    sync
+    if tar -cf - "$sBACKUP_BASENAME" | gzip - > "$sBACKUP_PATH/${sBACKUP_BASENAME}_1.tar.gz"; then
+        DebugMessage "Created new backup at: \"${sBACKUP_PATH}/${sBACKUP_BASENAME}_1.tar.gz\""
         return 0
     else
         DebugMessage "Backup failed"
@@ -1521,7 +1527,7 @@ MemFree() {
                 return $((iMEM_AVAILABLE > iNEED_FREE_KB ? 0 : 1))
             }
         }
-    done < <(cat /proc/meminfo)
+    done < <(cat /proc/meminfo 2>/dev/null)
 
     # If MemAvailable is not available in /proc/meminfo - adds support for older kernel versions ( v2.6 < [uname -r] < v3.14)
     DebugMessage "MemAvailable not found, using older methods"
@@ -1546,7 +1552,7 @@ MemFree() {
             REPLY=${REPLY%[[:blank:]]*} # Not needed on my system, kept just in case
             iSLAB_UNRECLAIMABLE=$REPLY
         }
-    done < <(cat /proc/zoneinfo)
+    done < <(cat /proc/zoneinfo 2>/dev/null)
     # TODO 0 could indicate a serious problem or a customization?
     #[[ $iSUM_LOW_WATERMARKS -le 0 ]] && return 1
 
@@ -1569,7 +1575,7 @@ MemFree() {
             REPLY=${REPLY##*[[:blank:]]}
             iTOTAL_PAGE_CACHE=$((iTOTAL_PAGE_CACHE+REPLY)) # NOTE two iterations are required to add both
         fi
-    done < <(cat /proc/meminfo)
+    done < <(cat /proc/meminfo 2>/dev/null)
 
     # pagecache -= min(pagecache / 2, wmark_low);
     # subtract the lower of the two (iTOTAL_PAGE_CACHE/2) vs iSUM_LOW_WATERMARKS
