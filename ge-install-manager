@@ -28,48 +28,55 @@ set -huo pipefail
 # TODO support for using jq if sed fails to reformat minified JSON how the script expects (or just use jq first if it's available)
 #
 ###############################################################################
-# Global variables
+# Global variables - minimum required to show help/usage
 declare -g sSCRIPT_VERSION="0.7.4"
 declare -g sSCRIPT_CODENAME="Cochrane Bonaventure"
-declare -g sGE_INSTALL_PATH
 declare -g sSCRIPT_FULL_NAME=${0##*/}
-declare -g sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
-declare -g sFILE_SED_UNMINIFY_SCRIPT=$sSCRIPT_CONFIG_PATH/unminify-JSON.sed
-declare -g sSCRIPT_CACHE_PATH
-declare -g sGE_LATEST_VERSION_URL
-declare -g sGE_RELEASES_URL
-declare -g sFILE_LATEST_JSON
-declare -g sFILE_RELEASES_JSON
-declare -g sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
-declare -g sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
-declare -g sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
-declare -g sGE_LATEST_VERSION
-declare -g sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
-declare -g sFILE_SED_UNMINIFY_SCRIPT
-declare -g sOVERRIDE_DEFAULT_INSTALL_PATH
-declare -g sCOMMAND_RM
-declare -g sTMP_BASE_PATH=/tmp
 declare -g sTMP_PREFIX=$sSCRIPT_FULL_NAME.tmp.
-declare -g sVERIFY_VERSION
-declare -g iFORCE=0
+declare -g sTMP_BASE_PATH=/tmp
 declare -g iDEBUG=0
-declare -g iDOWNLOAD=0
-declare -g iINSTALL=0
-declare -g iREMOVE_INSTALLED_VERSION=0
-declare -g iUPDATE=0
-declare -g iVERIFY=0
 declare -g iREMOVE_INSTALL_PATH=0
-declare -g iREMOVE_SAVED_PACKAGE=0
 declare -g iREMOVE_ALL_SAVED_PACKAGES=0
+declare -g iREMOVE_INSTALLED_VERSION=0
+declare -g iREMOVE_SAVED_PACKAGE=0
 declare -g iLIST_INSTALLED_GE_VERSIONS=0
 declare -g iREPORT_VERSION_USAGE=0
 declare -g iREPORT_INSTALL_PATH_USAGE=0
+declare -g iDOWNLOAD=0
+declare -g iINSTALL=0
+declare -g iCHECK_UPDATE=0
+declare -g iVERIFY=0
 declare -g iSHOW_HELP=0
 declare -g iSHOW_USAGE=0
-declare -g iCHECK_UPDATE=0
-declare -g iINTEGRATION_TESTING=0
-declare -g iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
-declare -g iREAL_EXIT_STATUS=0
+declare -g iUPDATE=0
+
+###############################################################################
+# Global variables - not required to show help/usage
+InitializeGlobalVars() {
+    declare -g sGE_INSTALL_PATH
+    declare -g sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
+    declare -g sFILE_SED_UNMINIFY_SCRIPT=$sSCRIPT_CONFIG_PATH/unminify-JSON.sed
+    declare -g sSCRIPT_CACHE_PATH
+    declare -g sGE_LATEST_VERSION_URL
+    declare -g sGE_RELEASES_URL
+    declare -g sFILE_LATEST_JSON
+    declare -g sFILE_RELEASES_JSON
+    declare -g sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
+    declare -g sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
+    declare -g sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
+    declare -g sGE_LATEST_VERSION
+    declare -g sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
+    declare -g sFILE_SED_UNMINIFY_SCRIPT
+    declare -g sOVERRIDE_DEFAULT_INSTALL_PATH
+    declare -g sCOMMAND_RM
+    declare -g sVERIFY_VERSION
+    declare -g iFORCE=0
+    declare -g iINTEGRATION_TESTING=0
+    declare -g iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
+    declare -g iREAL_EXIT_STATUS=0
+
+    return 0
+}
 
 ###############################################################################
 # TODO
@@ -2594,9 +2601,13 @@ Main() {
     fi
 
     # TODO
-    if ParseConfigFile; then
+    if InitializeGlobalVars; then
         if CheckRequirements; then
-            if ! SetupEnvironment; then
+            if ParseConfigFile; then
+                if ! SetupEnvironment; then
+                    exit 1
+                fi
+            else
                 exit 1
             fi
         else

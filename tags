@@ -6,6 +6,7 @@
 !_TAG_PROGRAM_VERSION	0.0.0	/a3c87ab5/
 !_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
 !_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+InitializeGlobalVars	ge-install-manager	/^InitializeGlobalVars() {$/;"	f
 ShowHelp	ge-install-manager	/^ShowHelp() {$/;"	f
 ShowUsage	ge-install-manager	/^ShowUsage() {$/;"	f
 GetLatestGEVersion	ge-install-manager	/^GetLatestGEVersion() {$/;"	f
