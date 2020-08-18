@@ -192,8 +192,6 @@ USAGE_MESSAGE
 # NOTE rate limied exceeded [[ $(stat -c '%s' "$sFILE_LATEST_JSON") -eq 245 ]]
 GetLatestGEVersion() {
 
-    local iRATE_LIMITED_EXCEEDED=0
-
     # WARNING DO NOT make this local
     sGE_LATEST_VERSION=''
 
@@ -211,24 +209,7 @@ GetLatestGEVersion() {
                 sGE_LATEST_VERSION=${sGE_LATEST_VERSION%.tar.gz\"*}
                 break
             }
-            [[ ${REPLY,,} == *"rate limit exceeded"* ]] && {
-                iRATE_LIMITED_EXCEEDED=1
-                break
-            }
         done < "$sFILE_LATEST_JSON"
-
-        [[ $iRATE_LIMITED_EXCEEDED -eq 1 ]] && {
-            if [[ $iDEBUG -eq 1 ]]; then
-                DebugMessage "Github API rate limited exceeded"
-            elif [[ $iDEBUG -eq 0 ]]; then
-                printf '%s\n%s\n%s\n' \
-                       "Github API rate limit exceeded. Try again later." \
-                       "\"For unauthenticated requests, the rate limit allows for up to 60 requests per hour.\"" \
-                       "https://developer.github.com/v3/#rate-limiting"
-            fi
-            return 1
-        }
-
         [[ -z $sGE_LATEST_VERSION ]] && { ((iDEBUG)) && DebugMessage "sGE_LATEST_VERSION is NULL (no match or not found)"; return 1; }
     else
         return 1
@@ -247,8 +228,14 @@ UpdateSavedGELatestRelease() {
     ((iDEBUG)) && DebugMessage "sGE_LATEST_VERSION_URL: \"$sGE_LATEST_VERSION_URL\" sFILE_LATEST_JSON: \"$sFILE_LATEST_JSON\""
 
     if ! sGE_LATEST_RELEASE_JSON=$(RequestURL "$sGE_LATEST_VERSION_URL" "$sFILE_LATEST_JSON"); then
+        ((iDEBUG)) && DebugMessage "Failed to retrive URL: \"$sGE_LATEST_VERSION_URL\""
         return 1
     fi
+
+    [[ $sGE_LATEST_RELEASE_JSON == *"rate limit exceeded"* ]] && {
+        ((iDEBUG)) && DebugMessage "Github API request rate limit exceeded. Try again later."
+        return 1
+    }
 
     # check the response and report and respond accordingly
     if [[ -n $sGE_LATEST_RELEASE_JSON ]]; then
@@ -274,14 +261,20 @@ UpdateSavedGELatestRelease() {
 #TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGEReleases() {
 
-    local sGE_RELEASES_JSON
+    local sGE_RELEASES_JSON=''
 
     # BUG updates to download_count in remote releases cause curl -z to download a new version much more often than is needed
     ((iDEBUG)) && DebugMessage "sGE_RELEASES_URL: \"$sGE_RELEASES_URL\" sFILE_RELEASES_JSON: \"$sFILE_RELEASES_JSON\""
 
     if ! sGE_RELEASES_JSON=$(RequestURL "$sGE_RELEASES_URL" "$sFILE_RELEASES_JSON"); then
+        ((iDEBUG)) && DebugMessage "Failed to retrive URL: \"$sGE_LATEST_VERSION_URL\""
         return 1
     fi
+
+    [[ $sGE_RELEASES_JSON == *"rate limit exceeded"* ]] && {
+        ((iDEBUG)) && DebugMessage "Github API request rate limit exceeded. Try again later."
+        return 1
+    }
 
     if [[ -n $sGE_RELEASES_JSON ]]; then
         ((iDEBUG)) && DebugMessage "sGE_RELEASES_JSON is not empty"
@@ -319,7 +312,7 @@ DownloadGEPackage() {
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
         iSIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
         ((iDEBUG)) && DebugMessage "Downloaded package size in bytes: \"$iSIZE_BYTES\""
-        if [[ $iSIZE_BYTES -eq 9 ]] || [[ $(cat "$sTMP_PACKAGE" 2>/dev/null) =~ ^[Nn]ot[[:blank:]]+[Ff]ound$ ]]; then
+        if [[ $iSIZE_BYTES -eq 9 ]]; then
             echo "Server responded \"Not Found\" for version \"$sVERSION\""
             CleanUp
             return 1
@@ -563,7 +556,7 @@ ReportGEDiskUsage() {
     local sPATH
 
     # NOTE do not return 1 if sVERSION is NULL, functionality below depends on it
-    
+
     # optional commands
     if ! command -v du >/dev/null && ! command -v find >/dev/null && ! command -v wc >/dev/null; then
         iFAILED=1
@@ -771,7 +764,7 @@ VerifyGEInstall() {
                 if ! ExtractGEPackage "$sVERSION" "$sTMP_PATH"; then
                     return 1
                 fi
-                
+
                 # Reset counters
                 iMATCH_COUNTER=0
                 iMISMATCH_COUNTER=0
@@ -905,13 +898,19 @@ QueryGEAttribute() {
     local sVALUE
     local sATTRIBUTE=${2-}
 
-    UpdateSavedGELatestRelease
+    if ! UpdateSavedGELatestRelease; then
+        printf ''
+        return 1
+    fi
 
     sVALUE=$(QueryJSONAttribute "$sFILE_LATEST_JSON" "$sVERSION" "$sATTRIBUTE")
 
     # if the returned value from QueryJSONAttribute was NULL, try searching in releases
     if [[ -z $sVALUE ]]; then
-        UpdateSavedGEReleases
+        if ! UpdateSavedGEReleases; then
+            printf ''
+            return 1
+        fi
         sVALUE=$(QueryJSONAttribute "$sFILE_RELEASES_JSON" "$sVERSION" "$sATTRIBUTE")
     fi
 
@@ -946,9 +945,9 @@ QueryJSONAttribute() {
     [[ ${3,,} != @(size|browser_download_url) ]] && { ((iDEBUG)) && DebugMessage "Parameter error (unsupported attribute requested) \"$2\""; return 1; }
 
     local sVERSION
-    local iSIZE
+    local iSIZE=0
     local sFILE_JSON=${1-}
-    local sBROWSER_URL
+    local sBROWSER_URL=''
     local sATTRIBUTE
     local iLINE_COUNTER=0
     local iLINE_VERSION_FOUND=0
@@ -1261,7 +1260,6 @@ RequestURL() {
                         -o - 2>/dev/null); then
 
         ((iDEBUG)) && DebugMessage "'curl' returned success"
-
         if [[ -n $sRESPONSE ]]; then
             ((iDEBUG)) && DebugMessage "sRESPONSE is not empty"
             # NOTE only the status is checked, unminify is run regardless of the result
@@ -1287,7 +1285,6 @@ RequestURL() {
     # NOTE the current un-minify script works on both minified and unminified JSON
     # NOTE It needs to run on both to enable future support for displaying the body_text (update notes) section because
     #      it also transforms literal \n in the body_text to newlines
-    echo "sFILE: \"$sFILE\""
     if ReformatJSONUsingSed "$sFILE"; then
         sMODIFIED_RESPONSE=$(cat "$sFILE")
         printf '%s' "${sMODIFIED_RESPONSE%$'\n'}" # remove the newline added by cat
@@ -2669,7 +2666,9 @@ Main() {
 
     # Download a package
     [[ $iDOWNLOAD -eq 1 ]] && {
-        DownloadGEPackage "$sDOWNLOAD_VERSION" # NOTE sDOWNLOAD_VERSION is set in getops
+        if ! DownloadGEPackage "$sDOWNLOAD_VERSION"; then # NOTE sDOWNLOAD_VERSION is set in getops
+            echo "Download failed"
+        fi
     }
 
     # Check for new version and if it is not installed install it
