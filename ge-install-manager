@@ -31,34 +31,26 @@ set -huo pipefail
 # Global variables
 declare -g sSCRIPT_VERSION="0.7.4"
 declare -g sSCRIPT_CODENAME="Cochrane Bonaventure"
-# ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/
-declare -g sGE_INSTALL_PATH #"$HOME"/.steam/root/compatibilitytools.d
-#sSCRIPT_SHORT_NAME="ge-install-manager"
+declare -g sGE_INSTALL_PATH
 declare -g sSCRIPT_FULL_NAME=${0##*/}
 declare -g sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
-declare -g sSCRIPT_CACHE_PATH #${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME # TODO consider moving saved packages to here instead
-# JSON data sources TODO optional support for jq in addition to keeping sed as a fallback
-declare -g sGE_LATEST_VERSION_URL #"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
-declare -g sGE_RELEASES_URL #"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
-# HTML data sources (reference only, this script does not currently support html data sources)
-# https://github.com/GloriousEggroll/proton-ge-custom/releases
-# https://github.com/GloriousEggroll/proton-ge-custom/tags
-declare -g sFILE_LATEST_JSON #="$sSCRIPT_CACHE_PATH"/latest.json
-declare -g sFILE_RELEASES_JSON #="$sSCRIPT_CACHE_PATH"/releases.json
-# NOTE JSON is returned minified when a custom User-Agent is used.
-# This saves ~25KiB per releases file download and ~0.5KiB per latest file download
+declare -g sFILE_SED_UNMINIFY_SCRIPT=$sSCRIPT_CONFIG_PATH/unminify-JSON.sed
+declare -g sSCRIPT_CACHE_PATH
+declare -g sGE_LATEST_VERSION_URL
+declare -g sGE_RELEASES_URL
+declare -g sFILE_LATEST_JSON
+declare -g sFILE_RELEASES_JSON
 declare -g sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
 declare -g sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
 declare -g sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
 declare -g sGE_LATEST_VERSION
 declare -g sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
-declare -g sFILE_SED_UNMINIFY_SCRIPT #"$sSCRIPT_CONFIG_PATH/unminify-JSON.sed" # TODO consider moving to XDG_DATA_HOME
+declare -g sFILE_SED_UNMINIFY_SCRIPT
 declare -g sOVERRIDE_DEFAULT_INSTALL_PATH
-declare -g sCOMMAND_RM #"trash" # Used in place of rm for all but temporary files if it is found
+declare -g sCOMMAND_RM
 declare -g sTMP_BASE_PATH=/tmp
 declare -g sTMP_PREFIX=$sSCRIPT_FULL_NAME.tmp.
 declare -g sVERIFY_VERSION
-# some script functionality depends on the following being initialized as 0
 declare -g iFORCE=0
 declare -g iDEBUG=0
 declare -g iDOWNLOAD=0
@@ -248,7 +240,7 @@ UpdateSavedGELatestRelease() {
         if [[ ! -f $sFILE_LATEST_JSON ]]; then
             printf '%s\n%s\n' \
                    "($LINENO) UpdateSavedGELatestRelease: Response from RequestURL was NULL and file \"$sFILE_LATEST_JSON\" not found" \
-                   "Is \"$sGE_LATEST_VERSION_URL\" a valid URL?"
+                   "Is \"$sGE_LATEST_VERSION_URL\" a valid URL?" 1>&2
             return 1
         fi
     fi
@@ -286,7 +278,7 @@ UpdateSavedGEReleases() {
         if [[ ! -f $sFILE_RELEASES_JSON ]]; then
             printf '%s\n%s\n' \
                    "Response from RequestURL was NULL and file \"$sFILE_RELEASES_JSON\" not found" \
-                   "Is \"$sGE_RELEASES_URL\" a valid URL?"
+                   "Is \"$sGE_RELEASES_URL\" a valid URL?" 1>&2
             return 1
          fi
     fi
@@ -928,7 +920,7 @@ QueryGEAttribute() {
 ###############################################################################
 # Return the value of a requested attribute from a saved latest/releases JSON file
 # value = $( QueryJSONAttribute "file.json" "version" "attribute")
-# NOTE This function relies on the JSON being in an exact order, if that order is changed (eg. by the github api) this function will cease to work
+# NOTE This function relies on the JSON being in an exact order, if that order is changed (eg. by the Github API) this function will cease to work
 # Example JSON order expected (line numbers are irrelevant, what matters is the order they appear in):
 # 1.(Line 41) "name": "Proton-5.9-GE-5-ST.tar.gz",
 # 2.(Line 65) "size": 406721946,
@@ -963,7 +955,8 @@ QueryJSONAttribute() {
 
     sATTRIBUTE=${3,,}
 
-    # WARNING do not manually output to stdout in this loop (unless you connect the file to different fd, and set read -u accordingly)
+    # WARNING do not output to stdout or stderr inside the following loop
+    # (unless you connect the file to different fd, set read -u accordingly, and remove the stderr redirect)
     while IFS= read -r; do
         ((iLINE_COUNTER++))
         # version match
@@ -1242,7 +1235,7 @@ IsSteamRunning() {
 ###############################################################################
 # RequestURL "URL "path/file"
 # If the mtime (determined by curl) is newer for remote (versus local file) download a new one
-# TODO
+# NOTE do not output to stdout inside this function
 RequestURL() {
 
     local sURL=${1-}
@@ -1559,7 +1552,7 @@ CreateDefaultConfigFile() {
 # Lines that contain potential escape codes are ignored.
 # Keys with no values are ignored (eg. "key=" and "key").
 #
-# Paths (install, config, cache, and tmp) do not have to exist but
+# Paths (install, cache, and tmp) do not have to exist but
 # the script will need write permission to create them for you.
 #
 # When install_path is set to the special value "auto", the script will
@@ -1578,9 +1571,6 @@ DEFAULT_CONFIG
 
 # Default install path
 install_path=auto
-
-# Default config path
-config_path=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
 
 # Default cache path
 cache_path=${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME
@@ -1765,26 +1755,26 @@ ParseConfigFile() {
                     fi
                 fi
             ;;
-            (config_path)
-                if [[ -d $sVALUE && -w $sVALUE ]]; then
-                    ((iDEBUG)) && DebugMessage "$sVALUE is a directory and the script has write permission to it"
-                    sSCRIPT_CONFIG_PATH=$sVALUE
-                else
-                    ((iDEBUG)) && DebugMessage "$sVALUE is not a valid path, attempting to create it"
-                    if mkdir -p "$sVALUE" 2>/dev/null; then
-                        if [[ -w $sVALUE ]]; then
-                            ((iDEBUG)) && DebugMessage "script has write permission to sVALUE"
-                            sSCRIPT_CONFIG_PATH=$sVALUE
-                        else
-                            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                            iFAILED=1
-                        fi
-                    else
-                        echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                        iFAILED=1
-                    fi
-                fi
-            ;;
+            #(config_path)
+            #    if [[ -d $sVALUE && -w $sVALUE ]]; then
+            #        ((iDEBUG)) && DebugMessage "$sVALUE is a directory and the script has write permission to it"
+            #        sSCRIPT_CONFIG_PATH=$sVALUE
+            #    else
+            #        ((iDEBUG)) && DebugMessage "$sVALUE is not a valid path, attempting to create it"
+            #        if mkdir -p "$sVALUE" 2>/dev/null; then
+            #            if [[ -w $sVALUE ]]; then
+            #                ((iDEBUG)) && DebugMessage "script has write permission to sVALUE"
+            #                sSCRIPT_CONFIG_PATH=$sVALUE
+            #            else
+            #                echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+            #                iFAILED=1
+            #            fi
+            #        else
+            #            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
+            #            iFAILED=1
+            #        fi
+            #    fi
+            #;;
             (cache_path)
                 if [[ -d $sVALUE && -w $sVALUE ]]; then
                     ((iDEBUG)) && DebugMessage "$sVALUE is a directory and the script has write permission to it"
@@ -1876,10 +1866,9 @@ ParseConfigFile() {
 
     ((iDEBUG)) && DebugMessage "Config path set to: \"$sSCRIPT_CONFIG_PATH\""
     # update global variables that depend on this one
-    sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
-    ((iDEBUG)) && DebugMessage "sFILE_SCRIPT_CONFIG set to: \"$sFILE_SCRIPT_CONFIG\""
-    sFILE_SED_UNMINIFY_SCRIPT="$sSCRIPT_CONFIG_PATH/unminify-JSON.sed"
-    ((iDEBUG)) && DebugMessage "sFILE_SED_UNMINIFY_SCRIPT set to: \"$sFILE_SED_UNMINIFY_SCRIPT\""
+    #sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
+    #((iDEBUG)) && DebugMessage "sFILE_SCRIPT_CONFIG set to: \"$sFILE_SCRIPT_CONFIG\""
+    #((iDEBUG)) && DebugMessage "sFILE_SED_UNMINIFY_SCRIPT set to: \"$sFILE_SED_UNMINIFY_SCRIPT\""
 
     ((iDEBUG)) && DebugMessage "Cache path set to: \"$sSCRIPT_CACHE_PATH\""
     # update global variables that depend on this one
@@ -1902,7 +1891,7 @@ ParseConfigFile() {
 # Internally, the script uses case-sensitive "base" versions such as "5.9-GE-5-ST" but
 # for parsing parameters many other variations are supported. Examples are in usage above.
 # NOTE not only does this enable multiple types of input but it also enables reporting
-#      with the exact input given which may or may not be helpful in case of an error/problem
+#      with the exact input given
 # NOTE if the naming format for packages changes, this function also must be adapted
 # TODO support even more variations?
 CleanUpVersion() {
