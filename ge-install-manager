@@ -221,37 +221,17 @@ GetLatestGEVersion() {
 #TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGELatestRelease() {
 
-    local sGE_LATEST_RELEASE_JSON=''
-
     ((iDEBUG)) && DebugMessage "sGE_LATEST_VERSION_URL: \"$sGE_LATEST_VERSION_URL\" sFILE_LATEST_JSON: \"$sFILE_LATEST_JSON\""
 
-    if ! sGE_LATEST_RELEASE_JSON=$(RequestURL "$sGE_LATEST_VERSION_URL" "$sFILE_LATEST_JSON"); then
-        ((iDEBUG)) && DebugMessage "Failed to retrive URL: \"$sGE_LATEST_VERSION_URL\""
-        return 1
-    fi
-
-    [[ $sGE_LATEST_RELEASE_JSON == *"rate limit exceeded"* ]] && {
-        ((iDEBUG)) && DebugMessage "Github API request rate limit exceeded. Try again later."
-        return 1
-    }
-
-    # check the response and report and respond accordingly
-    if [[ -n $sGE_LATEST_RELEASE_JSON ]]; then
-        ((iDEBUG)) && DebugMessage "sGE_LATEST_RELEASE_JSON is not empty"
-        [[ -f $sFILE_LATEST_JSON ]] && CreateBackup "$sFILE_LATEST_JSON"
-        printf '%s' "$sGE_LATEST_RELEASE_JSON" > "$sFILE_LATEST_JSON"
+    if RequestURL "$sGE_LATEST_VERSION_URL" "$sFILE_LATEST_JSON"; then
+        ((iDEBUG)) && DebugMessage "RequestURL returned success"
         return 0
-    elif [[ -z $sGE_LATEST_RELEASE_JSON ]]; then
-        ((iDEBUG)) && DebugMessage "sGE_LATEST_RELEASE_JSON is NULL"
-        if [[ ! -f $sFILE_LATEST_JSON ]]; then
-            printf '%s\n%s\n' \
-                   "($LINENO) UpdateSavedGELatestRelease: Response from RequestURL was NULL and file \"$sFILE_LATEST_JSON\" not found" \
-                   "Is \"$sGE_LATEST_VERSION_URL\" a valid URL?" 1>&2
-            return 1
-        fi
+    else
+        ((iDEBUG)) && DebugMessage "RequestURL returned failure"
+        return 1
     fi
 
-    return 0
+    return 1
 }
 
 ###############################################################################
@@ -259,37 +239,18 @@ UpdateSavedGELatestRelease() {
 #TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGEReleases() {
 
-    local sGE_RELEASES_JSON=''
-
     # BUG updates to download_count in remote releases cause curl -z to download a new version much more often than is needed
     ((iDEBUG)) && DebugMessage "sGE_RELEASES_URL: \"$sGE_RELEASES_URL\" sFILE_RELEASES_JSON: \"$sFILE_RELEASES_JSON\""
 
-    if ! sGE_RELEASES_JSON=$(RequestURL "$sGE_RELEASES_URL" "$sFILE_RELEASES_JSON"); then
-        ((iDEBUG)) && DebugMessage "Failed to retrive URL: \"$sGE_LATEST_VERSION_URL\""
-        return 1
-    fi
-
-    [[ $sGE_RELEASES_JSON == *"rate limit exceeded"* ]] && {
-        ((iDEBUG)) && DebugMessage "Github API request rate limit exceeded. Try again later."
-        return 1
-    }
-
-    if [[ -n $sGE_RELEASES_JSON ]]; then
-        ((iDEBUG)) && DebugMessage "sGE_RELEASES_JSON is not empty"
-        [[ -f $sFILE_RELEASES_JSON ]] && CreateBackup "$sFILE_RELEASES_JSON"
-        printf '%s' "$sGE_RELEASES_JSON" > "$sFILE_RELEASES_JSON"
+    if RequestURL "$sGE_RELEASES_URL" "$sFILE_RELEASES_JSON"; then
+        ((iDEBUG)) && DebugMessage "RequestURL returned success"
         return 0
-    elif [[ -z $sGE_RELEASES_JSON ]]; then
-        ((iDEBUG)) && DebugMessage "sGE_RELEASES_JSON is NULL"
-        if [[ ! -f $sFILE_RELEASES_JSON ]]; then
-            printf '%s\n%s\n' \
-                   "Response from RequestURL was NULL and file \"$sFILE_RELEASES_JSON\" not found" \
-                   "Is \"$sGE_RELEASES_URL\" a valid URL?" 1>&2
-            return 1
-         fi
+    else
+        ((iDEBUG)) && DebugMessage "RequestURL returned failure"
+        return 1
     fi
 
-    return 0
+    return 1
 }
 
 ###############################################################################
@@ -1063,7 +1024,6 @@ ReformatJSONUsingSed() {
     ((iDEBUG)) && DebugMessage "sFILE_JSON: \"$sFILE_JSON\""
 
     if [[ -w $sFILE_JSON ]]; then
-        CreateBackup "$sFILE_JSON"
         if sed -f "$sFILE_SED_UNMINIFY_SCRIPT" -i "$sFILE_JSON"; then
             ((iDEBUG)) && DebugMessage "'sed' returned success"
             return 0
@@ -1080,19 +1040,20 @@ ReformatJSONUsingSed() {
 }
 
 ###############################################################################
-# Detect if a string is minified or not (zero newlines)
+# Detect if a file is minified JSON or not (zero newlines)
 # return 0 if yes, 1 if no
 # NOTE the current un-minify script works on both minified and not-minified JSON data
 #      so this function is pointless other than reporting debug info
 IsJSONminified() {
 
-    local sJSON=${1-}
+    local sFILE_JSON=${1-}
     local iLINES
 
-    [[ -z $sJSON ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    [[ -z $sFILE_JSON ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    [[ ! -f $sFILE_JSON || ! -r $sFILE_JSON ]] && { ((iDEBUG)) && DebugMessage "Parameter error (not a file or not readable)"; return 1; }
 
     # NOTE do not use herestring
-    iLINES=$(printf '%s' "$sJSON" | wc -l)
+    iLINES=$(wc -l < "$sFILE_JSON")
     ((iDEBUG)) && DebugMessage "iLINES: \"$iLINES\""
     # 0 is the actual value of a minified JSON response, 1 is used in case a mistake is
     # made handling the string and a trailing newline is added
@@ -1246,53 +1207,59 @@ RequestURL() {
 
     local sURL=${1-}
     local sFILE=${2-}
-    local sRESPONSE
-    local sMODIFIED_RESPONSE
+    local sTMP_FILE=$(MkTempFile)
 
     [[ -z $sURL || -z $sFILE || $# -ne 2 ]] && ((iDEBUG)) && DebugMessage "Parameter error (NULL or not exactly two)"
+    [[ ! -f $sTMP_FILE || ! -w $sTMP_FILE ]] && ((iDEBUG)) && DebugMessage "Parameter error (temp file not a file or not writeable)"
 
-    if sRESPONSE=$(curl -sz "$sFILE" \
-                        -H "$sCURL_HEADER_USER_AGENT" \
-                        -H "$sCURL_HEADER_CONTENT_TYPE" \
-                        -H "$sCURL_HEADER_GITHUB_MEDIATYPE" \
-                        -L "$sURL" \
-                        -o - 2>/dev/null); then
+    if curl -sz "$sFILE" \
+            -H "$sCURL_HEADER_USER_AGENT" \
+            -H "$sCURL_HEADER_CONTENT_TYPE" \
+            -H "$sCURL_HEADER_GITHUB_MEDIATYPE" \
+            -L "$sURL" \
+            -o "$sTMP_FILE" 2>/dev/null; then
 
         ((iDEBUG)) && DebugMessage "'curl' returned success"
-        if [[ -n $sRESPONSE ]]; then
-            ((iDEBUG)) && DebugMessage "sRESPONSE is not empty"
-            # NOTE only the status is checked, unminify is run regardless of the result
-            if IsJSONminified "$sRESPONSE"; then
-                ((iDEBUG)) && DebugMessage "IsJSONminified returned success"
+        if [[ $(stat -c '%s' "$sTMP_FILE") -gt 0 ]]; then
+            if [[ -f $sTMP_FILE && -r $sTMP_FILE ]]; then
+                while IFS= read -r; do
+                    # TODO replace pattern matching test with a size comparison using stat (need a sample file first)
+                    [[ $REPLY == *"rate limit exceeded"* ]] && {
+                        echo "($LINENO) RequestURL: Github API request rate limit exceeded. Try again later." 1>&2
+                        return 1
+                    }
+                    [[ ${REPLY,,} == *"not found"* ]] && {
+                        echo "($LINENO) RequestURL: Server responded \"Not Found\"" 1>&2
+                        return 1
+                    }
+                done < "$sTMP_FILE"
+
+                # NOTE only the status is checked, unminify is run regardless of the result
+                IsJSONminified "$sTMP_FILE"
+                ReformatJSONUsingSed "$sTMP_FILE"
+
+                [[ -f $sFILE ]] && CreateBackup "$sFILE"
+                if cp -f "$sTMP_FILE" "$sFILE"; then
+                    return 0
+                else
+                    ((iDEBUG)) && DebugMessage "Failed to copy \"$sTMP_FILE\" to \"$sFILE\""
+                    return 1
+                fi
             else
-                ((iDEBUG)) && DebugMessage "IsJSONminified returned failure"
+                ((iDEBUG)) && DebugMessage "sTMP_FILE not found or not readable: \"$sTMP_FILE\""
+                return 1
             fi
-            [[ -f $sFILE ]] && CreateBackup "$sFILE"
-            printf '%s' "$sRESPONSE" > "$sFILE"
         else
-            ((iDEBUG)) && DebugMessage "sRESPONSE is NULL"
+            # remote file is not newer if curl returns success and the response is NULL
+            ((iDEBUG)) && DebugMessage "sTMP_FILE is size 0: \"$sTMP_FILE\""
+            return 0
         fi
-        #printf '%s' "$sRESPONSE"
-        #return 0
     else
         ((iDEBUG)) && DebugMessage "'curl' returned failure"
-        printf ''
         return 1
     fi
 
-    # Run the minify script whether the response is minified or not
-    # NOTE the current un-minify script works on both minified and unminified JSON
-    # NOTE It needs to run on both to enable future support for displaying the body_text (update notes) section because
-    #      it also transforms literal \n in the body_text to newlines
-    if ReformatJSONUsingSed "$sFILE"; then
-        sMODIFIED_RESPONSE=$(cat "$sFILE")
-        printf '%s' "${sMODIFIED_RESPONSE%$'\n'}" # remove the newline added by cat
-        #printf '%s' "${sMODIFIED_RESPONSE}"
-        return 0
-    else
-        printf ''
-        return 1
-    fi
+    return 0
 }
 
 ###############################################################################
@@ -2267,6 +2234,22 @@ SetupEnvironment() {
             iFAILED=1
         fi
     fi
+
+    # sFILE_LATEST_JSON
+    [[ -f $sFILE_LATEST_JSON ]] && {
+        [[ $(stat -c '%s' "$sFILE_LATEST_JSON" 2>/dev/null) -eq 0 ]] && {
+            ((iDEBUG)) && DebugMessage "sFILE_LATEST_JSON is size 0, removing"
+            $sCOMMAND_RM "$sFILE_LATEST_JSON"
+        }
+    }
+
+    # sFILE_RELEASES_JSON
+    [[ -f $sFILE_RELEASES_JSON ]] && {
+        [[ $(stat -c '%s' "$sFILE_RELEASES_JSON" 2>/dev/null) -eq 0 ]] && {
+            ((iDEBUG)) && DebugMessage "sFILE_RELEASES_JSON is size 0, removing"
+            $sCOMMAND_RM "$sFILE_RELEASES_JSON"
+        }
+    }
 
     if [[ $iFAILED -eq 0 ]]; then
         ((iDEBUG)) && DebugMessage "All tasks succeeded"
