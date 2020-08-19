@@ -262,9 +262,9 @@ DownloadGEPackage() {
 
     sVERSION=$(CleanUpVersion "${1-}")
     [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    sTMP_PATH=$(MkTempPath)
+    sTMP_PATH=$(MkTempPath) || return 1
     sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
-    sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
+    sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url") || return 1
     [[ -z $sGE_DOWNLOAD_URL ]] && { ((iDEBUG)) && DebugMessage "sGE_DOWNLOAD_URL is NULL"; return 1; }
 
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
@@ -695,7 +695,7 @@ VerifyGEInstall() {
     local iPROGRESS=0
     local iPREV_PROGRESS=1
 
-    sTMP_PATH=$(MkTempPath)
+    sTMP_PATH=$(MkTempPath) || return 1
     sVERSION=$(CleanUpVersion "${1-}")
 
     # Required external commands
@@ -870,19 +870,13 @@ QueryGEAttribute() {
 
     sVERSION=$(CleanUpVersion "${1-}")
 
-    if ! UpdateSavedGELatestRelease; then
-        printf ''
-        return 1
-    fi
+    UpdateSavedGELatestRelease || return 1
 
-    sVALUE=$(QueryJSONAttribute "$sFILE_LATEST_JSON" "$sVERSION" "$sATTRIBUTE")
+    sVALUE=$(QueryJSONAttribute "$sFILE_LATEST_JSON" "$sVERSION" "$sATTRIBUTE") || return 1
 
     # if the returned value from QueryJSONAttribute was NULL, try searching in releases
     if [[ -z $sVALUE ]]; then
-        if ! UpdateSavedGEReleases; then
-            printf ''
-            return 1
-        fi
+        UpdateSavedGEReleases || return 1
         sVALUE=$(QueryJSONAttribute "$sFILE_RELEASES_JSON" "$sVERSION" "$sATTRIBUTE")
     fi
 
@@ -1222,7 +1216,7 @@ RequestURL() {
     local sFILE=${2-}
     local sTMP_FILE
 
-    sTMP_FILE=$(MkTempFile)
+    sTMP_FILE=$(MkTempFile) || return 1
 
     [[ -z $sURL || -z $sFILE || $# -ne 2 ]] && ((iDEBUG)) && DebugMessage "Parameter error (NULL or not exactly two)"
     [[ ! -f $sTMP_FILE || ! -w $sTMP_FILE ]] && ((iDEBUG)) && DebugMessage "Parameter error (temp file not a file or not writeable)"
@@ -1595,7 +1589,8 @@ ParseConfigFile() {
     local sKEY
     local sVALUE
 
-    iNUM_LINES=$(wc -l 2>/dev/null < "$sFILE_SCRIPT_CONFIG")
+    iNUM_LINES=$(wc -l 2>/dev/null < "$sFILE_SCRIPT_CONFIG") # NOTE do not || return 1 here
+
     [[ -z $iNUM_LINES ]] && {
         ((iDEBUG)) && DebugMessage "Generating a default config file at: \"$sFILE_SCRIPT_CONFIG\""
         if CreateDefaultConfigFile; then
@@ -1923,7 +1918,7 @@ MkTempFile() {
     sTMP_FILE_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
 
     # Create the empty temp file
-    printf '' > "$sTMP_FILE_CREATED"
+    printf '' > "$sTMP_FILE_CREATED" || return 1
 
     # "Return" the path and filename,
     # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
@@ -1941,10 +1936,10 @@ MkTempPath() {
 
     [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || { ((iDEBUG)) && DebugMessage "sTMP_BASE_PATH is not a valid path or no write access: \"$sTMP_BASE_PATH\""; return 1; }
 
-    sTMP_PATH_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
+    sTMP_PATH_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)" || return 1
 
     # Create the path
-    mkdir -p "$sTMP_PATH_CREATED" 2>/dev/null
+    mkdir -p "$sTMP_PATH_CREATED" 2>/dev/null || return 1
 
     # "Return" the path and filename,
     # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
@@ -1963,7 +1958,7 @@ GenerateRandomAlphaNumericString() {
     local sRESULT=''
     local i=1
 
-    sLIST=$(printf '%s' {a..z}{0..9}{A..Z})
+    sLIST=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
 
     # If the length requested is outside sane upper and lower bounds, reset it
     [[ $iLEN -lt 1 ]] && iLEN=1
@@ -2739,4 +2734,3 @@ trap 'iREAL_EXIT_STATUS=$?; ((iDEBUG)) && DebugMessage "Exit status (before Clea
 # Invokes the function "Main" passing it the positional parameters from the command line
 
 Main "$@"
-
