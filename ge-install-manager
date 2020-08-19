@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 # vim: set nowrap et sta shiftwidth=4 ts=8 sts=0
-#
-#shellcheck disable=SC2155
-# https://github.com/koalaman/shellcheck/wiki/SC2155
-
 ###############################################################################
 #                                                                             #
 #      Toazd 2020 Unlicense https://unlicense.org/                            #
@@ -258,13 +254,17 @@ UpdateSavedGEReleases() {
 # Accepts one required parameter, the version, in one of the acceptable formats described in usage
 DownloadGEPackage() {
 
-    local sVERSION=$(CleanUpVersion "${1-}")
-    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    local sTMP_PATH=$(MkTempPath)
-    local sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
-    local sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
+    local sVERSION
+    local sTMP_PATH
+    local sTMP_PACKAGE
+    local sGE_DOWNLOAD_URL
     local iSIZE_BYTES=0
 
+    sVERSION=$(CleanUpVersion "${1-}")
+    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    sTMP_PATH=$(MkTempPath)
+    sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
+    sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url")
     [[ -z $sGE_DOWNLOAD_URL ]] && { ((iDEBUG)) && DebugMessage "sGE_DOWNLOAD_URL is NULL"; return 1; }
 
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
@@ -394,11 +394,13 @@ InstallGEVersion() {
 # Accepts one parameter, the version, in one of the acceptable formats described in usage
 RemoveGEVersion() {
 
-    local sVERSION=$(CleanUpVersion "${1-}")
-    local sREMOVE_PATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
+    local sVERSION
+    local sREMOVE_PATH
     local sSIZE
 
+    sVERSION=$(CleanUpVersion "${1-}")
     [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    sREMOVE_PATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
 
     ((iDEBUG)) && DebugMessage "Requested sVERSION: \"$sVERSION\" sREMOVE_PATH: \"$sREMOVE_PATH\""
 
@@ -430,11 +432,14 @@ RemoveGEVersion() {
 # Accepts one optional second parameter, the path to extract the package to
 ExtractGEPackage() {
 
-    local sVERSION=$(CleanUpVersion "${1-}")
-    local sEXTRACT_FILE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
-    local sEXTRACT_PATH=${2:-$sGE_INSTALL_PATH}
+    local sVERSION
+    local sEXTRACT_FILE
+    local sEXTRACT_PATH
 
+    sVERSION=$(CleanUpVersion "${1-}")
     [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    sEXTRACT_FILE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
+    sEXTRACT_PATH=${2:-$sGE_INSTALL_PATH}
     [[ ! -d $sEXTRACT_PATH && -w $sEXTRACT_PATH ]] && { ((iDEBUG)) && DebugMessage "Parameter error (not a valid path)"; return 1; }
 
     printf '%s' "Extracting \"$sEXTRACT_FILE\" to \"$sEXTRACT_PATH\""
@@ -508,12 +513,13 @@ ListInstalledGEVersions() {
 # Accepts one optional parameter, the version, in one of the acceptable formats described in usage
 ReportGEDiskUsage() {
 
-    local sVERSION=$(CleanUpVersion "${1-}")
+    local sVERSION
     local sFILE_COUNT
     local sSIZE="0"
     local iFAILED=0
     local sPATH
 
+    sVERSION=$(CleanUpVersion "${1-}")
     # NOTE do not return 1 if sVERSION is NULL, functionality below depends on it
 
     # optional commands
@@ -565,10 +571,12 @@ ReportGEDiskUsage() {
 # Accepts one required parameter, the version, in one of the acceptable formats described in usage
 RemoveSavedPackage() {
 
-    local sVERSION=$(CleanUpVersion "${1-}")
-    local sPACKAGE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
+    local sVERSION
+    local sPACKAGE
 
+    sVERSION=$(CleanUpVersion "${1-}")
     [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    sPACKAGE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
 
     if [[ -f $sPACKAGE ]]; then
         if [[ -w $sPACKAGE ]]; then
@@ -668,8 +676,8 @@ RemoveGEInstallPath() {
 VerifyGEInstall() {
 
     local sNODE
-    local sTMP_PATH=$(MkTempPath)
-    local sVERSION=$(CleanUpVersion "${1-}")
+    local sTMP_PATH
+    local sVERSION
     local sFILE_EXTRACTED
     local sFILE_INSTALLED
     local iaEXTRACTED=()
@@ -686,6 +694,9 @@ VerifyGEInstall() {
     local iEND_TIME_SECONDS=0   # NOTE bash 4.2+ is required for printf $()T
     local iPROGRESS=0
     local iPREV_PROGRESS=1
+
+    sTMP_PATH=$(MkTempPath)
+    sVERSION=$(CleanUpVersion "${1-}")
 
     # Required external commands
     if ! command -v cmp >/dev/null && ! command -v sort >/dev/null; then
@@ -853,9 +864,11 @@ QueryGEAttribute() {
 
     [[ -z $1 || -z $2 || $# -ne 2 ]] && { ((iDEBUG)) && DebugMessage "Parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\""; return 1; }
 
-    local sVERSION=$(CleanUpVersion "${1-}")
+    local sVERSION
     local sVALUE
     local sATTRIBUTE=${2-}
+
+    sVERSION=$(CleanUpVersion "${1-}")
 
     if ! UpdateSavedGELatestRelease; then
         printf ''
@@ -1207,7 +1220,9 @@ RequestURL() {
 
     local sURL=${1-}
     local sFILE=${2-}
-    local sTMP_FILE=$(MkTempFile)
+    local sTMP_FILE
+
+    sTMP_FILE=$(MkTempFile)
 
     [[ -z $sURL || -z $sFILE || $# -ne 2 ]] && ((iDEBUG)) && DebugMessage "Parameter error (NULL or not exactly two)"
     [[ ! -f $sTMP_FILE || ! -w $sTMP_FILE ]] && ((iDEBUG)) && DebugMessage "Parameter error (temp file not a file or not writeable)"
