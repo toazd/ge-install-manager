@@ -1441,7 +1441,7 @@ MemFree() {
                 return $((iMEM_AVAILABLE > iNEED_FREE_KB ? 0 : 1))
             }
         }
-    done < <(cat /proc/meminfo 2>/dev/null)
+    done < /proc/meminfo
 
     # If MemAvailable is not available in /proc/meminfo - adds support for older kernel versions ( v2.6 < [uname -r] < v3.14)
     ((iDEBUG)) && DebugMessage "MemAvailable not found, using older methods"
@@ -1459,7 +1459,7 @@ MemFree() {
             REPLY=${REPLY%[[:blank:]]*} # Not needed on my system, kept just in case
             iSLAB_UNRECLAIMABLE=$REPLY
         }
-    done < <(cat /proc/zoneinfo 2>/dev/null)
+    done < /proc/zoneinfo
     # TODO 0 could indicate a serious problem or a customization?
     #[[ $iSUM_LOW_WATERMARKS -le 0 ]] && return 1
 
@@ -1482,7 +1482,7 @@ MemFree() {
             REPLY=${REPLY##*[[:blank:]]}
             iTOTAL_PAGE_CACHE=$((iTOTAL_PAGE_CACHE+REPLY)) # NOTE two iterations are required to add both
         fi
-    done < <(cat /proc/meminfo 2>/dev/null)
+    done < /proc/meminfo
 
     # pagecache -= min(pagecache / 2, wmark_low);
     # subtract the lower of the two (iTOTAL_PAGE_CACHE/2) vs iSUM_LOW_WATERMARKS
@@ -1546,7 +1546,10 @@ CreateDefaultConfigFile() {
 # Symlinks will not be resolved/canonicalized (they are safe to use).
 #
 # Do not quote variables outside parameter expansions (:+, :-, :=, or :?) unless
-# you want them included in the value.
+# you want the quotes included in the value.
+#
+# Left-anchored substring removal parameter expansions will be mangled by the configuration
+# parser (eg. \${var##*eg} or \${var#*eg}). Do not use them in this configuration file.
 #
 DEFAULT_CONFIG
     cat <<"DEFAULT_CONFIG" >> "$sFILE_SCRIPT_CONFIG"
@@ -1631,7 +1634,7 @@ ParseConfigFile() {
 
     while IFS= read -r; do
         ((iCOUNTER++))
-        # Ignore lines that being with a #
+        # Ignore lines that begin with a #
         [[ $REPLY =~ ^#.*$ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (begins with a \"#\")"; continue; }
 
         # Ignore lines that contain one or more semi-colon ";"
@@ -1644,6 +1647,7 @@ ParseConfigFile() {
         if [[ $REPLY =~ ^.*#.*$ ]] || [[ $REPLY =~ ^.*#$ ]]; then
             ((iDEBUG)) && DebugMessage "Partially commented line $iCOUNTER: \"$REPLY\""
             # remove the # and everything to the right of it
+            # BUG this will mangle parameter left-anchored substring removal parameter expansions (eg. ${var##*eg} or ${var#*eg})
             REPLY=${REPLY%%'#'*}
         fi
 
@@ -2370,11 +2374,11 @@ ReportEnvironmentInfo() {
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        #if MemFree "1597756"; then
-        #    ((iDEBUG)) && DebugMessage "MemFree returned success"
-        #else
-        #    ((iDEBUG)) && DebugMessage "MemFree returned failure"
-        #fi
+        if MemFree "1597756"; then
+            ((iDEBUG)) && DebugMessage "MemFree returned success"
+        else
+            ((iDEBUG)) && DebugMessage "MemFree returned failure"
+        fi
 
         #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "b") bytes remaining on $sTMP_BASE_PATH"
         #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "k") kibibytes remaining on $sTMP_BASE_PATH"
