@@ -90,3 +90,5 @@ Usage:
       Verify
 
   - Debug message format: (calling line)[function trace]: message
+
+  ge-install-manager: 1927 SLOC (~70%), 472 only comments (~17%), 340 blank lines (~12%), 2739 lines total
