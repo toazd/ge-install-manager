@@ -85,6 +85,7 @@ ShowHelp() {
                     ps (is steam running)
                     sort, cmp (verify)
                     envsubst (config file parsing)
+                    fallocate (preallocate package downloads)
                     trash (used in place of of rm [excluding temporary files])
 
     -h            - Show this help
@@ -257,30 +258,50 @@ DownloadGEPackage() {
     local sTMP_PATH
     local sTMP_PACKAGE
     local sGE_DOWNLOAD_URL
-    local iSIZE_BYTES=0
+    local iPACKAGE_SIZE_BYTES=0
 
     sVERSION=$(CleanUpVersion "${1-}")
     [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
     sTMP_PATH=$(MkTempPath) || return 1
     sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
+    sTMP_REMAINING_BYTES=$(SpaceRemaining "$sTMP_PATH" "b") || return 1
     sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url") || return 1
+    sEXPECTED_SIZE_BYTES=$(QueryGEAttribute "$sVERSION" "size") || return 1
     [[ -z $sGE_DOWNLOAD_URL ]] && { ((iDEBUG)) && DebugMessage "sGE_DOWNLOAD_URL is NULL"; return 1; }
+
+    if [[ $sTMP_REMAINING_BYTES -lt $sEXPECTED_SIZE_BYTES ]]; then
+        ((iDEBUG)) && DebugMessage "Free space on \"$sTMP_PATH\" is $sTMP_REMAINING_BYTES bytes"
+        echo "Not enough free space on \"$sTMP_PATH\" (need at least $sEXPECTED_SIZE_BYTES bytes)"
+        return 1
+    else
+        if command -v fallocate >/dev/null; then
+            if fallocate -l "$sEXPECTED_SIZE_BYTES" "$sTMP_PACKAGE"; then
+                ((iDEBUG)) && DebugMessage "fallocate succeeded"
+            else
+                echo "Failed to preallocate \"$sTMP_FILE\""
+                ((iDEBUG)) && DebugMessage "fallocate failed (-l $sEXPECTED_SIZE_BYTES $sTMP_PACKAGE)"
+                [[ -f $sTMP_PACKAGE ]] && rm "$sTMP_PACKAGE"
+            fi
+        else
+            ((iDEBUG)) && DebugMessage "fallocate not found"
+        fi
+    fi
 
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
-        iSIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
-        ((iDEBUG)) && DebugMessage "Downloaded package size in bytes: \"$iSIZE_BYTES\""
-        if [[ $iSIZE_BYTES -eq 9 ]]; then
+        iPACKAGE_SIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
+        ((iDEBUG)) && DebugMessage "Downloaded package size in bytes: \"$iPACKAGE_SIZE_BYTES\""
+        if [[ $iPACKAGE_SIZE_BYTES -eq 9 ]]; then
             echo "Server responded \"Not Found\" for version \"$sVERSION\""
             CleanUp
             return 1
         fi
-        if [[ $iSIZE_BYTES = "$(QueryGEAttribute "$sVERSION" "size")" ]]; then
+        if [[ $iPACKAGE_SIZE_BYTES = "$(QueryGEAttribute "$sVERSION" "size")" ]]; then
             echo "Downloaded package is the expected size"
         else
             printf '%s\n%s\n' \
                    "Downloaded file size and expected size do not match" \
-                   "(\"$iSIZE_BYTES\" vs \"$(QueryGEAttribute "$sVERSION" "size")\")"
+                   "(\"$iPACKAGE_SIZE_BYTES\" vs \"$(QueryGEAttribute "$sVERSION" "size")\")"
            CleanUp
            return 1
         fi
@@ -1059,16 +1080,20 @@ IsJSONminified() {
     [[ ! -f $sFILE_JSON || ! -r $sFILE_JSON ]] && { ((iDEBUG)) && DebugMessage "Parameter error (not a file or not readable)"; return 1; }
 
     # NOTE do not use herestring
-    iLINES=$(wc -l < "$sFILE_JSON")
-    ((iDEBUG)) && DebugMessage "iLINES: \"$iLINES\""
-    # 0 is the actual value of a minified JSON response, 1 is used in case a mistake is
-    # made handling the string and a trailing newline is added
-    if [[ $iLINES -le 1 ]]; then
-        ((iDEBUG)) && DebugMessage "JSON is minified"
+    if ! command -v wc >/dev/null; then
         return 0
     else
-        ((iDEBUG)) && DebugMessage "JSON is not minified"
-        return 1
+        iLINES=$(wc -l < "$sFILE_JSON")
+        ((iDEBUG)) && DebugMessage "iLINES: \"$iLINES\""
+        # 0 is the actual value of a minified JSON response, 1 is used in case a mistake is
+        # made handling the string and a trailing newline is added
+        if [[ $iLINES -le 1 ]]; then
+            ((iDEBUG)) && DebugMessage "JSON is minified"
+            return 0
+        else
+            ((iDEBUG)) && DebugMessage "JSON is not minified"
+            return 1
+        fi
     fi
 
     # assume it is minified if an error occurs
@@ -1373,6 +1398,7 @@ CreateBackup() {
 # remaining space on a filesystem by multiplying the filesystem block size by the
 # number of remaining blocks and return the value in the unit requested
 # NOTE bash arithmatic supports upto 1024^6 (exbibyte)
+# TODO add optional calculations using bc
 SpaceRemaining() {
 
     local sFILE_SYSTEM=${1-}
@@ -1395,7 +1421,7 @@ SpaceRemaining() {
 
     ((iDEBUG)) && DebugMessage "Checking \"$sFILE_SYSTEM\""
 
-    if printf '%s' "$(( ($(stat -c '%s' -f "$sFILE_SYSTEM") * $(stat -c '%a' -f "$sFILE_SYSTEM")) / ( 1024 ** iPOWEROF ) ))"; then
+    if printf '%s' "$(( ($(stat -L --cached=never -c '%s' -f "$sFILE_SYSTEM") * $(stat -L --cached=never -c '%a' -f "$sFILE_SYSTEM")) / ( 1024 ** iPOWEROF ) ))"; then
         return 0
     else
         return 1
@@ -2390,7 +2416,7 @@ ReportEnvironmentInfo() {
         #CreateBackup "/home/toazd/.config/ge-install-manager/ge-install-manager.conf"
         #CreateBackup "/home/toazd/github/personal/scripts/bash/ge-install-manager/tmp"
 
-        :
+        SpaceRemaining "$sTMP_BASE_PATH" "b"
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------
