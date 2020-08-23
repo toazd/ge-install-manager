@@ -1553,11 +1553,11 @@ CreateDefaultConfigFile() {
 # key=value #comment
 #
 # Lines begining with an octothorpe "#" are considered comment lines and are ignored.
-# Anything appearing after an octothorpe "#" on a line is considered a comment and ignored.
+# Any characters that follow a space and an octothorpe " #" are considered comments.
 # Empty lines and lines that begin with space/tab are ignored.
 # Lines that contain one or more semi-colon(s) ";" will be ignored.
-# Lines that contain potential escape codes are ignored.
-# Keys with no values are ignored (eg. "key=" and "key").
+# Lines that contain potential escape sequences are ignored.
+# A key with a null value and a value with a null key are ignored (eg. "key=" and "=value").
 #
 # Paths (install, cache, and tmp) do not have to exist but
 # the script will need write permission to create them for you.
@@ -1572,9 +1572,6 @@ CreateDefaultConfigFile() {
 #
 # Do not quote variables outside parameter expansions (:+, :-, :=, or :?) unless
 # you want the quotes included in the value.
-#
-# Left-anchored substring removal parameter expansions will be mangled by the configuration
-# parser (eg. \${var##*eg} or \${var#*eg}). Do not use them in this configuration file.
 #
 DEFAULT_CONFIG
     cat <<"DEFAULT_CONFIG" >> "$sFILE_SCRIPT_CONFIG"
@@ -1665,34 +1662,23 @@ ParseConfigFile() {
         # Ignore lines that contain one or more semi-colon ";"
         [[ $REPLY =~ ^.*\;+.*$ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (contains one or more \";\")"; continue; }
 
-        # Lines containing potential escape codes are ignored
+        # Ignore lines containing potential escape sequences
         [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (contains potential escape code)"; continue; }
 
         # Trim comments that don't appear at the begining away and then trim any remaining trailing spaces/tabs
         if [[ $REPLY =~ ^.*#.*$ ]] || [[ $REPLY =~ ^.*#$ ]]; then
             ((iDEBUG)) && DebugMessage "Partially commented line $iCOUNTER: \"$REPLY\""
             # remove the # and everything to the right of it
-            # BUG this will mangle parameter left-anchored substring removal parameter expansions (eg. ${var##*eg} or ${var#*eg})
-            REPLY=${REPLY%%'#'*}
+            # BUG this will mangle inline comments inside herestrings
+            REPLY=${REPLY%%' #'*}
         fi
 
         # Ignore lines that are empty after stripping comments away
-        [[ $REPLY =~ ^$ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (empty)"; continue; }
+        [[ -z $REPLY ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (empty)"; continue; }
 
-        # Ignore lines that begin with one or more space/tab
-        [[ $REPLY =~ ^[[:blank:]]+ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (begins with space or tab)"; continue; }
-
-        # Ignore lines that may contain a key and an = and the value would be nothing or have a leading space/tab
-        [[ $REPLY =~ ^.*=[[:blank:]]*$|^.*=$ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (key with no value)"; continue; }
-
-        # Ignore lines that don't contain exactly one =
-        [[ $REPLY =~ (^|[^=])=($|[^=]) ]] || { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (more than one =)"; continue; }
-
-        # Trim lines that still have a sspace/tab at the end
-        while [[ ${REPLY:$((${#REPLY}-1)):1} = [[:blank:]] ]]; do
-            ((iDEBUG)) && DebugMessage "Trim trailing [[:blank:]] ($iCOUNTER): \"$REPLY\""
-            REPLY=${REPLY:0:$((${#REPLY}-1))}
-        done
+        # Ignore lines that don't contain exactly one = and also don't have characters on either side of the = sign. If there are characters on either
+        # side of the = sign, they may not be spaces or tabs
+        [[ $REPLY =~ ^[^=[:blank:]]+=[^=[:blank:]]+$ ]] || { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (improperly formatted)"; continue; }
 
         ((iDEBUG)) && DebugMessage "Valid config ($iCOUNTER): \"$REPLY\""
 
@@ -1855,6 +1841,9 @@ ParseConfigFile() {
                     echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
                     iFAILED=1
                 fi
+            ;;
+            (*)
+                ((iDEBUG)) && DebugMessage "No key match for valid config ($iCOUNTER): \"$REPLY\""
             ;;
         esac
     done < "$sFILE_SCRIPT_CONFIG"
@@ -2399,11 +2388,18 @@ ReportEnvironmentInfo() {
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
     if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
-        if MemFree "1597756"; then
-            ((iDEBUG)) && DebugMessage "MemFree returned success"
-        else
-            ((iDEBUG)) && DebugMessage "MemFree returned failure"
+        if InitializeGlobalVars; then
+            if CheckRequirements; then
+                if ParseConfigFile; then
+                    exit
+                fi
+            fi
         fi
+        #if MemFree "1597756"; then
+        #    ((iDEBUG)) && DebugMessage "MemFree returned success"
+        #else
+        #    ((iDEBUG)) && DebugMessage "MemFree returned failure"
+        #fi
 
         #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "b") bytes remaining on $sTMP_BASE_PATH"
         #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "k") kibibytes remaining on $sTMP_BASE_PATH"
@@ -2416,7 +2412,8 @@ ReportEnvironmentInfo() {
         #CreateBackup "/home/toazd/.config/ge-install-manager/ge-install-manager.conf"
         #CreateBackup "/home/toazd/github/personal/scripts/bash/ge-install-manager/tmp"
 
-        SpaceRemaining "$sTMP_BASE_PATH" "b"
+        #SpaceRemaining "$sTMP_BASE_PATH" "b"
+        :
     fi
     ((iINTEGRATION_TESTING)) && exit
     #-------------------------------------------------------------------------------------

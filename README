@@ -100,4 +100,4 @@ Version history:
     (git log --all --full-history ge-install-manager.sh)
 
 misc-bash/script-sloc ge-install-manager:
-  ge-install-manager: 1951 SLOC (~70%), 473 only comments (~17%), 341 blank lines (~12%), 2765 lines total
+  ge-install-manager: 1947 SLOC (~70%), 477 only comments (~17%), 338 blank lines (~12%), 2762 lines total
