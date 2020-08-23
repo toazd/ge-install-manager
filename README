@@ -92,4 +92,12 @@ Usage:
 
   - Debug message format: (calling line)[function trace]: message
 
-  ge-install-manager: 1927 SLOC (~70%), 472 only comments (~17%), 340 blank lines (~12%), 2739 lines total
+Version history:
+  v0.6.3 of ge-install-manager.sh is the initial upload (prior versions not tracked by any VCS)
+  v0.6.3 to v0.6.7 are in commit history for ge-install-manager.sh
+    (starting with commit aefa2a4ad2bf29de84e213f286db8337791218b5)
+  Commit history for ge-install-manager.sh:
+    (git log --all --full-history ge-install-manager.sh)
+
+misc-bash/script-sloc ge-install-manager:
+  ge-install-manager: 1951 SLOC (~70%), 473 only comments (~17%), 341 blank lines (~12%), 2765 lines total
