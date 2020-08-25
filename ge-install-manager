@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# vim: set nowrap et sta shiftwidth=4 ts=8 sts=0
+# vim: set ft=shell nowrap et sta shiftwidth=4 ts=8 sts=0
+###############################################################################
 ###############################################################################
 #                                                                             #
 #      Toazd 2020 Unlicense https://unlicense.org/                            #
@@ -10,44 +11,58 @@
 #                                                                             #
 ###############################################################################
 
+# -e  Exit immediately if a command exits with a non-zero status.
 set +e # WARNING DO NOT set -e
+
+# -h  Remember the location of commands as they are looked up. Default is on.
+# -u  Treat unset variables as an error when substituting. Default is off.
+# -o pipefail The return value of a pipeline is the status of the last command
+#             to exit with a non-zero status, or zero if no command exited with
+#             a non-zero status. Default is off.
 set -huo pipefail
-#set -T # If set, the DEBUG and RETURN traps are inherited by shell functions.
 
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
 #
-# TODO Find a way to not download releases so often (updates to download_count update the mtime of the remote file)
-# TODO The script has outgrown getopts. Support for multiple identical parameters per single invocation depends
-#      on using something else or simply making a parser
+# TODO Find a way to not download releases so often (updates to download_count
+#      update the mtime of the remote file)
+# TODO The script has outgrown getopts. Support for multiple identical
+#      parameters per single invocation depends on using something else or
+#      simply making a parser
 # TODO support for using jq in addition to sed
 #
 ###############################################################################
-# Global variables - minimum required to show help/usage
-declare -g sSCRIPT_VERSION="0.7.4"
-declare -g sSCRIPT_CODENAME="Cochrane Bonaventure"
-declare -g sSCRIPT_FULL_NAME=${0##*/}
-declare -g sTMP_PREFIX=$sSCRIPT_FULL_NAME.tmp.
+###############################################################################
+
+# Set the minimum global variables required to show help and/or usage
+declare -gr sSCRIPT_VERSION="0.7.4"
+declare -gr sSCRIPT_CODENAME="Cochrane Bonaventure"
+declare -gr sSCRIPT_FULL_NAME=${0##*/}
+declare -gr sTMP_PREFIX=$sSCRIPT_FULL_NAME.tmp.
 declare -g sTMP_BASE_PATH=/tmp
-declare -g iDEBUG=0
-declare -g iREMOVE_INSTALL_PATH=0
-declare -g iREMOVE_ALL_SAVED_PACKAGES=0
-declare -g iREMOVE_INSTALLED_VERSION=0
-declare -g iREMOVE_SAVED_PACKAGE=0
-declare -g iLIST_INSTALLED_GE_VERSIONS=0
-declare -g iREPORT_VERSION_USAGE=0
-declare -g iREPORT_INSTALL_PATH_USAGE=0
-declare -g iDOWNLOAD=0
-declare -g iINSTALL=0
-declare -g iCHECK_UPDATE=0
-declare -g iVERIFY=0
-declare -g iSHOW_HELP=0
-declare -g iSHOW_USAGE=0
-declare -g iUPDATE=0
+declare -gi iDEBUG=0
+declare -gi iREMOVE_INSTALL_PATH=0
+declare -gi iREMOVE_ALL_SAVED_PACKAGES=0
+declare -gi iREMOVE_INSTALLED_VERSION=0
+declare -gi iREMOVE_SAVED_PACKAGE=0
+declare -gi iLIST_INSTALLED_GE_VERSIONS=0
+declare -gi iREPORT_VERSION_USAGE=0
+declare -gi iREPORT_INSTALL_PATH_USAGE=0
+declare -gi iDOWNLOAD=0
+declare -gi iINSTALL=0
+declare -gi iCHECK_UPDATE=0
+declare -gi iVERIFY=0
+declare -gi iSHOW_HELP=0
+declare -gi iSHOW_USAGE=0
+declare -gi iUPDATE=0
 
 ###############################################################################
-# Global variables - not required to show help/usage
+# Purpose: Set global variables that are not required to show help and/or usage
+# Input:   None
+# Output:  None
+# Return:  Always 0
 InitializeGlobalVars() {
+
     declare -g sGE_INSTALL_PATH
     declare -g sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
     declare -g sFILE_SED_UNMINIFY_SCRIPT=$sSCRIPT_CONFIG_PATH/unminify-JSON.sed
@@ -56,27 +71,31 @@ InitializeGlobalVars() {
     declare -g sGE_RELEASES_URL
     declare -g sFILE_LATEST_JSON
     declare -g sFILE_RELEASES_JSON
-    declare -g sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
-    declare -g sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
-    declare -g sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
+    declare -gr sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
+    declare -gr sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
+    declare -gr sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
     declare -g sGE_LATEST_VERSION
     declare -g sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
     declare -g sFILE_SED_UNMINIFY_SCRIPT
     declare -g sOVERRIDE_DEFAULT_INSTALL_PATH
     declare -g sCOMMAND_RM
     declare -g sVERIFY_VERSION
-    declare -g iFORCE=0
-    declare -g iINTEGRATION_TESTING=0
-    declare -g iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
-    declare -g iREAL_EXIT_STATUS=0
+    declare -gi iFORCE=0
+    declare -gi iINTEGRATION_TESTING=0
+    declare -gi iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
+    declare -gi iREAL_EXIT_STATUS=0
 
     return 0
 }
 
 ###############################################################################
-# TODO
+# Purpose: Print the help text to stdout
+# Input:   None
+# Output:  None
+# Return:  Always 0
 ShowHelp() {
-    cat <<HELP_MESSAGE
+
+    cat <<HELP_HEREDOC
 
     $(basename "$0")  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
 
@@ -112,15 +131,19 @@ ShowHelp() {
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable debug mode
                       Enable extra output messages and preserve any temporary files created
-HELP_MESSAGE
+HELP_HEREDOC
 
     return 0
 }
 
 ###############################################################################
-# TODO
+# Purpose: Print the usage text to stdout
+# Input:  None
+# Output: None
+# Return: Always 0
 ShowUsage() {
-    cat <<USAGE_MESSAGE
+
+    cat <<USAGE_HEREDOC
 Usage:
 
   - Acceptable formats for <version>:
@@ -175,25 +198,31 @@ Usage:
       Verify
 
   - Debug message format: (calling line)[function trace]: message
-USAGE_MESSAGE
+USAGE_HEREDOC
 
     return 0
 }
 
 ###############################################################################
-# Sets the global variable sGE_LATEST_VERSION to the latest version
-# TODO *might* want to check releases if latest fails.
-# NOTE rate limied exceeded [[ $(stat -c '%s' "$sFILE_LATEST_JSON") -eq 245 ]]
+# Purpose: Set the global variable sGE_LATEST_VERSION to the latest version
+#          which is retrieved from the name member of the assets object in
+#          the local file sFILE_LATEST_JSON.
+# Input:   None
+# Output:  None
+# Return:  0 = Success
+#          1 = UpdateSavedGELatestRelease returned 1, or a match was not found
+#              in sFILE_LATEST_JSON
+#
+# TODO *might* want to check releases if latest fails
 GetLatestGEVersion() {
 
-    # WARNING DO NOT make this local
     sGE_LATEST_VERSION=''
 
     if UpdateSavedGELatestRelease; then
         while IFS= read -r; do
             # WARNING do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST",
             #         they are not always the same as the version name in browser_download_url
-            # NOTE must be compatible with all 3 of the following potential formats
+            # NOTE The regex must match all 3 of the following potential formats:
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
@@ -213,8 +242,14 @@ GetLatestGEVersion() {
 }
 
 ###############################################################################
-# Retrieve "latest" JSON from sGE_LATEST_VERSION_URL
-#TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
+# Purpose: Call the RequestURL function to save the (JSON) from the URL
+#          sGE_LATEST_VERSION_URL to the local file sFILE_LATEST_JSON
+# Input:   None
+# Output:  None
+# Return:  0 = Success
+#          1 = RequestURL returned 1 or an unknown error occured
+#
+# TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGELatestRelease() {
 
     ((iDEBUG)) && DebugMessage "sGE_LATEST_VERSION_URL: \"$sGE_LATEST_VERSION_URL\" sFILE_LATEST_JSON: \"$sFILE_LATEST_JSON\""
@@ -231,11 +266,18 @@ UpdateSavedGELatestRelease() {
 }
 
 ###############################################################################
-# Retrieve "releases" JSON from sGE_RELEASES_URL
-#TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
+# Purpose: Call the RequestURL function to save the (JSON) from the URL
+#          sGE_RELEASES_URL to the local file sFILE_RELEASES_JSON
+# Input:   None
+# Output:  None
+# Return:  0 = Success
+#          1 = RequestURL returned 1 or an unknown error occured
+#
+# TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGEReleases() {
 
-    # BUG updates to download_count in remote releases cause curl -z to download a new version much more often than is needed
+    # BUG updates to download_count in the remote file cause curl -z to download a new version much more often than is needed
+    #     Until a workaround is found, latest and releases are kept seperate and not checked at the same time
     ((iDEBUG)) && DebugMessage "sGE_RELEASES_URL: \"$sGE_RELEASES_URL\" sFILE_RELEASES_JSON: \"$sFILE_RELEASES_JSON\""
 
     if RequestURL "$sGE_RELEASES_URL" "$sFILE_RELEASES_JSON"; then
@@ -250,61 +292,84 @@ UpdateSavedGEReleases() {
 }
 
 ###############################################################################
-# Attempt to download a package (Proton*.tar.gz) using a tmp path.
-# Accepts one required parameter, the version, in one of the acceptable formats described in usage
+# Purpose: Using curl, download a GE package to a temporary path and if the
+#          download size matches the expected size copy it to sGE_INSTALL_PATH
+# Input:   GE version (in one of the acceptable formats described in usage)
+# Output:  None
+# Return:  0 = Success
+#          1 = Failure
 DownloadGEPackage() {
 
+    # Declare local variables
     local sVERSION
     local sTMP_PATH
     local sTMP_PACKAGE
+    local sTMP_REMAINING_BYTES
+    local sEXPECTED_SIZE_BYTES
     local sGE_DOWNLOAD_URL
-    local iPACKAGE_SIZE_BYTES=0
+    local -i iPACKAGE_SIZE_BYTES=0
 
+    # Set local variables, checking return values as needed
     sVERSION=$(CleanUpVersion "${1-}")
     [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    sTMP_PATH=$(MkTempPath) || return 1
+    sTMP_PATH=$(MkTempPath) || { ((iDEBUG)) && DebugMessage "MkTempPath returned failure"; return 1; }
     sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
-    sTMP_REMAINING_BYTES=$(SpaceRemaining "$sTMP_PATH" "b") || return 1
-    sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url") || return 1
-    sEXPECTED_SIZE_BYTES=$(QueryGEAttribute "$sVERSION" "size") || return 1
+    sTMP_REMAINING_BYTES=$(SpaceRemaining "$sTMP_PATH" "b") || { ((iDEBUG)) && DebugMessage "SpaceRemaining returned failure"; return 1; }
+    sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url") || { ((iDEBUG)) && DebugMessage "QueryGEAttribute browser_download_url returned failure"; return 1; }
+    sEXPECTED_SIZE_BYTES=$(QueryGEAttribute "$sVERSION" "size") || { ((iDEBUG)) && DebugMessage "QueryGEAttribute size returned failure"; return 1; }
     [[ -z $sGE_DOWNLOAD_URL ]] && { ((iDEBUG)) && DebugMessage "sGE_DOWNLOAD_URL is NULL"; return 1; }
 
+    # If there is not enough free space remaining on the sTMP_PATH file system
+    # TODO Use a different path as a fallback
     if [[ $sTMP_REMAINING_BYTES -lt $sEXPECTED_SIZE_BYTES ]]; then
         ((iDEBUG)) && DebugMessage "Free space on \"$sTMP_PATH\" is $sTMP_REMAINING_BYTES bytes"
-        echo "Not enough free space on \"$sTMP_PATH\" (need at least $sEXPECTED_SIZE_BYTES bytes)"
+        printf '%s\n%s\n' \
+               "Not enough free space on \"$sTMP_PATH\" (need at least $sEXPECTED_SIZE_BYTES bytes)" \
+               "Free up space or change tmp_path in the configuration file"
         return 1
     else
+        # If fallocate is found, preallocate the file to be downloaded
         if command -v fallocate >/dev/null; then
             if fallocate -l "$sEXPECTED_SIZE_BYTES" "$sTMP_PACKAGE"; then
                 ((iDEBUG)) && DebugMessage "fallocate succeeded"
             else
-                echo "Failed to preallocate \"$sTMP_FILE\""
+                #echo "Failed to preallocate \"$sTMP_FILE\""
                 ((iDEBUG)) && DebugMessage "fallocate failed (-l $sEXPECTED_SIZE_BYTES $sTMP_PACKAGE)"
-                [[ -f $sTMP_PACKAGE ]] && rm "$sTMP_PACKAGE"
+                [[ -f $sTMP_PACKAGE ]] && rm -f "$sTMP_PACKAGE"
             fi
         else
             ((iDEBUG)) && DebugMessage "fallocate not found"
         fi
     fi
 
+    # Attempt to retrieve the package with curl
     echo "Downloading \"$sGE_DOWNLOAD_URL\""
     if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
+
+        # Get the file size in bytes
         iPACKAGE_SIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
         ((iDEBUG)) && DebugMessage "Downloaded package size in bytes: \"$iPACKAGE_SIZE_BYTES\""
+
+        # A file size of 9 bytes indicates the response was "Not Found"
+        # TODO Also check for rate limit exceeded - need a sample file first
         if [[ $iPACKAGE_SIZE_BYTES -eq 9 ]]; then
             echo "Server responded \"Not Found\" for version \"$sVERSION\""
             CleanUp
             return 1
         fi
-        if [[ $iPACKAGE_SIZE_BYTES = "$(QueryGEAttribute "$sVERSION" "size")" ]]; then
-            echo "Downloaded package is the expected size"
+
+        # Check if the the package size and expected size are equal
+        if [[ $iPACKAGE_SIZE_BYTES -eq $(QueryGEAttribute "$sVERSION" "size") ]]; then
+            echo "Downloaded package is the expected size ($sEXPECTED_SIZE_BYTES bytes)"
         else
             printf '%s\n%s\n' \
                    "Downloaded file size and expected size do not match" \
-                   "(\"$iPACKAGE_SIZE_BYTES\" vs \"$(QueryGEAttribute "$sVERSION" "size")\")"
+                   "(\"$iPACKAGE_SIZE_BYTES\" vs \"$sEXPECTED_SIZE_BYTES\")"
            CleanUp
            return 1
         fi
+
+        # Copy the package from the temporary path to the install path
         ((iDEBUG)) && DebugMessage "Copying package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\""
         if cp "$sTMP_PACKAGE" "$sGE_INSTALL_PATH"; then
             ((iDEBUG)) && DebugMessage "Package copied successfully"
@@ -317,6 +382,7 @@ DownloadGEPackage() {
             return 1
         fi
     else
+        # curl returned >0
         echo "Download failed"
         CleanUp
         return 1
@@ -1669,7 +1735,7 @@ ParseConfigFile() {
         if [[ $REPLY =~ ^.*#.*$ ]] || [[ $REPLY =~ ^.*#$ ]]; then
             ((iDEBUG)) && DebugMessage "Partially commented line $iCOUNTER: \"$REPLY\""
             # remove the # and everything to the right of it
-            # BUG this will mangle inline comments inside herestrings
+            # BUG this will mangle comments inside herestrings
             REPLY=${REPLY%%' #'*}
         fi
 
@@ -2757,6 +2823,6 @@ Main() {
 trap 'iREAL_EXIT_STATUS=$?; ((iDEBUG)) && DebugMessage "Exit status (before CleanUp): $iREAL_EXIT_STATUS"; CleanUp; ((iDEBUG)) && DebugMessage "Exit status (after CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT INT
 
 ###############################################################################
-# Invokes the function "Main" passing it the positional parameters from the command line
+# Wait...the end is just a new begining? Always has been.
 
 Main "$@"
