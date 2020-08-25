@@ -1,4 +1,14 @@
 #!/usr/bin/bash
 ctags --language-force=Sh --sort=no --kinds-Sh='{function}' ge-install-manager
-# Then, edit ctags and remove initialized indexed arrays eg. iaARRAY=()
+
+regex='^ia.+='
+i=0
+
+while IFS= read -r; do
+    [[ $REPLY =~ $regex ]] && { i=$((i+1)); continue; }
+    printf '%s\n' "$REPLY"
+done < tags > tags.new
+
+echo "Removed $i lines"
+mv -vf tags.new tags
 
