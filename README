@@ -99,5 +99,5 @@ Version history:
   Commit history for ge-install-manager.sh:
     (git log --all --full-history ge-install-manager.sh)
 
-misc-bash/script-sloc ge-install-manager:
-  ge-install-manager: 1947/2762 SLOC (~70%), 503 comments (~18%) [S:~94% I:~5%], 338 empty (~12%)
+misc-bash/script-sloc:
+ge-install-manager: 1989/2999 SLOC (~66%) [SLOC/Comment:2.94], 676 comments (~22%) [S:~94%,I:~5%] [Comment/SLOC:0.34], 370 empty (~12%)

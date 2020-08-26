@@ -35,26 +35,26 @@ set -huo pipefail
 ###############################################################################
 
 # Set the minimum global variables required to show help and/or usage
-declare -gr sSCRIPT_VERSION="0.7.4"
-declare -gr sSCRIPT_CODENAME="Cochrane Bonaventure"
-declare -gr sSCRIPT_FULL_NAME=${0##*/}
-declare -gr sTMP_PREFIX=$sSCRIPT_FULL_NAME.tmp.
-declare -g sTMP_BASE_PATH=/tmp
-declare -gi iDEBUG=0
-declare -gi iREMOVE_INSTALL_PATH=0
-declare -gi iREMOVE_ALL_SAVED_PACKAGES=0
-declare -gi iREMOVE_INSTALLED_VERSION=0
-declare -gi iREMOVE_SAVED_PACKAGE=0
-declare -gi iLIST_INSTALLED_GE_VERSIONS=0
-declare -gi iREPORT_VERSION_USAGE=0
-declare -gi iREPORT_INSTALL_PATH_USAGE=0
-declare -gi iDOWNLOAD=0
-declare -gi iINSTALL=0
-declare -gi iCHECK_UPDATE=0
-declare -gi iVERIFY=0
-declare -gi iSHOW_HELP=0
-declare -gi iSHOW_USAGE=0
-declare -gi iUPDATE=0
+declare -gr SCRIPT_VERSION="0.7.4"
+declare -gr SCRIPT_CODENAME="Cochrane Bonaventure"
+declare -gr SCRIPT_FULL_NAME=${0##*/}
+declare -gr TEMP_PREFIX=$SCRIPT_FULL_NAME.tmp.
+declare -gi debug=0
+declare -gi remove_install_path=0
+declare -gi remove_all_saved_packages=0
+declare -gi remove_installed_version=0
+declare -gi remove_saved_package=0
+declare -gi list_installed_versions=0
+declare -gi report_version_usage=0
+declare -gi report_install_path_usage=0
+declare -gi download=0
+declare -gi install=0
+declare -gi check_update=0
+declare -gi verify=0
+declare -gi show_help=0
+declare -gi show_usage=0
+declare -gi update=0
+declare -g temp_base_path=/tmp # Configuration file: tmp_path
 
 ###############################################################################
 # Purpose: Set global variables that are not required to show help and/or usage
@@ -63,27 +63,32 @@ declare -gi iUPDATE=0
 # Return:  Always 0
 InitializeGlobalVars() {
 
-    declare -g sGE_INSTALL_PATH
-    declare -g sSCRIPT_CONFIG_PATH=${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME
-    declare -g sFILE_SED_UNMINIFY_SCRIPT=$sSCRIPT_CONFIG_PATH/unminify-JSON.sed
-    declare -g sSCRIPT_CACHE_PATH
-    declare -g sGE_LATEST_VERSION_URL
-    declare -g sGE_RELEASES_URL
-    declare -g sFILE_LATEST_JSON
-    declare -g sFILE_RELEASES_JSON
-    declare -gr sCURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
-    declare -gr sCURL_HEADER_USER_AGENT="User-Agent: toazd/$sSCRIPT_FULL_NAME/$sSCRIPT_VERSION"
-    declare -gr sCURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
-    declare -g sGE_LATEST_VERSION
-    declare -g sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
-    declare -g sFILE_SED_UNMINIFY_SCRIPT
-    declare -g sOVERRIDE_DEFAULT_INSTALL_PATH
-    declare -g sCOMMAND_RM
-    declare -g sVERIFY_VERSION
-    declare -gi iFORCE=0
-    declare -gi iINTEGRATION_TESTING=0
-    declare -gi iSIZE_BYTES_SED_UNMINIFY_SCRIPT=824
-    declare -gi iREAL_EXIT_STATUS=0
+    declare -gr CURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
+    declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
+    declare -gr CURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
+    declare -gi force=0
+    declare -gi integration_testing=0
+    declare -gi size_bytes_sed_unminify_script=824
+    declare -gi real_exit_status=0
+    declare -g install_path  # Configuration file: install_path
+    declare -g script_config_path=${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME
+    declare -g file_sed_unminify_script=$script_config_path/unminify-JSON.sed
+    declare -g script_cache_path # Configuration file: cache_path
+    declare -g latest_version_url # Configuration file: latest_version_url
+    declare -g releases_url # Configuration file: releases_url
+    declare -g file_latest_json
+    declare -g file_releases_json
+    declare -g latest_version
+    declare -g file_script_config=$script_config_path/$SCRIPT_FULL_NAME.conf
+    declare -g file_sed_unminify_script
+    declare -g override_default_install_path
+    declare -g command_rm # Configuration file: rm_command
+    declare -g verify_version
+    declare -g install_version
+    declare -g download_version
+    declare -g report_version
+    declare -g remove_saved_version
+    declare -g remove_installed_version
 
     return 0
 }
@@ -97,7 +102,7 @@ ShowHelp() {
 
     cat <<HELP_HEREDOC
 
-    $(basename "$0")  v$sSCRIPT_VERSION "$sSCRIPT_CODENAME"
+    $(basename "$0")  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
     Optional:       du, tail, cut (disk usage, file count)
@@ -204,19 +209,19 @@ USAGE_HEREDOC
 }
 
 ###############################################################################
-# Purpose: Set the global variable sGE_LATEST_VERSION to the latest version
+# Purpose: Set the global variable latest_version to the latest version
 #          which is retrieved from the name member of the assets object in
-#          the local file sFILE_LATEST_JSON.
+#          the local file file_latest_json.
 # Input:   None
 # Output:  None
 # Return:  0 = Success
 #          1 = UpdateSavedGELatestRelease returned 1, or a match was not found
-#              in sFILE_LATEST_JSON
+#              in file_latest_json
 #
 # TODO *might* want to check releases if latest fails
 GetLatestGEVersion() {
 
-    sGE_LATEST_VERSION=''
+    latest_version=''
 
     if UpdateSavedGELatestRelease; then
         while IFS= read -r; do
@@ -227,13 +232,13 @@ GetLatestGEVersion() {
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             [[ $REPLY =~ ^.*\"name\":.*\"Proton-.*\.tar\.gz\".*$ ]] && {
-                sGE_LATEST_VERSION=${REPLY#*\"name\":}
-                sGE_LATEST_VERSION=${sGE_LATEST_VERSION#*\"}
-                sGE_LATEST_VERSION=${sGE_LATEST_VERSION%.tar.gz\"*}
+                latest_version=${REPLY#*\"name\":}
+                latest_version=${latest_version#*\"}
+                latest_version=${latest_version%.tar.gz\"*}
                 break
             }
-        done < "$sFILE_LATEST_JSON"
-        [[ -z $sGE_LATEST_VERSION ]] && { ((iDEBUG)) && DebugMessage "sGE_LATEST_VERSION is NULL (no match or not found)"; return 1; }
+        done < "$file_latest_json"
+        [[ -z $latest_version ]] && { ((debug)) && DebugMessage "latest_version is NULL (no match or not found)"; return 1; }
     else
         return 1
     fi
@@ -243,7 +248,7 @@ GetLatestGEVersion() {
 
 ###############################################################################
 # Purpose: Call the RequestURL function to save the (JSON) from the URL
-#          sGE_LATEST_VERSION_URL to the local file sFILE_LATEST_JSON
+#          latest_version_url to the local file file_latest_json
 # Input:   None
 # Output:  None
 # Return:  0 = Success
@@ -252,13 +257,13 @@ GetLatestGEVersion() {
 # TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGELatestRelease() {
 
-    ((iDEBUG)) && DebugMessage "sGE_LATEST_VERSION_URL: \"$sGE_LATEST_VERSION_URL\" sFILE_LATEST_JSON: \"$sFILE_LATEST_JSON\""
+    ((debug)) && DebugMessage "latest_version_url: \"$latest_version_url\" file_latest_json: \"$file_latest_json\""
 
-    if RequestURL "$sGE_LATEST_VERSION_URL" "$sFILE_LATEST_JSON"; then
-        ((iDEBUG)) && DebugMessage "RequestURL returned success"
+    if RequestURL "$latest_version_url" "$file_latest_json"; then
+        ((debug)) && DebugMessage "RequestURL returned success"
         return 0
     else
-        ((iDEBUG)) && DebugMessage "RequestURL returned failure"
+        ((debug)) && DebugMessage "RequestURL returned failure"
         return 1
     fi
 
@@ -267,7 +272,7 @@ UpdateSavedGELatestRelease() {
 
 ###############################################################################
 # Purpose: Call the RequestURL function to save the (JSON) from the URL
-#          sGE_RELEASES_URL to the local file sFILE_RELEASES_JSON
+#          releases_url to the local file file_releases_json
 # Input:   None
 # Output:  None
 # Return:  0 = Success
@@ -278,13 +283,13 @@ UpdateSavedGEReleases() {
 
     # BUG updates to download_count in the remote file cause curl -z to download a new version much more often than is needed
     #     Until a workaround is found, latest and releases are kept seperate and not checked at the same time
-    ((iDEBUG)) && DebugMessage "sGE_RELEASES_URL: \"$sGE_RELEASES_URL\" sFILE_RELEASES_JSON: \"$sFILE_RELEASES_JSON\""
+    ((debug)) && DebugMessage "releases_url: \"$releases_url\" file_releases_json: \"$file_releases_json\""
 
-    if RequestURL "$sGE_RELEASES_URL" "$sFILE_RELEASES_JSON"; then
-        ((iDEBUG)) && DebugMessage "RequestURL returned success"
+    if RequestURL "$releases_url" "$file_releases_json"; then
+        ((debug)) && DebugMessage "RequestURL returned success"
         return 0
     else
-        ((iDEBUG)) && DebugMessage "RequestURL returned failure"
+        ((debug)) && DebugMessage "RequestURL returned failure"
         return 1
     fi
 
@@ -292,91 +297,92 @@ UpdateSavedGEReleases() {
 }
 
 ###############################################################################
-# Purpose: Using curl, download a GE package to a temporary path and if the
-#          download size matches the expected size copy it to sGE_INSTALL_PATH
-# Input:   GE version (in one of the acceptable formats described in usage)
+# Purpose: Using curl, download a proton-ge-custom release package to a
+#          temporary path and if the download size matches the expected size
+#          copy it to install_path
+# Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
 # Return:  0 = Success
 #          1 = Failure
 DownloadGEPackage() {
 
     # Declare local variables
-    local sVERSION
-    local sTMP_PATH
-    local sTMP_PACKAGE
-    local sTMP_REMAINING_BYTES
-    local sEXPECTED_SIZE_BYTES
-    local sGE_DOWNLOAD_URL
-    local -i iPACKAGE_SIZE_BYTES=0
+    local version
+    local temp_path
+    local temp_package
+    local temp_path_remaining_bytes
+    local expected_size_bytes
+    local package_download_url
+    local -i downloaded_package_size_bytes=0
 
-    # Set local variables, checking return values as needed
-    sVERSION=$(CleanUpVersion "${1-}")
-    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    sTMP_PATH=$(MkTempPath) || { ((iDEBUG)) && DebugMessage "MkTempPath returned failure"; return 1; }
-    sTMP_PACKAGE=$sTMP_PATH/Proton-${sVERSION}.tar.gz
-    sTMP_REMAINING_BYTES=$(SpaceRemaining "$sTMP_PATH" "b") || { ((iDEBUG)) && DebugMessage "SpaceRemaining returned failure"; return 1; }
-    sGE_DOWNLOAD_URL=$(QueryGEAttribute "$sVERSION" "browser_download_url") || { ((iDEBUG)) && DebugMessage "QueryGEAttribute browser_download_url returned failure"; return 1; }
-    sEXPECTED_SIZE_BYTES=$(QueryGEAttribute "$sVERSION" "size") || { ((iDEBUG)) && DebugMessage "QueryGEAttribute size returned failure"; return 1; }
-    [[ -z $sGE_DOWNLOAD_URL ]] && { ((iDEBUG)) && DebugMessage "sGE_DOWNLOAD_URL is NULL"; return 1; }
+    # Set local variables, checking return values and reporting as needed
+    version=$(CleanUpVersion "${1-}")
+    [[ -z $version ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    temp_path=$(MkTempPath) || { ((debug)) && DebugMessage "MkTempPath returned failure"; return 1; }
+    temp_package=$temp_path/Proton-${version}.tar.gz
+    temp_path_remaining_bytes=$(SpaceRemaining "$temp_path" "b") || { ((debug)) && DebugMessage "SpaceRemaining returned failure"; return 1; }
+    package_download_url=$(QueryGEAttribute "$version" "browser_download_url") || { ((debug)) && DebugMessage "QueryGEAttribute browser_download_url returned failure"; return 1; }
+    expected_size_bytes=$(QueryGEAttribute "$version" "size") || { ((debug)) && DebugMessage "QueryGEAttribute size returned failure"; return 1; }
+    [[ -z $package_download_url ]] && { ((debug)) && DebugMessage "package_download_url is NULL"; return 1; }
 
-    # If there is not enough free space remaining on the sTMP_PATH file system
+    # If there is not enough free space remaining on the temp_path file system
     # TODO Use a different path as a fallback
-    if [[ $sTMP_REMAINING_BYTES -lt $sEXPECTED_SIZE_BYTES ]]; then
-        ((iDEBUG)) && DebugMessage "Free space on \"$sTMP_PATH\" is $sTMP_REMAINING_BYTES bytes"
+    if [[ $temp_path_remaining_bytes -lt $expected_size_bytes ]]; then
+        ((debug)) && DebugMessage "Free space on \"$temp_path\" is $temp_path_remaining_bytes bytes"
         printf '%s\n%s\n' \
-               "Not enough free space on \"$sTMP_PATH\" (need at least $sEXPECTED_SIZE_BYTES bytes)" \
+               "Not enough free space on \"$temp_path\" (need at least $expected_size_bytes bytes)" \
                "Free up space or change tmp_path in the configuration file"
         return 1
     else
         # If fallocate is found, preallocate the file to be downloaded
         if command -v fallocate >/dev/null; then
-            if fallocate -l "$sEXPECTED_SIZE_BYTES" "$sTMP_PACKAGE"; then
-                ((iDEBUG)) && DebugMessage "fallocate succeeded"
+            if fallocate -l "$expected_size_bytes" "$temp_package"; then
+                ((debug)) && DebugMessage "fallocate succeeded"
             else
-                #echo "Failed to preallocate \"$sTMP_FILE\""
-                ((iDEBUG)) && DebugMessage "fallocate failed (-l $sEXPECTED_SIZE_BYTES $sTMP_PACKAGE)"
-                [[ -f $sTMP_PACKAGE ]] && rm -f "$sTMP_PACKAGE"
+                #echo "Failed to preallocate \"$sTMP_FILE\", download may fail"
+                ((debug)) && DebugMessage "fallocate failed (-l $expected_size_bytes $temp_package)"
+                [[ -f $temp_package ]] && rm -f "$temp_package"
             fi
         else
-            ((iDEBUG)) && DebugMessage "fallocate not found"
+            ((debug)) && DebugMessage "fallocate not found"
         fi
     fi
 
     # Attempt to retrieve the package with curl
-    echo "Downloading \"$sGE_DOWNLOAD_URL\""
-    if curl -# -L "$sGE_DOWNLOAD_URL" -o "$sTMP_PACKAGE"; then
+    echo "Downloading \"$package_download_url\""
+    if curl -# -L "$package_download_url" -o "$temp_package"; then
 
         # Get the file size in bytes
-        iPACKAGE_SIZE_BYTES=$(stat -c '%s' "$sTMP_PACKAGE")
-        ((iDEBUG)) && DebugMessage "Downloaded package size in bytes: \"$iPACKAGE_SIZE_BYTES\""
+        downloaded_package_size_bytes=$(stat -c '%s' "$temp_package")
+        ((debug)) && DebugMessage "Downloaded package size in bytes: \"$downloaded_package_size_bytes\""
 
         # A file size of 9 bytes indicates the response was "Not Found"
         # TODO Also check for rate limit exceeded - need a sample file first
-        if [[ $iPACKAGE_SIZE_BYTES -eq 9 ]]; then
-            echo "Server responded \"Not Found\" for version \"$sVERSION\""
+        if [[ $downloaded_package_size_bytes -eq 9 ]]; then
+            echo "Server responded \"Not Found\" for version \"$version\""
             CleanUp
             return 1
         fi
 
         # Check if the the package size and expected size are equal
-        if [[ $iPACKAGE_SIZE_BYTES -eq $(QueryGEAttribute "$sVERSION" "size") ]]; then
-            echo "Downloaded package is the expected size ($sEXPECTED_SIZE_BYTES bytes)"
+        if [[ $downloaded_package_size_bytes -eq $(QueryGEAttribute "$version" "size") ]]; then
+            echo "Downloaded package is the expected size ($expected_size_bytes bytes)"
         else
             printf '%s\n%s\n' \
                    "Downloaded file size and expected size do not match" \
-                   "(\"$iPACKAGE_SIZE_BYTES\" vs \"$sEXPECTED_SIZE_BYTES\")"
+                   "(\"$downloaded_package_size_bytes\" vs \"$expected_size_bytes\")"
            CleanUp
            return 1
         fi
 
         # Copy the package from the temporary path to the install path
-        ((iDEBUG)) && DebugMessage "Copying package \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\""
-        if cp "$sTMP_PACKAGE" "$sGE_INSTALL_PATH"; then
-            ((iDEBUG)) && DebugMessage "Package copied successfully"
+        ((debug)) && DebugMessage "Copying package \"$temp_package\" to \"$install_path\""
+        if cp "$temp_package" "$install_path"; then
+            ((debug)) && DebugMessage "Package copied successfully"
             echo "Download succeeded"
             CleanUp
         else
-            ((iDEBUG)) && DebugMessage "Copy package from \"$sTMP_PACKAGE\" to \"$sGE_INSTALL_PATH\" failed"
+            ((debug)) && DebugMessage "Copy package from \"$temp_package\" to \"$install_path\" failed"
             echo "Download failed"
             CleanUp
             return 1
@@ -392,65 +398,94 @@ DownloadGEPackage() {
 }
 
 ###############################################################################
-# Install a GE version using either a saved package or downloading a new one
-# Accepts one optional parameter, the version, in one of the acceptable formats described in usage
-# NOTE sINSTALL_VERSION is set in getops when -i is invoked
-# NOTE If -u and -i are both invoked, the update will run first and then the install, if needed
+# Purpose: TODO
+# Input:   TODO
+# Output:  TODO
+# Return:  0 = Success
+#          1 = Failure
+UpdateGEVersion() {
+
+    update=1
+
+    if InstallGEVersion; then
+        update=0
+        return 0
+    else
+        return 1
+    fi
+
+    return 1
+}
+
+
+###############################################################################
+# Purpose: Install a requested proton-ge-custom release version or install the
+#          latest version. If force mode is active and a saved package exists
+#          for the requested version the package will be removed and a new one
+#          will be downloaded.
+# Input:   1 (optional) Proton-ge-custom version (in one of the acceptable formats described in usage)
+#          When called with no parameter/a NULL parameter and $update=1, the latest version will be installed.
+# Output:  None
+# Return:  0 = Success
+#          1 = Failure
+#
+# TODO Seperate Install and Update
 InstallGEVersion() {
 
-    local sVERSION
+    local version
 
-    ((iDEBUG)) && DebugMessage "Determining mode"
-    if [[ $iUPDATE -eq 1 ]]; then
-        ((iDEBUG)) && DebugMessage "Update mode active"
-        [[ -z $sGE_LATEST_VERSION ]] && {
+    # Determine the "mode" (install or update)
+    ((debug)) && DebugMessage "Determining mode"
+    if [[ $update -eq 1 ]]; then
+        ((debug)) && DebugMessage "Update mode active"
+        [[ -z $latest_version ]] && {
             if GetLatestGEVersion; then
-                sVERSION=$sGE_LATEST_VERSION
+                version=$latest_version
             else
                 return 1
             fi
         }
-    elif [[ $iUPDATE -eq 0 ]]; then
-        ((iDEBUG)) && DebugMessage "Install mode active"
-        sVERSION=${sINSTALL_VERSION:-$(CleanUpVersion "${1-}")}
+    elif [[ $update -eq 0 ]]; then
+        ((debug)) && DebugMessage "Install mode active"
+        version=${install_version:-$(CleanUpVersion "${1-}")}
     else
-        ((iDEBUG)) && DebugMessage "Unknown error detecting install mode"
+        ((debug)) && DebugMessage "Unknown error detecting install mode"
         return 1
     fi
 
-    sVERSION=$(CleanUpVersion "${1-}")
+    version=$(CleanUpVersion "${1-}")
 
-    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "sVERSION is NULL"; return 1; }
+    [[ -z $version ]] && { ((debug)) && DebugMessage "version is NULL"; return 1; }
 
-    ((iDEBUG)) && DebugMessage "Requested sVERSION is \"$sVERSION\""
+    ((debug)) && DebugMessage "Requested version is \"$version\""
 
     # Re-install a version that is already installed
-    if IsInstalled "$sVERSION"; then
-        if [[ $iFORCE -eq 0 ]]; then
-            echo "Version \"$sVERSION\" is already installed"
+    if IsInstalled "$version"; then
+        if [[ $force -eq 0 ]]; then
+            echo "Version \"$version\" is already installed"
             return 0
-        elif [[ $iFORCE -eq 1 ]]; then
+        elif [[ $force -eq 1 ]]; then
             if IsSteamRunning; then
                 echo "Please close Steam before re-installing a version that is already installed"
                 return 1
             else
-                echo "Forcing re-install of version \"$sVERSION\""
+                echo "Forcing re-install of version \"$version\""
             fi
         fi
     fi
 
     # if a saved package exists and force mode is not active
-    if [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 0 ]]; then
-        echo "Using saved package: \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
-        if ExtractGEPackage "$sVERSION"; then
+    if [[ -f $install_path/Proton-${version}.tar.gz ]] && [[ $force -eq 0 ]]; then
+        echo "Using saved package: \"$install_path/Proton-${version}.tar.gz\""
+        if ExtractGEPackage "$version"; then
             return 0
         else
             return 1
         fi
     # if a saved package exists and force mode is active
-    elif [[ -f $sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz ]] && [[ $iFORCE -eq 1 ]]; then
-        echo "Removing saved package \"$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz\""
-        if $sCOMMAND_RM "$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz"; then
+    elif [[ -f $install_path/Proton-${version}.tar.gz ]] && [[ $force -eq 1 ]]; then
+        echo "Removing saved package \"$install_path/Proton-${version}.tar.gz\""
+        if $command_rm -- "$install_path/Proton-${version}.tar.gz"; then
             echo "Package removed"
         else
             echo "Removing package failed"
@@ -459,16 +494,16 @@ InstallGEVersion() {
     fi
 
     # If a saved package for this version doesn't exist or it was removed, download it and install it
-    if DownloadGEPackage "$sVERSION"; then
-        if ExtractGEPackage "$sVERSION"; then
-            echo "Installation of version \"$sVERSION\" was successful"
+    if DownloadGEPackage "$version"; then
+        if ExtractGEPackage "$version"; then
+            echo "Installation of version \"$version\" was successful"
             return 0
         else
-            echo "Installation of version \"$sVERSION\" failed"
+            echo "Installation of version \"$version\" failed"
             return 1
         fi
     else
-        echo "Version \"$sVERSION\" not found"
+        echo "Version \"$version\" not found"
         return 1
     fi
 
@@ -476,29 +511,33 @@ InstallGEVersion() {
 }
 
 ###############################################################################
-# Removes an installed version
-# Accepts one parameter, the version, in one of the acceptable formats described in usage
+# Purpose: Remove an installed Proton-ge-custom version
+# Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
+# Output:  None
+# Return:  0 = Success
+#          1 = Failure
 RemoveGEVersion() {
 
-    local sVERSION
-    local sREMOVE_PATH
-    local sSIZE
+    local version
+    local remove_path
+    local disk_usage
 
-    sVERSION=$(CleanUpVersion "${1-}")
-    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    sREMOVE_PATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
+    version=$(CleanUpVersion "${1-}")
+    [[ -z $version ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    remove_path=$install_path/Proton-${version}
 
-    ((iDEBUG)) && DebugMessage "Requested sVERSION: \"$sVERSION\" sREMOVE_PATH: \"$sREMOVE_PATH\""
+    ((debug)) && DebugMessage "Requested version: \"$version\" remove_path: \"$remove_path\""
 
     # Remove the path if it exists
-    if [[ -d $sREMOVE_PATH ]]; then
+    if [[ -d $remove_path ]]; then
         if ! IsSteamRunning; then
-            sSIZE=$(du -sh "$sREMOVE_PATH" 2>/dev/null)
-            sSIZE=${sSIZE%[[:space:]]*}
-            if $sCOMMAND_RM -rf "$sREMOVE_PATH" >/dev/null; then
-                echo "Removed path \"$sREMOVE_PATH\" (${sSIZE:-'error'})"
+            # Get the disk usage in human readable format
+            disk_usage=$(du -sh "$remove_path" 2>/dev/null)
+            disk_usage=${disk_usage%[[:space:]]*}
+            if $command_rm -- -rf "$remove_path" >/dev/null; then
+                echo "Removed path \"$remove_path\" (${disk_usage:-'error'})"
             else
-                echo "Failed to remove \"$sREMOVE_PATH\""
+                echo "Failed to remove \"$remove_path\""
                 return 1
             fi
         else
@@ -506,40 +545,48 @@ RemoveGEVersion() {
             return 1
         fi
     else
-        echo "Install path not found for version \"$sVERSION\""
+        echo "Install path not found for version \"$version\""
     fi
 
     return 0
 }
 
 ###############################################################################
-# Extracts a saved package (Proton-*.tar.gz) in the install path to the install path
-# Accepts one required parameter, the version, in one of the acceptable formats described in usage
-# Accepts one optional second parameter, the path to extract the package to
+# Purpose: Extract a Proton-ge-custom package (.tar.gz) to the install path or
+#          optionally to a specified path.
+# Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
+#          2 (optional) The path to extract the package to
+# Output:  None
+# Return:  0 = Success
+#          1 = Failure
 ExtractGEPackage() {
 
-    local sVERSION
-    local sEXTRACT_FILE
-    local sEXTRACT_PATH
+    local version
+    local extract_file
+    local extract_path
 
-    sVERSION=$(CleanUpVersion "${1-}")
-    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    sEXTRACT_FILE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
-    sEXTRACT_PATH=${2:-$sGE_INSTALL_PATH}
-    [[ ! -d $sEXTRACT_PATH && -w $sEXTRACT_PATH ]] && { ((iDEBUG)) && DebugMessage "Parameter error (not a valid path)"; return 1; }
+    version=$(CleanUpVersion "${1-}")
+    [[ -z $version ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    extract_file=$install_path/Proton-${version}.tar.gz
+    extract_path=${2:-$install_path}
+    [[ ! -d $extract_path && -w $extract_path ]] && { ((debug)) && DebugMessage "Parameter error (not a valid path)"; return 1; }
 
-    printf '%s' "Extracting \"$sEXTRACT_FILE\" to \"$sEXTRACT_PATH\""
-    if tar --checkpoint=.10000 -C "$sEXTRACT_PATH" -xzf "$sEXTRACT_FILE" 2>/dev/null; then
+    # Display "Extracting" with trailing dots indicating the extraction progress
+    printf '%s' "Extracting \"$extract_file\" to \"$extract_path\""
+    if tar --checkpoint=.10000 -C "$extract_path" -xzf "$extract_file" 2>/dev/null; then
+        # Return to the begining of the line, erase from that position to the end of the line
         printf '\r\033[0K%s\n' "Package extracted successfully"
         return 0
     else
+        # Return to the begining of the line, erase from that position to the end of the line
         printf '\r\033[0K%s\n' "Package extraction failed"
-        [[ -d $sEXTRACT_PATH/Proton-${sVERSION} ]] && {
-            if $sCOMMAND_RM "$sEXTRACT_PATH/Proton-${sVERSION}"; then
-                ((iDEBUG)) && DebugMessage "Removal succeeded"
-                echo "Removed failed extraction path at \"$sEXTRACT_PATH/Proton-${sVERSION}\""
+        # If the extraction failed, remove the partially extracted path
+        [[ -d $extract_path/Proton-${version} ]] && {
+            if $command_rm -- "$extract_path/Proton-${version}"; then
+                ((debug)) && DebugMessage "Removal succeeded"
+                echo "Removed failed extraction path at \"$extract_path/Proton-${version}\""
             else
-                echo "Failed to remove path of failed extraction: \"$sEXTRACT_PATH/Proton-${sVERSION}\""
+                echo "Failed to remove path of failed extraction: \"$extract_path/Proton-${version}\""
                 # TODO update/remove message when install verification is updated
                 echo "This script may interpret it as a valid install until it is removed"
             fi
@@ -551,101 +598,123 @@ ExtractGEPackage() {
 }
 
 ###############################################################################
-# List the currently installed GE versions and any saved packages
+# Purpose: Print the currently installed Proton-ge-custom versions, saved
+#          packages, and their individual disk usage to stdout.
+# Input:   None
+# Output:  None
+# Return:  Always 0
 ListInstalledGEVersions() {
 
-    local iCOUNT=0
-    local sNODE
-    #local sEXTRACTED_VERSION=''
+    local -i i=0
+    local node
+    local installed_version_disk_usage
+    local saved_package_disk_usage
+    local saved_packages_total_disk_usage
 
-    ((iDEBUG)) && DebugMessage "Install path: \"$sGE_INSTALL_PATH\""
+    ((debug)) && DebugMessage "Install path: \"$install_path\""
 
     echo "Installed version(s):"
-    for sNODE in "$sGE_INSTALL_PATH"/*; do
-        if [[ -d $sNODE ]]; then
-            #sEXTRACTED_VERSION=$(cat "$sNODE"/version 2>/dev/null)
-            #sEXTRACTED_VERSION=${sEXTRACTED_VERSION#*[[:blank:]]}
-            #if [[ -z $sEXTRACTED_VERSION ]] || [[ $sEXTRACTED_VERSION = "file not found" ]]; then sEXTRACTED_VERSION="error: version file not found"; fi
-            #echo "  ${sNODE##*/} ($sEXTRACTED_VERSION)"
-            echo "  ${sNODE##*/} ($(du -sh "$sNODE" | cut -f1))"
-            ((iCOUNT++))
+    for node in "$install_path"/Proton-*; do
+        if [[ -d $node ]]; then
+            ((i++))
+            # Get the disk usage of the package in human readable format
+            IFS=$'\t' read -r installed_version_disk_usage path < <(du -sh -- "$node")
+            echo "  ${node##*/} ($installed_version_disk_usage)"
         fi
     done
-    [[ $iCOUNT -eq 0 ]] && echo "None found"
+    [[ $i -eq 0 ]] && echo "  None found"
 
     echo "Saved package(s):"
-    iCOUNT=0
-    for sNODE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
-        if [[ -f $sNODE ]]; then
-            if [[ $iDEBUG -eq 1 ]]; then
-                ((iDEBUG)) && DebugMessage "${sNODE##*/} (size: $(stat -c '%s' "$sNODE"), expected size: $(QueryGEAttribute "${sNODE##*/}" "size"))"
+    i=0
+    for node in "$install_path"/Proton-*.tar.gz; do
+        if [[ -f $node ]]; then
+            ((i++))
+            if [[ $debug -eq 1 ]]; then
+                DebugMessage "${node##*/} (size: $(stat -c '%s' "$node"), expected size: $(QueryGEAttribute "${node##*/}" "size"))"
             else
-                echo "  ${sNODE##*/} ($(du -h "$sNODE" | cut -f1))"
+                IFS=$'\t' read -r saved_package_disk_usage path < <(du -h -- "$node")
+                echo "  ${node##*/} ($saved_package_disk_usage)"
             fi
-            ((iCOUNT++))
         fi
     done
-    if [[ $iCOUNT -ge 1 ]]; then
-        echo "Saved packages disk usage: $(du -csh "$sGE_INSTALL_PATH/"*.tar.gz | tail -n1 | cut -f1)"
-    elif [[ $iCOUNT -eq 0 ]]; then
-        echo "None found"
+    if [[ $i -ge 1 ]]; then
+        while IFS=$'\t' read -r size path; do
+            [[ $path = "total" ]] && saved_packages_total_disk_usage=$size
+        done < <(du -csh -- "$install_path/"*.tar.gz)
+
+        echo "Saved packages total: $saved_packages_total_disk_usage"
+    elif [[ $i -eq 0 ]]; then
+        echo "  None found"
     fi
 
     return 0
 }
 
 ###############################################################################
+# Purpose: Print the disk usage and file count for the install_path and/or a
+#          specified version to stdout.
+# Input:   1 (optional) Proton-ge-custom version (in one of the acceptable formats described in usage)
+# Output:  None
+# Return:  0 Success
+#          1 A required external command was not found or the version requested was not found
+
 # Report disk usage and file counts for the install path and/or a specified installed version
-# Accepts one optional parameter, the version, in one of the acceptable formats described in usage
+# Accepts one optional parameter, the version,
 ReportGEDiskUsage() {
 
-    local sVERSION
-    local sFILE_COUNT
-    local sSIZE="0"
-    local iFAILED=0
-    local sPATH
+    local version
+    local file_counter
+    local disk_usage="0"
+    local -i missing_command=0
+    local path
 
-    sVERSION=$(CleanUpVersion "${1-}")
-    # NOTE do not return 1 if sVERSION is NULL, functionality below depends on it
+    version=$(CleanUpVersion "${1-}")
+    # NOTE do not return 1 if version is NULL, functionality below depends on it
 
-    # optional commands
+    # Optional commands that are required for this function
     if ! command -v du >/dev/null && ! command -v find >/dev/null && ! command -v wc >/dev/null; then
-        iFAILED=1
+        missing_command=1
     fi
 
-    # if all checks succeeded
-    if [[ $iFAILED -eq 0 ]]; then
-        # set the path to be reported based on whether a version was provided or not
-        if [[ -z $sVERSION ]]; then
-            # report the file count and disk usage for the entire install path
-            if [[ -d $sGE_INSTALL_PATH ]]; then
-                sSIZE=$(du -sh "$sGE_INSTALL_PATH")
-                sFILE_COUNT=$(find "$sGE_INSTALL_PATH" -type f | wc -l)
+    # If all command checks succeeded
+    if [[ $missing_command -eq 0 ]]; then
+        # Set the path to be reported based on whether a version was provided or not
+        if [[ -z $version ]]; then
+            # Report the file count and disk usage for the entire install path
+            if [[ -d $install_path ]]; then
+                disk_usage=$(du -sh -- "$install_path")
+                file_counter=$(find "$install_path" -type f | wc -l)
                 echo "Install path report:"
-                printf '  %s\n  %s\n  %s\n' "Path: $sGE_INSTALL_PATH" "Files: $sFILE_COUNT" "Disk usage: ${sSIZE%%[[:blank:]]*}"
+                printf '  %s\n  %s\n  %s\n' \
+                       "Path: $install_path" \
+                       "Files: $file_counter" \
+                       "Disk usage: ${disk_usage%%[[:blank:]]*}"
             else
-                ((iDEBUG)) && DebugMessage "Path: $sGE_INSTALL_PATH"
-                echo "Version \"$sVERSION\" not found"
+                ((debug)) && DebugMessage "Path: $install_path"
+                echo "Version \"$version\" not found"
                 return 1
             fi
         fi
-        if [[ -n $sVERSION ]]; then
+        if [[ -n $version ]]; then
             # Report the file count and disk usage for a specific version
-            sPATH=$sGE_INSTALL_PATH/Proton-${sVERSION}
-            if [[ -d $sPATH ]]; then
-                sSIZE=$(du -sh "$sPATH")
-                sFILE_COUNT=$(find "$sPATH" -type f | wc -l)
-                echo "Version \"$sVERSION\" report:"
-                printf '  %s\n  %s\n  %s\n' "Path: $sPATH" "Files: $sFILE_COUNT" "Disk usage: ${sSIZE%%[[:blank:]]*}"
+            path=$install_path/Proton-${version}
+            if [[ -d $path ]]; then
+                disk_usage=$(du -sh -- "$path")
+                file_counter=$(find "$path" -type f | wc -l)
+                echo "Version \"$version\" report:"
+                printf '  %s\n  %s\n  %s\n' \
+                       "Path: $path" \
+                       "Files: $file_counter" \
+                       "Disk usage: ${disk_usage%%[[:blank:]]*}"
             else
-                ((iDEBUG)) && DebugMessage "Path: $sPATH"
-                echo "Version \"$sVERSION\" not found"
+                ((debug)) && DebugMessage "Path: $path"
+                echo "Version \"$version\" not found"
                 return 1
             fi
         fi
-    # if any check failed
-    elif [[ $iFAILED -eq 1 ]]; then
-        echo "One or more optional commands not found (see -h). Report not available."
+    # If any command check failed
+    elif [[ $missing_command -eq 1 ]]; then
+        echo "One or more external commands not found (see -h). Report not available."
         return 1
     fi
 
@@ -653,32 +722,35 @@ ReportGEDiskUsage() {
 }
 
 ###############################################################################
-# Remove a saved package
-# Accepts one required parameter, the version, in one of the acceptable formats described in usage
+# Purpose: Remove a saved package for a specified Proton-ge-custom version
+# Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
+# Output:  None
+# Return:  0 Success
+#          1 Failure
 RemoveSavedPackage() {
 
-    local sVERSION
-    local sPACKAGE
+    local version
+    local package
 
-    sVERSION=$(CleanUpVersion "${1-}")
-    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    sPACKAGE=$sGE_INSTALL_PATH/Proton-${sVERSION}.tar.gz
+    version=$(CleanUpVersion "${1-}")
+    [[ -z $version ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    package=$install_path/Proton-${version}.tar.gz
 
-    if [[ -f $sPACKAGE ]]; then
-        if [[ -w $sPACKAGE ]]; then
-            if $sCOMMAND_RM "$sPACKAGE"; then
-                echo "Removed \"$sPACKAGE\""
+    if [[ -f $package ]]; then
+        if [[ -w $package ]]; then
+            if $command_rm -- "$package"; then
+                echo "Removed \"$package\""
                 return 0
             else
-                echo "Failed to remove version \"$sVERSION\" (rm command failed)"
+                echo "Failed to remove version \"$version\" ($command_rm failed)"
                 return 1
             fi
         else
-            echo "Failed to remove version \"$sVERSION\" (no write permission)"
+            echo "Failed to remove version \"$version\" (no write permission)"
             return 1
         fi
     else
-        echo "Failed to remove version \"$sVERSION\" (file not found)"
+        echo "Failed to remove version \"$version\" (file not found)"
         return 1
     fi
 
@@ -686,36 +758,39 @@ RemoveSavedPackage() {
 }
 
 ###############################################################################
-# Removes all saved packages in the install path defined by the global variable sGE_INSTALL_PATH
-# NOTE a package is any regular file that matches the glob pattern "Proton-*.tar.gz"
+# Purpose: Remove all saved packages in install_path
+# Input:   None
+# Output:  None
+# Return:  0 Success (all packages or 0 packages were removed)
+#          1 Failure (any one package removal failed)
 RemoveAllSavedPackages() {
 
-    local iSUCCESS=0
-    local iFAILED=0
-    local sPACKAGE
+    local -i success_counter=0
+    local -i failure_counter=0
+    local package
 
-    ((iDEBUG)) && DebugMessage "Install path: \"$sGE_INSTALL_PATH\""
+    ((debug)) && DebugMessage "Install path: \"$install_path\""
 
-    for sPACKAGE in "$sGE_INSTALL_PATH"/Proton-*.tar.gz; do
-        if [[ -f $sPACKAGE ]]; then
-            if $sCOMMAND_RM "$sPACKAGE"; then
-                echo "Removed \"$sPACKAGE\""
-                ((iSUCCESS++))
+    for package in "$install_path"/Proton-*.tar.gz; do
+        if [[ -f $package ]]; then
+            if $command_rm -- "$package"; then
+                echo "Removed \"$package\""
+                ((success_counter++))
             else
-                echo "Remove \"$sPACKAGE\" failed"
-                ((iFAILED++))
+                echo "Remove \"$package\" failed"
+                ((failure_counter++))
             fi
         fi
     done
 
-    if [[ $iSUCCESS -eq 0 ]]; then
+    if [[ $success_counter -eq 0 ]]; then
         echo "0 packages removed"
-    elif [[ $iSUCCESS -gt 0 ]]; then
-        echo "$iSUCCESS packages removed"
+    elif [[ $success_counter -gt 0 ]]; then
+        echo "$success_counter packages removed"
     fi
 
-    [[ $iFAILED -gt 0 ]] && {
-        echo "Failed to remove $iFAILED package(s)"
+    [[ $failure_counter -gt 0 ]] && {
+        echo "Failed to remove $failure_counter package(s)"
         return 1
     }
 
@@ -723,34 +798,38 @@ RemoveAllSavedPackages() {
 }
 
 ###############################################################################
-# Removes the path defined by the global variable sGE_INSTALL_PATH
-# NOTE currently requires -f to be combined with -X
+# Purpose: Remove install_path
+# Input:   None
+# Output:  None
+# Return:  0 Success
+#          1 Failure (Remove failed or re-creating install_path failed)
 RemoveGEInstallPath() {
 
-    local sSIZE="0"
+    local disk_usage="0"
 
     if command -v du >/dev/null; then
-        sSIZE=$(du -sh "$sGE_INSTALL_PATH")
+        disk_usage=$(du -sh "$install_path")
     else
-        ((iDEBUG)) && DebugMessage "Command du not found"
-        sSIZE="unknown"
+        ((debug)) && DebugMessage "Command du not found"
+        disk_usage="unknown"
     fi
 
-    if $sCOMMAND_RM "$sGE_INSTALL_PATH"; then
-        echo "Remove install path succeeded ( ${sSIZE%%[[:blank:]]*} removed )"
-        ((iDEBUG)) && DebugMessage "Recreating install path at \"$sGE_INSTALL_PATH\""
-        if mkdir -p "$sGE_INSTALL_PATH"; then
-            ((iDEBUG)) && DebugMessage "Creation succeeded"
+    if $command_rm -- "$install_path"; then
+        echo "Remove install path succeeded ( ${disk_usage%%[[:blank:]]*} removed )"
+        ((debug)) && DebugMessage "Recreating install path at \"$install_path\""
+        # Re-create the install_path
+        if mkdir -p "$install_path"; then
+            ((debug)) && DebugMessage "mkdir -p \"$install_path\" succeeded"
         else
-            if [[ $iDEBUG -eq 1 ]]; then
-                ((iDEBUG)) && DebugMessage "Creation failed"
+            if [[ $debug -eq 1 ]]; then
+                DebugMessage "mkdir -p \"$install_path\" failed"
             else
-                echo "Warning: failed to re-create install path at \"$sGE_INSTALL_PATH\""
+                echo "Warning: failed to re-create install path at \"$install_path\""
                 return 1
             fi
         fi
     else
-        echo "Removal of install path \"$sGE_INSTALL_PATH\" failed"
+        echo "Removal of install path \"$install_path\" failed"
         return 1
     fi
 
@@ -758,31 +837,38 @@ RemoveGEInstallPath() {
 }
 
 ###############################################################################
-# TODO
+# Purpose: Verify all installed versions or a specified version by comparing
+#          each file from the saved package to the installed file and report
+#          the number of files that match, are missing, and don't match to stdout.
+# Input:   None
+# Output:  None
+# Return:  0 Success
+#          1 Failure
+# NOTE __pycache__ is created at runtime in an installed version path and will
+#      not be present in the saved packages.
 VerifyGEInstall() {
 
-    local sNODE
-    local sTMP_PATH
-    local sVERSION
-    local sFILE_EXTRACTED
-    local sFILE_INSTALLED
-    local iaEXTRACTED=()
-    local iaINSTALLED=()
-    local iMATCH_COUNTER=0
-    local iMISSING_COUNTER=0
-    local iMISMATCH_COUNTER=0
-    local iFILE_COUNT_MATCH=0
-    local iTOTAL_FILES=0
-    local iCOUNTER=0
-    local iCOUNTER_EXTRACTED=0
-    local iCOUNTER_INSTALLED=0
-    local iSTART_TIME_SECONDS=0 # NOTE bash 5+ is required for EPOCHSECONDS
-    local iEND_TIME_SECONDS=0   # NOTE bash 4.2+ is required for printf $()T
-    local iPROGRESS=0
-    local iPREV_PROGRESS=1
+    local node
+    local temp_path
+    local version
+    local file_extracted
+    local file_installed
+    local -a files_extracted
+    local -a files_installed
+    local -i match_counter=0
+    local -i missing_counter=0
+    local -i mismatch_counter=0
+    local -i files_arrays_count_match=0
+    local -i total_files=0
+    local -i counter_extracted=0
+    local -i counter_installed=0
+    local -i start_time_seconds=0 # NOTE bash 5+ is required for EPOCHSECONDS
+    local -i end_time_seconds=0   # NOTE bash 4.2+ is required for printf $()T
+    local -i progress_percent=0
+    local -i prev_progress=1
 
-    sTMP_PATH=$(MkTempPath) || return 1
-    sVERSION=$(CleanUpVersion "${1-}")
+    temp_path=$(MkTempPath) || return 1
+    version=$(CleanUpVersion "${1-}")
 
     # Required external commands
     if ! command -v cmp >/dev/null && ! command -v sort >/dev/null; then
@@ -791,14 +877,16 @@ VerifyGEInstall() {
     fi
 
     # Check for install paths that don't have a saved package, download if missing
-    for sNODE in "$sGE_INSTALL_PATH/Proton-"*; do
-        [[ -d $sNODE ]] && {
+    for node in "$install_path/Proton-"*; do
+        [[ -d $node ]] && {
+
             # Verify that it is installed
-            IsInstalled "${sNODE##*/}" && {
+            IsInstalled "${node##*/}" && {
+
                 # If no saved package exists for this version
-                [[ ! -f $sGE_INSTALL_PATH/${sNODE##*/}.tar.gz ]] && {
-                    echo "Package not found for installed version \"${sNODE##*/}\""
-                    if ! DownloadGEPackage "${sNODE##*/Proton-}"; then
+                [[ ! -f $install_path/${node##*/}.tar.gz ]] && {
+                    echo "Package not found for installed version \"${node##*/}\""
+                    if ! DownloadGEPackage "${node##*/Proton-}"; then
                         return 1
                     fi
                 }
@@ -806,64 +894,68 @@ VerifyGEInstall() {
         }
     done
 
-    # For each saved package available, check each file of the contents against the install path if it exists
-    for sNODE in "$sGE_INSTALL_PATH"/Proton-${sVERSION:-*}.tar.gz; do
-        [[ -f $sNODE ]] && {
-            sVERSION=$(CleanUpVersion "${sNODE##*/}")
-            #[[ $sNODE != *Proton-5.9-GE-TEST-ST* ]] && continue
-            echo "Found a package for version \"$sVERSION\""
-            if ! IsInstalled "$sVERSION"; then
-                echo "Version \"$sVERSION\" is not installed"
+    # For each saved package available, check each file in the package against the installed file
+    for node in "$install_path"/Proton-${version:-*}.tar.gz; do
+        [[ -f $node ]] && {
+            version=$(CleanUpVersion "${node##*/}")
+            echo "Found a package for version \"$version\""
+            if ! IsInstalled "$version"; then
+                echo "Version \"$version\" is not installed"
                 continue
             else
-                echo "Version \"$sVERSION\" is installed"
-                if ! ExtractGEPackage "$sVERSION" "$sTMP_PATH"; then
+                echo "Version \"$version\" is installed"
+
+                # Extract the package to a temporary path
+                if ! ExtractGEPackage "$version" "$temp_path"; then
                     return 1
                 fi
 
-                # Reset counters
-                iMATCH_COUNTER=0
-                iMISMATCH_COUNTER=0
-                iMISSING_COUNTER=0
-                # create two indexed arrays, each containing a seperate list of files, one from the extracted path and the other from the installed path respectively
-                #printf '\033[s%s' "Indexing files to compare"
-                # NOTE __pycache__ is created at runtime and will not be present in the saved packages
-                echo "Indexing files to compare"
-                while IFS= read -r sFILE_EXTRACTED; do
-                    iaEXTRACTED+=("$sFILE_EXTRACTED")
-                done < <(find "$sTMP_PATH/Proton-${sVERSION}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
-                while IFS= read -r sFILE_INSTALLED; do
-                    iaINSTALLED+=("$sFILE_INSTALLED")
-                done < <(find "$sGE_INSTALL_PATH/Proton-${sVERSION}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
+                # Reset counters (for comparing more than one)
+                match_counter=0
+                mismatch_counter=0
+                missing_counter=0
 
-                # Report files found in each
-                #printf "\033[u\033[0K%s\n" "${#iaEXTRACTED[@]} (extracted files) vs ${#iaINSTALLED[@]} (installed files)"
-                echo "${#iaEXTRACTED[@]} (extracted) vs ${#iaINSTALLED[@]} (installed)"
+                # Create two indexed arrays, each containing a seperate list of files,
+                # one from the extracted path and the other from the installed path respectively
+                echo "Indexing files to compare"
+                while IFS= read -r file_extracted; do
+                    files_extracted+=("$file_extracted")
+                done < <(find "$temp_path/Proton-${version}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
+                while IFS= read -r file_installed; do
+                    files_installed+=("$file_installed")
+                done < <(find "$install_path/Proton-${version}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
+
+                # Report the number of files found in each path
+                echo "${#files_extracted[@]} (extracted) vs ${#files_installed[@]} (installed)"
 
                 # Based on array element sizes, decide on a method to compare files
-                if [[ ${#iaEXTRACTED[@]} -ne ${#iaINSTALLED[@]} ]]; then
+                # The faster method is a one-to-one comparison of each array element.
+                # The slower method takes each element of the extracted array and then searches through
+                # the entire installed array until it finds a matching file name.
+                if [[ ${#files_extracted[@]} -ne ${#files_installed[@]} ]]; then
                     echo "Using slower method for comparing"
-                    iFILE_COUNT_MATCH=0
+                    files_arrays_count_match=0
                 else
                     echo "Using faster method for comparing"
-                    iFILE_COUNT_MATCH=1
+                    files_arrays_count_match=1
                 fi
 
-                # begin comparing, using the faster method
+                # Begin comparing, using the faster method
                 printf '%s\033[s' "Comparing files"
-                # if the number of entries match, check them directly against eachother
-                if [[ $iFILE_COUNT_MATCH -eq 1 ]]; then
-                    iTOTAL_FILES=${#iaEXTRACTED[@]}
-                    iSTART_TIME_SECONDS=$(date +%s)
-                    for iCOUNTER in "${!iaEXTRACTED[@]}"; do
-                        cmp -s "${iaEXTRACTED[iCOUNTER]}" "${iaINSTALLED[iCOUNTER]}"
+
+                # If the number of elements match
+                if [[ $files_arrays_count_match -eq 1 ]]; then
+                    total_files=${#files_extracted[@]}
+                    start_time_seconds=$(date +%s)
+                    for counter_extracted in "${!files_extracted[@]}"; do
+                        cmp -s --"${files_extracted[counter_extracted]}" "${files_installed[counter_extracted]}"
                         case $? in
-                            (0) ((iMATCH_COUNTER++)) ;;
-                            (1) ((iMISMATCH_COUNTER++)) ;;
-                            (2) ((iMISSING_COUNTER++)) ;;
+                            (0) ((match_counter++)) ;;
+                            (1) ((mismatch_counter++)) ;;
+                            (2) ((missing_counter++)) ;;
                         esac
                         # Some test results - this method is already
-                        # quite fast so not much testing was done
+                        # reasonably fast so not much testing was done
                         # 1 - do nothing - 5.9-GE-3-ST - 6 seconds
                         # 2 - do nothing - 5.9-GE-3-ST - 6 seconds
                         # 3 - do nothing - 5.9-GE-3-ST - 6 seconds
@@ -871,67 +963,65 @@ VerifyGEInstall() {
                         # 1 - 5.9-GE-3-ST - 6 seconds
                         # 2 - 5.9-GE-3-ST - 7 seconds
                         # 3 - 5.9-GE-3-ST - 7 seconds
-                        #unset 'iaINSTALLED[iCOUNTER]'
-                        #unset 'iaEXTRACTED[iCOUNTER]'
+                        #unset 'files_installed[counter_extracted]'
+                        #unset 'files_extracted[counter_extracted]'
 
                         # Progress report
-                        iPROGRESS=$(((iCOUNTER*100)/iTOTAL_FILES))
-                        [[ $iPROGRESS -ne $iPREV_PROGRESS ]] && printf '\033[u%s' "... ${iPROGRESS}%" # Only update the progress when it actually changes
-                        iPREV_PROGRESS=$iPROGRESS
+                        progress_percent=$(( (counter_extracted * 100) / total_files ))
+                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
+                        prev_progress=$progress_percent
                     done
-                    iEND_TIME_SECONDS=$(date +%s)
-                # begin comparing, using the slower method
-                # if the number of elements don't match, check only the files that appear in the archive against the matching file in the install path
-                # NOTE this method is quite a bit slower TODO learn a better way
-                # for each file in iaEXTRACTED, find the entry in iaINSTALLED that matches it (as much as is possible), then compare them
-                elif [[ $iFILE_COUNT_MATCH -eq 0 ]]; then
-                    iTOTAL_FILES=${#iaEXTRACTED[@]}
-                    iSTART_TIME_SECONDS=$(date +%s)
-                    for iCOUNTER_EXTRACTED in "${!iaEXTRACTED[@]}"; do
-                        # strip away the part of the path that is different for the current file
-                        sCOMPARE_EXTRACTED=${iaEXTRACTED[iCOUNTER_EXTRACTED]/#$sTMP_PATH\/}
+                    end_time_seconds=$(date +%s)
 
-                        for iCOUNTER_INSTALLED in "${!iaINSTALLED[@]}"; do
-                            # strip away the part of the path that is different for the current file
-                            sCOMPARE_INSTALLED=${iaINSTALLED[iCOUNTER_INSTALLED]/#$sGE_INSTALL_PATH\/}
+                # Begin comparing, using the slower method
+                elif [[ $files_arrays_count_match -eq 0 ]]; then
+                    total_files=${#files_extracted[@]}
+                    start_time_seconds=$(date +%s)
+                    for counter_extracted in "${!files_extracted[@]}"; do
+
+                        # Strip away the part of the path that is different for the current file
+                        sCOMPARE_EXTRACTED=${files_extracted[counter_extracted]/#$temp_path\/}
+                        for counter_installed in "${!files_installed[@]}"; do
+
+                            # Strip away the part of the path that is different for the current file
+                            sCOMPARE_INSTALLED=${files_installed[counter_installed]/#$install_path\/}
 
                             if [[ $sCOMPARE_INSTALLED = "$sCOMPARE_EXTRACTED" ]]; then
-                                cmp -s "${iaINSTALLED[iCOUNTER_INSTALLED]}" "${iaEXTRACTED[iCOUNTER_EXTRACTED]}"
+                                cmp -s -- "${files_installed[counter_installed]}" "${files_extracted[counter_extracted]}"
                                 case $? in
-                                    (0) ((iMATCH_COUNTER++)) ;;
-                                    (1) ((iMISMATCH_COUNTER++)) ;;
-                                    (2) ((iMISSING_COUNTER++)) ;;
+                                    (0) ((match_counter++)) ;;
+                                    (1) ((mismatch_counter++)) ;;
+                                    (2) ((missing_counter++)) ;;
                                 esac
                                 # Some test results - fastest is what remains
-                                # TODO use new SpaceRemaining function to compare both in /tmp if there's plenty of free space?
                                 # fastest - 5.9-GE-3-ST - 246 seconds
-                                unset 'iaINSTALLED[iCOUNTER_INSTALLED]'
+                                unset 'files_installed[counter_installed]'
 
                                 # do nothing1 - 5.9-GE-3-ST - 376 seconds
                                 # do nothing2 - 5.9-GE-3-ST - 484 seconds
 
                                 # 5.9-GE-3-ST - 486 seconds
-                                #iaINSTALLED=(${iaINSTALLED[@]:0:$iCOUNTER_INSTALLED} ${iaINSTALLED[@]:$((iCOUNTER_INSTALLED+1))})
+                                #files_installed=(${files_installed[@]:0:$counter_installed} ${files_installed[@]:$((counter_installed+1))})
 
                                 # 5.9-GE-3-ST - 398 seconds
-                                #iaINSTALLED=("${iaINSTALLED[@]:0:$iCOUNTER_INSTALLED}" "${iaINSTALLED[@]:$((iCOUNTER_INSTALLED+1))}")
+                                #files_installed=("${files_installed[@]:0:$counter_installed}" "${files_installed[@]:$((counter_installed+1))}")
 
-                                #unset 'iaEXTRACTED[iCOUNTER_EXTRACTED]'
-                                #iaEXTRACTED=(${iaEXTRACTED[@]:0:$iCOUNTER_EXTRACTED} ${iaEXTRACTED[@]:$((iCOUNTER_EXTRACTED+1))})
-                                #iTOTAL_FILES=${#iaEXTRACTED[@]}
+                                #unset 'files_extracted[counter_extracted]'
+                                #files_extracted=(${files_extracted[@]:0:$counter_extracted} ${files_extracted[@]:$((counter_extracted+1))})
+                                #total_files=${#files_extracted[@]}
                             fi
                         done
 
                         # Progress report
-                        iPROGRESS=$(((iCOUNTER_EXTRACTED*100)/iTOTAL_FILES))
-                        [[ $iPROGRESS -ne $iPREV_PROGRESS ]] && printf '\033[u%s' "... ${iPROGRESS}%" # Only update the progress when it actually changes
-                        iPREV_PROGRESS=$iPROGRESS
+                        progress_percent=$(( (counter_extracted * 100) / total_files ))
+                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
+                        prev_progress=$progress_percent
                     done
-                    iEND_TIME_SECONDS=$(date +%s)
+                    end_time_seconds=$(date +%s)
                 fi
-                printf "\033[u\033[0K%s\n" ". Finished in $((iEND_TIME_SECONDS-iSTART_TIME_SECONDS)) seconds."
+                printf "\033[u\033[0K%s\n" ". Finished in $((end_time_seconds-start_time_seconds)) seconds."
 
-                echo "$iMATCH_COUNTER files match. $iMISSING_COUNTER files are missing. $iMISMATCH_COUNTER do not match."
+                echo "$match_counter files match. $missing_counter files are missing. $mismatch_counter do not match."
             fi
             # Quit after one round
             #return 0
@@ -942,105 +1032,125 @@ VerifyGEInstall() {
 }
 
 ###############################################################################
-# Wrapper for QueryGEAttribute to first check latest.json, then if a value other
-# than NULL is not returned, check releases.json.
-# Accepts two required parameters, version and attribute, returns the value or NULL if not found/error
-# NOTE attributes are validated in QueryJSONAttribute
+# Purpose: A wrapper for QueryJSONAttribute that provides a single function call
+#          to retrieve values from keys/attributes in both file_latest_json and
+#          file_releases_json.
+# Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
+#          2 (required) A supported attribute name (refer to QueryJSONAttribute)
+# Output:  The value of the attribute requested or NULL (stdout)
+# Return:  0 Success
+#          1 Failure (a value was not found for the requested attribute or an error occured)
+# TODO Seperate return values for not found and error
 QueryGEAttribute() {
 
-    [[ -z $1 || -z $2 || $# -ne 2 ]] && { ((iDEBUG)) && DebugMessage "Parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\""; return 1; }
+    [[ -z $1 || -z $2 || $# -ne 2 ]] && { ((debug)) && DebugMessage "Parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\""; return 1; }
 
-    local sVERSION
-    local sVALUE
-    local sATTRIBUTE=${2-}
+    local version
+    local value
+    local key=${2-}
 
-    sVERSION=$(CleanUpVersion "${1-}")
+    version=$(CleanUpVersion "${1-}")
 
     UpdateSavedGELatestRelease || return 1
 
-    sVALUE=$(QueryJSONAttribute "$sFILE_LATEST_JSON" "$sVERSION" "$sATTRIBUTE") || return 1
+    # Search file_latest_json
+    value=$(QueryJSONAttribute "$file_latest_json" "$version" "$key") || return 1
 
-    # if the returned value from QueryJSONAttribute was NULL, try searching in releases
-    if [[ -z $sVALUE ]]; then
+    # If the returned value from QueryJSONAttribute was NULL and the return status
+    # was 0 (success), try file_releases_json
+    if [[ -z $value ]]; then
         UpdateSavedGEReleases || return 1
-        sVALUE=$(QueryJSONAttribute "$sFILE_RELEASES_JSON" "$sVERSION" "$sATTRIBUTE")
+        if value=$(QueryJSONAttribute "$file_releases_json" "$version" "$key"); then
+            ((debug)) && DebugMessage "QueryJSONAttribute returned success"
+        else
+            ((debug)) && DebugMessage "QueryJSONAttribute returned failure"
+        fi
     fi
 
-    if [[ -n $sVALUE ]]; then
-        printf '%s' "$sVALUE"
+    if [[ -n $value ]]; then
+        printf '%s' "$value"
         return 0
     else
-        printf ''
+        printf '' # TODO is it really necessary to return NULL?
         return 1
     fi
 
-    # NOTE do not return 0/1 here
+    return 1
 }
 
 ###############################################################################
-# Return the value of a requested attribute from a saved latest/releases JSON file
-# value = $( QueryJSONAttribute "file.json" "version" "attribute")
-# NOTE This function relies on the JSON being in an exact order, if that order is changed (eg. by the Github API) this function will cease to work
-# Example JSON order expected (line numbers are irrelevant, what matters is the order they appear in):
+# Purpose: Retrieve a supported attribute value from a specified JSON file
+# Input:   1 (required) JSON file
+#          2 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
+#          3 (required) A supported attribute name (size or browser_download_url)
+# Output:  The value of the attribute requested or NULL (stdout)
+# Return:  0 Success
+#          1 Failure (a value was not found for the requested attribute or an error occured)
+#
+# NOTE This function relies on the JSON being structured in a precise, predictable order
+# Example order of attributes expected (line numbers are irrelevant, what matters is the order they appear in):
 # 1.(Line 41) "name": "Proton-5.9-GE-5-ST.tar.gz",
 # 2.(Line 65) "size": 406721946,
 # 3.(line 69) "browser_download_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
 #
-# NOTE the default media-type requested is "application/vnd.github.v3.text+json" (I may make use of the body_text which generally contains change/update notes)
+# NOTE The default media-type requested is "application/vnd.github.v3.text+json" and
+#      the current sed script also reformats the body_text section to plain text. Those
+#      choices were made to more easily support (eventually) showing release notes.
 QueryJSONAttribute() {
 
+    # If the number of parameters is not exactly three, the second parameter is not a regular file, or any of the three parameters are empty
     if [[ $# -ne 3 ]] || [[ ! -f $1 ]] || [[ -z $1 || -z $2 || -z $3 ]]; then
-        ((iDEBUG)) && DebugMessage "Parameter error 1: \"$1\" 2: \"$2\" 3: \"$3\" \$#: \"$#\""
+        ((debug)) && DebugMessage "Parameter error 1: \"$1\" 2: \"$2\" 3: \"$3\" \$#: \"$#\""
         return 1
     fi
 
-    [[ ${3,,} != @(size|browser_download_url) ]] && { ((iDEBUG)) && DebugMessage "Parameter error (unsupported attribute requested) \"$2\""; return 1; }
+    # Check if the attribute requested is currently supported
+    [[ ${3,,} != @(size|browser_download_url) ]] && { ((debug)) && DebugMessage "Parameter error (unsupported attribute requested) \"$2\""; return 1; }
 
-    local sVERSION
-    local iSIZE=0
-    local sFILE_JSON=${1-}
-    local sBROWSER_URL=''
-    local sATTRIBUTE
-    local iLINE_COUNTER=0
-    local iLINE_VERSION_FOUND=0
-    local iLINE_SIZE_FOUND=0
-    local iLINE_BROWURL_FOUND=0
-    local iFLAG_VERSION_FOUND=0
-    local iFLAG_SIZE_FOUND=0
-    #local iFLAG_BROWURL_FOUND=0
+    local version
+    local -i value_size_bytes=0
+    local file_json=${1-}
+    local value_browser_url=''
+    local key
+    local -i counter_lines=0
+    local -i line_version_found=0
+    local -i line_size_found=0
+    local -i line_browserurl_found=0
+    local -i flag_version_found=0
+    local -i flag_size_found=0
+    #local flag_browserurl_found=0
 
-    sVERSION=$(CleanUpVersion "$2")
+    version=$(CleanUpVersion "$2")
 
-    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "sVERSION is NULL"; return 1; }
+    [[ -z $version ]] && { ((debug)) && DebugMessage "version is NULL"; return 1; }
 
-    sATTRIBUTE=${3,,}
+    key=${3,,}
 
-    # WARNING do not output to stdout or stderr inside the following loop
-    # (unless you connect the file to different fd, set read -u accordingly, and remove the stderr redirect)
+    # WARNING Do not output to stdout or stderr inside the following loop
     while IFS= read -r; do
-        ((iLINE_COUNTER++))
+        ((counter_lines++))
         # version match
-        # sVERSION example: 5.9-GE-5-ST
+        # version example: 5.9-GE-5-ST
         # NOTE must be compatible with all 3 of the following potential formats
         # "name":"Proton-5.9-GE-5-ST.tar.gz"
         #         "name": "Proton-5.9-GE-5-ST.tar.gz",
         # "name":"Proton-5.9-GE-5-ST.tar.gz"
-        [[ $REPLY =~ ^.*\"name\":.*\"Proton-${sVERSION}\.tar\.gz\".*$ ]] && {
-            iFLAG_VERSION_FOUND=1
-            iLINE_VERSION_FOUND=$iLINE_COUNTER
+        [[ $REPLY =~ ^.*\"name\":.*\"Proton-${version}\.tar\.gz\".*$ ]] && {
+            flag_version_found=1
+            line_version_found=$counter_lines
         }
 
         # NOTE must be compatible with all 3 of the following potential formats
         # "size":406721946,"download_count":6780,"created_at":"2020-07-29T05:00:40Z"
         #         "size": 406721946,
         # "size":406721946
-        [[ $iFLAG_VERSION_FOUND -eq 1 ]] && {
+        [[ $flag_version_found -eq 1 ]] && {
             [[ ${REPLY,,} =~ ^.*\"size\":.*[[:digit:]]+.*$ ]] && {
-                iFLAG_SIZE_FOUND=1
-                iLINE_SIZE_FOUND=$iLINE_COUNTER
-                iSIZE=${REPLY//[[:space:]]}
-                iSIZE=${iSIZE/#\"size\":}
-                iSIZE=${iSIZE%%[[:punct:]]*} # iSIZE=${iSIZE%,*}
+                flag_size_found=1
+                line_size_found=$counter_lines
+                value_size_bytes=${REPLY//[[:space:]]}
+                value_size_bytes=${value_size_bytes/#\"size\":}
+                value_size_bytes=${value_size_bytes%%[[:punct:]]*} # value_size_bytes=${value_size_bytes%,*}
                 continue
             }
         }
@@ -1049,51 +1159,52 @@ QueryJSONAttribute() {
         # "browser_download_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
         #         "browser_download_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
         # "browser_download_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"}],"tarball_url":"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/tarball/5.9-GE-5-ST"
-        [[ $iFLAG_VERSION_FOUND -eq 1 && $iFLAG_SIZE_FOUND -eq 1 ]] && {
-            [[ $REPLY =~ ^.*\"browser_download_url\":.*\".*Proton-${sVERSION}\.tar\.gz\".*$ ]] && {
-                #iFLAG_BROWURL_FOUND=1
-                iLINE_BROWURL_FOUND=$iLINE_COUNTER
-                sBROWSER_URL=${REPLY/#*\"browser_download_url\":}
-                sBROWSER_URL=${sBROWSER_URL//[[:space:]]}
-                sBROWSER_URL=${sBROWSER_URL/#\"}
-                sBROWSER_URL=${sBROWSER_URL%%\"*}
+        [[ $flag_version_found -eq 1 && $flag_size_found -eq 1 ]] && {
+            [[ $REPLY =~ ^.*\"browser_download_url\":.*\".*Proton-${version}\.tar\.gz\".*$ ]] && {
+                #flag_browserurl_found=1
+                line_browserurl_found=$counter_lines
+                value_browser_url=${REPLY/#*\"browser_download_url\":}
+                value_browser_url=${value_browser_url//[[:space:]]}
+                value_browser_url=${value_browser_url/#\"}
+                value_browser_url=${value_browser_url%%\"*}
                 break
             }
         }
-    done < "$sFILE_JSON" 2>/dev/null
+    done < "$file_json" 2>/dev/null
 
     # debug messages
-    [[ $iDEBUG -eq 1 ]] && {
-        if [[ $iFLAG_VERSION_FOUND -eq 0 ]]; then
-            ((iDEBUG)) && DebugMessage "Version match not found"
-        elif [[ $iFLAG_VERSION_FOUND -eq 1 ]]; then
-            ((iDEBUG)) && DebugMessage "Version match found at line $iLINE_VERSION_FOUND"
+    [[ $debug -eq 1 ]] && {
+        if [[ $flag_version_found -eq 0 ]]; then
+            DebugMessage "Version match not found"
+        elif [[ $flag_version_found -eq 1 ]]; then
+            DebugMessage "Version match found at line $line_version_found"
         fi
-        if [[ -z $iSIZE ]]; then
-            ((iDEBUG)) && DebugMessage "iSIZE is NULL"
+        if [[ -z $value_size_bytes ]]; then
+            DebugMessage "value_size_bytes is NULL"
         else
-            ((iDEBUG)) && DebugMessage "iSIZE: \"$iSIZE\""
+            DebugMessage "value_size_bytes: \"$value_size_bytes\""
         fi
-        if [[ -z $sBROWSER_URL ]]; then
-            ((iDEBUG)) && DebugMessage "sBROWSER_URL is NULL"
+        if [[ -z $value_browser_url ]]; then
+            DebugMessage "value_browser_url is NULL"
         else
-            ((iDEBUG)) && DebugMessage "sBROWSER_URL: \"$sBROWSER_URL\""
+            DebugMessage "value_browser_url: \"$value_browser_url\""
         fi
-        ((iDEBUG)) && DebugMessage "iLINE_VERSION_FOUND: $iLINE_VERSION_FOUND iLINE_SIZE_FOUND: $iLINE_SIZE_FOUND iLINE_BROWURL_FOUND: $iLINE_BROWURL_FOUND"
+        DebugMessage "line_version_found: $line_version_found line_size_found: $line_size_found line_browserurl_found: $line_browserurl_found"
     }
 
     # output the value of the requested attribute
-    if [[ -n $iSIZE && -n $sBROWSER_URL ]]; then
-        case $sATTRIBUTE in
+    if [[ -n $value_size_bytes && -n $value_browser_url ]]; then
+        case $key in
             (size)
-                printf '%s' "$iSIZE" >&1
+                printf '%s' "$value_size_bytes"
             ;;
             (browser_download_url)
-                printf '%s' "$sBROWSER_URL" >&1
+                printf '%s' "$value_browser_url"
             ;;
             (*)
-                # NOTE NULL response indicates error OR not found. check return status, response, and debug messages
-                printf ''
+                # NOTE NULL response indicates error OR not found
+                #      this is NOT ideal
+                printf '' # TODO is it really necessary to return NULL?
                 return 1
             ;;
         esac
@@ -1106,26 +1217,31 @@ QueryJSONAttribute() {
 }
 
 ###############################################################################
-# Run the sed script created by CreateSedUnminifyJSONscript (sFILE_SED_UNMINIFY_SCRIPT) on a specified file
+# Purpose: Run sed using the script file_sed_unminify_script (generated by the
+#          function CreateSedUnminifyJSONscript) on a specified file.
+# Input:   1 (required) A JSON file (minified and not minified are both supported)
+# Output:  None
+# Return:  0 Success
+#          1 Failure
 ReformatJSONUsingSed() {
 
-    local sFILE_JSON=${1-}
+    local file_json=${1-}
 
-    [[ -z $sFILE_JSON ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL or not a file)"; return 1; }
-    [[ -f $sFILE_JSON ]] || { ((iDEBUG)) && DebugMessage "Parameter error (not a file)"; return 1; }
+    [[ -z $file_json ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    [[ -f $file_json ]] || { ((debug)) && DebugMessage "Parameter error (not a file)"; return 1; }
 
-    ((iDEBUG)) && DebugMessage "sFILE_JSON: \"$sFILE_JSON\""
+    ((debug)) && DebugMessage "file_json: \"$file_json\""
 
-    if [[ -w $sFILE_JSON ]]; then
-        if sed -f "$sFILE_SED_UNMINIFY_SCRIPT" -i "$sFILE_JSON"; then
-            ((iDEBUG)) && DebugMessage "'sed' returned success"
+    if [[ -w $file_json ]]; then
+        if sed -f "$file_sed_unminify_script" -i "$file_json"; then
+            ((debug)) && DebugMessage "'sed' returned success"
             return 0
         else
-            ((iDEBUG)) && DebugMessage "'sed' returned failure"
+            ((debug)) && DebugMessage "'sed' returned failure"
             return 1
         fi
     else
-        ((iDEBUG)) && DebugMessage "No write access: \"$sFILE_JSON\""
+        ((debug)) && DebugMessage "No write access: \"$file_json\""
         return 1
     fi
 
@@ -1133,52 +1249,52 @@ ReformatJSONUsingSed() {
 }
 
 ###############################################################################
-# Detect if a file is minified JSON or not (zero newlines)
-# return 0 if yes, 1 if no
-# NOTE the current un-minify script works on both minified and not-minified JSON data
-#      so this function is pointless other than reporting debug info
+# Purpose: Detect if a specified JSON file is minified or not. Used for debug
+#          reporting only because the unminify script is run on the JSON
+#          regardless of the result of this function. This function is not
+#          generic. It is only applicable to Github api responses in JSON format.
+# Input:   1 (required) A JSON file
+# Output:  None
+# Return:  0 Yes/True
+#          1 No/False
 IsJSONminified() {
 
-    local sFILE_JSON=${1-}
-    local iLINES
+    local file_json=${1-}
+    local -i counter_lines=0
 
-    [[ -z $sFILE_JSON ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    [[ ! -f $sFILE_JSON || ! -r $sFILE_JSON ]] && { ((iDEBUG)) && DebugMessage "Parameter error (not a file or not readable)"; return 1; }
+    [[ -z $file_json ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    [[ ! -f $file_json || ! -r $file_json ]] && { ((debug)) && DebugMessage "Parameter error (not a file and/or not readable)"; return 1; }
 
-    # NOTE do not use herestring
     if ! command -v wc >/dev/null; then
         return 0
     else
-        iLINES=$(wc -l < "$sFILE_JSON")
-        ((iDEBUG)) && DebugMessage "iLINES: \"$iLINES\""
-        # 0 is the actual value of a minified JSON response, 1 is used in case a mistake is
+        counter_lines=$(wc -l < "$file_json")
+        ((debug)) && DebugMessage "counter_lines: \"$counter_lines\""
+        # 0 is the actual line value of a minified JSON response, 1 is used in case a mistake is
         # made handling the string and a trailing newline is added
-        if [[ $iLINES -le 1 ]]; then
-            ((iDEBUG)) && DebugMessage "JSON is minified"
+        if [[ $counter_lines -le 1 ]]; then
+            ((debug)) && DebugMessage "JSON is minified"
             return 0
         else
-            ((iDEBUG)) && DebugMessage "JSON is not minified"
+            ((debug)) && DebugMessage "JSON is not minified"
             return 1
         fi
     fi
-
-    # assume it is minified if an error occurs
-    # NOTE the unminify script works on both minified and un-minified JSON
-    # NOTE it will also reformat the body_text section if needed when the media type
-    #      "application/vnd.github.v3.text+json" is requested (default)
 
     return 0
 }
 
 ###############################################################################
-# If the sed script sFILE_SED_UNMINIFY_SCRIPT is not found or it's size doesn't match what's expected, create it
-# This sed script is used to un-minify minified JSON and also reformat the body_text section even if it is not minified
-# NOTE supports both unminified and minified input
+# Purpose: If the sed script file_sed_unminify_script is not found or it's size
+#          in bytes does not match an expected value, create/overwrite it
+# Input:   None
+# Output:  None
+# Return:  Always 0
 CreateSedUnminifyJSONscript() {
 
-    if [[ ! -f $sFILE_SED_UNMINIFY_SCRIPT ]] || [[ $(stat -c '%s' "$sFILE_SED_UNMINIFY_SCRIPT") -ne $iSIZE_BYTES_SED_UNMINIFY_SCRIPT ]]; then
-        ((iDEBUG)) && DebugMessage "'sed' script at \"$sFILE_SED_UNMINIFY_SCRIPT\" does not exist or is not the expected size ($iSIZE_BYTES_SED_UNMINIFY_SCRIPT)"
-        cat <<"END_OF_SED_SCRIPT" > "$sFILE_SED_UNMINIFY_SCRIPT"
+    if [[ ! -f $file_sed_unminify_script ]] || [[ $(stat -c '%s' "$file_sed_unminify_script") -ne $size_bytes_sed_unminify_script ]]; then
+        ((debug)) && DebugMessage "'sed' script at \"$file_sed_unminify_script\" does not exist or is not the expected size ($size_bytes_sed_unminify_script)"
+        cat <<"END_OF_SED_SCRIPT" > "$file_sed_unminify_script"
 #### begin minimum required for ge-install-manager
 # replace: ","
 # with:    ",newline"
@@ -1230,32 +1346,35 @@ s/"}/"/g
 s/\["/"/g
 END_OF_SED_SCRIPT
     else
-        ((iDEBUG)) && DebugMessage "'sed' script already exists at sFILE_SED_UNMINIFY_SCRIPT and is the expected size ($iSIZE_BYTES_SED_UNMINIFY_SCRIPT)"
+        ((debug)) && DebugMessage "'sed' script already exists at file_sed_unminify_script and is the expected size ($size_bytes_sed_unminify_script)"
     fi
 
     return 0
 }
 
 ###############################################################################
-# Check if a version is installed
-# Accepts one parameter, the version, in one of the acceptable formats described in usage
+# Purpose: Check if a version is installed
+# Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
+# Output:  None
+# Return:  0 Yes/True
+#          1 No/False
 # NOTE Currently only checks if a path for the version exists
-# TODO better verification
+# TODO Find a better way
 IsInstalled() {
 
-    local sVERSION
+    local version
 
-    [[ -z $1 ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    [[ -z $1 ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
 
-    sVERSION=$(CleanUpVersion "${1-}")
+    version=$(CleanUpVersion "${1-}")
 
-    ((iDEBUG)) && DebugMessage "Checking for version \"$sVERSION\" at \"$sGE_INSTALL_PATH/Proton-${sVERSION}\""
+    ((debug)) && DebugMessage "Checking for version \"$version\" at \"$install_path/Proton-${version}\""
 
-    if [[ -d $sGE_INSTALL_PATH/Proton-${sVERSION} ]]; then
-        ((iDEBUG)) && DebugMessage "Version \"$sVERSION\" found"
+    if [[ -d $install_path/Proton-${version} ]]; then
+        ((debug)) && DebugMessage "Version \"$version\" found"
         return 0
     else
-        ((iDEBUG)) && DebugMessage "Version \"$sVERSION\" not found"
+        ((debug)) && DebugMessage "Version \"$version\" not found"
         return 1
     fi
 
@@ -1263,33 +1382,35 @@ IsInstalled() {
 }
 
 ###############################################################################
-# Check if Steam is running using 'ps -e'
-# return 0 = Steam is running
-# return 1 = Steam is not running / ps is missing / Steam is not running but steamwebhelper is / unknown error
+# Purpose: Check if Steam is running
+# Input:   None
+# Output:  None
+# Return:  0 Yes/True
+#          1 No/False (ps not found or Steam is not running but steamwebhelper is or unknown error)
 IsSteamRunning() {
 
-    local iSTEAM=0
-    local iWEBHLPR=0
+    local -i found_steam=0
+    local -i found_steamwebhelper=0
 
     while IFS= read -r; do
         [[ ${REPLY,,} =~ ^.*steam$ ]] && {
-            iSTEAM=1
-            ((iDEBUG)) && DebugMessage "'steam' match: \"$REPLY\""
+            found_steam=1
+            ((debug)) && DebugMessage "'steam' match: \"$REPLY\""
         }
         [[ ${REPLY,,} =~ ^.*steamwebhelper.*$ ]] && {
-            iWEBHLPR=1
-            ((iDEBUG)) && DebugMessage "'steamwebhelper' match: \"$REPLY\""
+            found_steamwebhelper=1
+            ((debug)) && DebugMessage "'steamwebhelper' match: \"$REPLY\""
         }
     done < <(ps -e 2>/dev/null)
-    #return $(( iSTEAM == 1 ? 0 : 1 ))
+    #return $(( found_steam == 1 ? 0 : 1 ))
 
-    if [[ $iSTEAM -eq 1 ]]; then
+    if [[ $found_steam -eq 1 ]]; then
         return 0
-    elif [[ $iSTEAM -eq 0 && $iWEBHLPR -eq 1 ]]; then
-        echo "Warning: at least one steamwebhelper process(es) is still running but Steam is not running"
+    elif [[ $found_steam -eq 0 && $found_steamwebhelper -eq 1 ]]; then
+        echo "Warning: at least one steamwebhelper process is still running but Steam is not"
         # TODO report their PIDs
         return 1
-    elif [[ $iSTEAM -eq 0 && $iWEBHLPR -eq 0 ]]; then
+    elif [[ $found_steam -eq 0 && $found_steamwebhelper -eq 0 ]]; then
         return 1
     fi
 
@@ -1297,64 +1418,78 @@ IsSteamRunning() {
 }
 
 ###############################################################################
-# RequestURL "URL "path/file"
-# If the mtime (determined by curl) is newer for remote (versus local file) download a new one
-# NOTE do not output to stdout inside this function
+# Purpose: Use curl -z to request a specified URL if the remote URL has an mtime
+#          newer than the provided file. Used to update file_latest_json and
+#          file_releases_json only when needed.
+# Input:   1 (required) A URL (latest_version_url or releases_url)
+#          2 (required) A file (does not have to exist)
+# Output:  None
+# Return:  0 Success
+#          1 Failure
 RequestURL() {
 
-    local sURL=${1-}
-    local sFILE=${2-}
-    local sTMP_FILE
+    local requested_url=${1-}
+    local file_local=${2-}
+    local file_temp
 
-    sTMP_FILE=$(MkTempFile) || return 1
+    file_temp=$(MkTempFile) || { ((debug)) && DebugMessage "MkTempFile returned failure"; return 1; }
 
-    [[ -z $sURL || -z $sFILE || $# -ne 2 ]] && ((iDEBUG)) && DebugMessage "Parameter error (NULL or not exactly two)"
-    [[ ! -f $sTMP_FILE || ! -w $sTMP_FILE ]] && ((iDEBUG)) && DebugMessage "Parameter error (temp file not a file or not writeable)"
+    [[ -z $requested_url || -z $file_local || $# -ne 2 ]] && ((debug)) && DebugMessage "Parameter error (NULL or not exactly two)"
+    [[ ! -f $file_temp || ! -w $file_temp ]] && ((debug)) && DebugMessage "Parameter error (temp file not a file or not writeable)"
 
-    if curl -sz "$sFILE" \
-            -H "$sCURL_HEADER_USER_AGENT" \
-            -H "$sCURL_HEADER_CONTENT_TYPE" \
-            -H "$sCURL_HEADER_GITHUB_MEDIATYPE" \
-            -L "$sURL" \
-            -o "$sTMP_FILE" 2>/dev/null; then
+    if curl -sz "$file_local" \
+            -H "$CURL_HEADER_USER_AGENT" \
+            -H "$CURL_HEADER_CONTENT_TYPE" \
+            -H "$CURL_HEADER_GITHUB_MEDIATYPE" \
+            -L "$requested_url" \
+            -o "$file_temp" 2>/dev/null; then
 
-        ((iDEBUG)) && DebugMessage "'curl' returned success"
-        if [[ $(stat -c '%s' "$sTMP_FILE") -gt 0 ]]; then
-            if [[ -f $sTMP_FILE && -r $sTMP_FILE ]]; then
+        ((debug)) && DebugMessage "'curl' returned success"
+        if [[ $(stat -c '%s' "$file_temp") -gt 0 ]]; then
+            if [[ -f $file_temp && -r $file_temp ]]; then
+                # TODO replace pattern matching tests with size comparisons using stat (need a sample for rate limit exceeded)
                 while IFS= read -r; do
-                    # TODO replace pattern matching test with a size comparison using stat (need a sample file first)
                     [[ $REPLY == *"rate limit exceeded"* ]] && {
                         echo "($LINENO) RequestURL: Github API request rate limit exceeded. Try again later." 1>&2
+                        CleanUp
                         return 1
                     }
                     [[ ${REPLY,,} == *"not found"* ]] && {
                         echo "($LINENO) RequestURL: Server responded \"Not Found\"" 1>&2
+                        CleanUp
                         return 1
                     }
-                done < "$sTMP_FILE"
+                done < "$file_temp"
 
-                # NOTE only the status is checked, unminify is run regardless of the result
-                IsJSONminified "$sTMP_FILE"
-                ReformatJSONUsingSed "$sTMP_FILE"
+                # NOTE Only the status is checked, unminify is run regardless of the result
+                IsJSONminified "$file_temp"
 
-                [[ -f $sFILE ]] && CreateBackup "$sFILE"
-                if cp -f "$sTMP_FILE" "$sFILE"; then
-                    return 0
+                if ReformatJSONUsingSed "$file_temp"; then
+                    ((debug)) && DebugMessage "ReformatJSONUsingSed returned success"
+
+                    # If the local file already exists, create a backup first
+                    [[ -f $file_local ]] && CreateBackup "$file_local"
+                    if cp -f -- "$file_temp" "$file_local"; then
+                        return 0
+                    else
+                        ((debug)) && DebugMessage "Failed to copy \"$file_temp\" to \"$file_local\""
+                        return 1
+                    fi
                 else
-                    ((iDEBUG)) && DebugMessage "Failed to copy \"$sTMP_FILE\" to \"$sFILE\""
+                    ((debug)) && DebugMessage "ReformatJSONUsingSed returned failure"
                     return 1
                 fi
             else
-                ((iDEBUG)) && DebugMessage "sTMP_FILE not found or not readable: \"$sTMP_FILE\""
+                ((debug)) && DebugMessage "file_temp not found or not readable: \"$file_temp\""
                 return 1
             fi
         else
             # remote file is not newer if curl returns success and the response is NULL
-            ((iDEBUG)) && DebugMessage "sTMP_FILE is size 0: \"$sTMP_FILE\""
+            ((debug)) && DebugMessage "file_temp is size 0: \"$file_temp\""
             return 0
         fi
     else
-        ((iDEBUG)) && DebugMessage "'curl' returned failure"
+        ((debug)) && DebugMessage "'curl' returned failure"
         return 1
     fi
 
@@ -1362,97 +1497,110 @@ RequestURL() {
 }
 
 ###############################################################################
-# Backup a file/path in tar.gz format supporting upto n number of backups with a
-# basename (sans extension) suffix of _n. The newest backup is the lowest index (n) and the oldest
-# backup is the highest index (n). The backups are stored in the parent path of the
-# file/path to be backed up. A maximum of iMAX_NUM_BACKUPS (set below) are kept.
+# Purpose: Backup a file/path in tar.gz format supporting upto a configurable
+#          number (n) of backups with a basename (sans extension) suffix of _n.
+#          The newest backup is the lowest index (n) and the oldest backup is
+#          the highest index (n). The backups are stored in the parent path of
+#          the file/path to be backed up.
+# Input:   1 (required) The file or path to backup
+# Output:  None
+# Return:  0 Success
+#          1 Failure
 CreateBackup() {
 
-    local sBACKUP=${1-}
-    local sBACKUP_BASENAME
-    local sBACKUP_PATH
-    local iMAX_NUM_BACKUPS=3
-    local iCOUNTER=0
-    local iINDEX=0
-    local iRENAME_BACKUPS=0
-    local iaBACKUP_FILES=()
-    local sFILE
+    local backup_target=${1-}
+    local backup_target_basename
+    local backup_target_path
+    local file
+    local -i max_backups=3
+    local -i backups_counter=0
+    local -i backup_index=0
+    local -i flag_rename_backups=0
+    local -a files_existing_backups
     shopt -s nullglob dotglob
 
-    [[ -z $sBACKUP ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
-    [[ ! -f $sBACKUP && ! -d $sBACKUP ]] && { ((iDEBUG)) && DebugMessage "Parameter error (not a file or a path)"; return 1; }
-
-    # If a relative file/path was given
-    [[ ${sBACKUP:0:1} != "/" || ${sBACKUP:0:2} == "./" ]] && {
-        ((iDEBUG)) && DebugMessage "Converting relative path to absolute using realpath"
-        sBACKUP=$(realpath "$sBACKUP" 2>/dev/null)
-    }
-
-    # If backup is a file, get the path to it
-    if [[ -f $sBACKUP && ! -d $sBACKUP ]]; then
-        ((iDEBUG)) && DebugMessage "sBACKUP is a regular file"
-        sBACKUP_PATH=${sBACKUP%/*}
+    [[ -z $backup_target ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    if [[ -f $backup_target ]]; then
+        ((debug)) && DebugMessage "backup_target is a file"
     else
-        ((iDEBUG)) && DebugMessage "sBACKUP is a path"
-        # get one path above the path to backup
-        # BUG this may not work in all target environments
-        sBACKUP_PATH=$(realpath "$(dirname "$sBACKUP" 2>/dev/null)" 2>/dev/null)
+        ((debug)) && DebugMessage "backup_target is not a file"
+        if [[ -d $backup_target ]]; then
+            ((debug)) && DebugMessage "backup_target is a path"
+        else
+            ((debug)) && DebugMessage "Parameter error (not a file or a path)"
+            return 1
+        fi
     fi
 
-    sBACKUP_BASENAME=${sBACKUP##*/}
+    # If a relative file/path was given
+    [[ ${backup_target:0:1} != "/" || ${backup_target:0:2} == "./" ]] && {
+        ((debug)) && DebugMessage "Resolving relative path"
+        backup_target=$(realpath "$backup_target" 2>/dev/null)
+    }
 
-    # determine the basename suffix to use
-    for sFILE in "$sBACKUP_PATH/$sBACKUP_BASENAME"_?.tar.gz; do
-        if [[ $sFILE =~ ^.*[^_]_[[:digit:]]{1}\.tar\.gz$ ]]; then
-            iINDEX=${sFILE##*_}
-            iINDEX=${iINDEX/%.tar.gz}
-            ((iDEBUG)) && DebugMessage "iINDEX is $iINDEX"
-            [[ $iINDEX =~ ^[[:digit:]]+$ ]] && {
-                ((iCOUNTER++))
-                iaBACKUP_FILES+=("$sFILE")
-                ((iDEBUG)) && DebugMessage "Valid backup file found at \"$sFILE\""
-                if [[ $iINDEX = "1" ]]; then
-                    ((iDEBUG)) && DebugMessage "iINDEX 1 found, existing backups will be renamed"
-                    iRENAME_BACKUPS=1
+    # If backup_target is a file, get the path to it
+    if [[ -f $backup_target && ! -d $backup_target ]]; then
+        backup_target_path=${backup_target%/*}
+    else
+        # Get the parent path of the backup_target
+        backup_target_path=$(realpath "$(dirname "$backup_target" 2>/dev/null)" 2>/dev/null)
+    fi
+
+    backup_target_basename=${backup_target##*/}
+
+    # Determine the basename suffix to use {1..$max_backups}
+    for file in "$backup_target_path/$backup_target_basename"_?.tar.gz; do
+        if [[ $file =~ ^.*[^_]_[[:digit:]]{1}\.tar\.gz$ ]]; then
+            backup_index=${file##*_}
+            backup_index=${backup_index/%.tar.gz}
+            ((debug)) && DebugMessage "backup_index is $backup_index"
+            [[ $backup_index =~ ^[[:digit:]]+$ ]] && {
+                ((backups_counter++))
+                files_existing_backups+=("$file")
+                ((debug)) && DebugMessage "Valid backup file found at \"$file\""
+                if [[ $backup_index = "1" ]]; then
+                    ((debug)) && DebugMessage "backup_index 1 found, existing backups will be renamed"
+                    flag_rename_backups=1
                 fi
             }
         fi
     done
-    ((iDEBUG)) && DebugMessage "Found $iCOUNTER backups"
+    ((debug)) && DebugMessage "Found $backups_counter backups"
 
-    if [[ $iRENAME_BACKUPS -eq 1 ]]; then
-        iINDEX=$iCOUNTER
-        if [[ $iINDEX -ge $iMAX_NUM_BACKUPS ]]; then
-            # Remove the oldest (highest index) backup until iMAX_NUM_BACKUPS is reached
-            while [[ $iINDEX -ge $iMAX_NUM_BACKUPS ]]; do
-                if $sCOMMAND_RM "${iaBACKUP_FILES[iINDEX-1]}"; then
-                    ((iDEBUG)) && DebugMessage "Removed highest index greater than $iMAX_NUM_BACKUPS: \"${iaBACKUP_FILES[iINDEX-1]}\""
-                    iINDEX=$((iINDEX-1))
+    if [[ $flag_rename_backups -eq 1 ]]; then
+        backup_index=$backups_counter
+        if [[ $backup_index -ge $max_backups ]]; then
+
+            # Remove the oldest (highest index) backup until max_backups is reached
+            while [[ $backup_index -ge $max_backups ]]; do
+                if $command_rm -- "${files_existing_backups[backup_index-1]}"; then
+                    ((debug)) && DebugMessage "Removed highest index greater than $max_backups: \"${files_existing_backups[backup_index-1]}\""
+                    backup_index=$((backup_index-1))
                 else
-                    echo "($LINENO) CreateBackup: Failed to remove backup file ${iaBACKUP_FILES[iINDEX-1]}"
+                    echo "($LINENO) CreateBackup: Failed to remove backup file ${files_existing_backups[backup_index-1]}"
                     return 1
                 fi
             done
         fi
 
-        # Rename existing backups, leaving room for a new index 1
-        for ((iINDEX; iINDEX>=1; iINDEX--)); do
-            if mv "${iaBACKUP_FILES[iINDEX-1]}" "${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}"; then
-                ((iDEBUG)) && DebugMessage "${iaBACKUP_FILES[iINDEX-1]} renamed to ${iaBACKUP_FILES[iINDEX-1]/${iINDEX}/$((iINDEX+1))}"
+        # Rename existing backups, leaving room for a new index 1 (increment each existing index by +1)
+        for ((backup_index; backup_index>=1; backup_index--)); do
+            if mv "${files_existing_backups[backup_index-1]}" "${files_existing_backups[backup_index-1]/${backup_index}/$((backup_index+1))}"; then
+                ((debug)) && DebugMessage "${files_existing_backups[backup_index-1]} renamed to ${files_existing_backups[backup_index-1]/${backup_index}/$((backup_index+1))}"
             else
-                echo "($LINENO) CreateBackup: Failed to rename backup file: \"${iaBACKUP_FILES[iINDEX-1]}\""
+                echo "($LINENO) CreateBackup: Failed to rename backup file: \"${files_existing_backups[backup_index-1]}\""
                 return 1
             fi
         done
     else
-        ((iDEBUG)) && DebugMessage "iINDEX not found, not renaming backups"
+        ((debug)) && DebugMessage "backup_index not found, not renaming backups"
     fi
 
-    if tar -C "$sBACKUP_PATH" -cf "$sBACKUP_PATH/${sBACKUP_BASENAME}_1.tar.gz" -z "$sBACKUP_BASENAME"; then
-        ((iDEBUG)) && DebugMessage "Created new backup at: \"$sBACKUP_PATH/${sBACKUP_BASENAME}_1.tar.gz\""
+    if tar -C "$backup_target_path" -cf "$backup_target_path/${backup_target_basename}_1.tar.gz" -z "$backup_target_basename"; then
+        ((debug)) && DebugMessage "Created new backup at: \"$backup_target_path/${backup_target_basename}_1.tar.gz\""
         return 0
     else
-        ((iDEBUG)) && DebugMessage "Backup failed: \"$sBACKUP_PATH/${sBACKUP_BASENAME}_1.tar.gz\""
+        ((debug)) && DebugMessage "Backup failed: \"$backup_target_path/${backup_target_basename}_1.tar.gz\""
         return 1
     fi
 
@@ -1460,34 +1608,42 @@ CreateBackup() {
 }
 
 ###############################################################################
-# Given a path (filesystem) and a unit (binary prefix), use stat to calculate the
-# remaining space on a filesystem by multiplying the filesystem block size by the
-# number of remaining blocks and return the value in the unit requested
-# NOTE bash arithmatic supports upto 1024^6 (exbibyte)
-# TODO add optional calculations using bc
+# Purpose: Given a file/path (filesystem) and a unit (binary prefix), use stat
+#          to calculate the remaining space on a filesystem by multiplying
+#          the filesystem block size by the number of remaining blocks and
+#          return the value in the unit requested.
+# Input:   1 (required) File/path on the filesystem to check
+#          1 (required) Binary prefix (see case below for supported formats)
+# Output:  Integer value representing the space remaining in the unit requested
+#          WARNING: Bash arithmatic is used because this script does not require
+#                   the precision afforded by bc/etc.
+# Return:  0 Success
+#          1 Failure
+# NOTE bash arithmatic supports upto 1024^6/1024**6 (exbibyte)
+# TODO Add a third, optional parameter to request calculations using bc
 SpaceRemaining() {
 
-    local sFILE_SYSTEM=${1-}
-    local sBINARY_PREFIX=${2-}
-    local iPOWEROF=0
+    local file_system=${1-}
+    local binary_prefix=${2-}
+    local -i power_of=0
 
-    [[ -z $sFILE_SYSTEM || -z $sBINARY_PREFIX ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    [[ -z $file_system || -z $binary_prefix ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
 
-    [[ ! -d $sFILE_SYSTEM ]] && { ((iDEBUG)) && DebugMessage "Parameter error (not a directory)"; return 1; }
+    [[ ! -d $file_system ]] && { ((debug)) && DebugMessage "Parameter error (not a directory)"; return 1; }
 
-    case ${sBINARY_PREFIX,,} in
-        (b|byte|bytes) iPOWEROF=0 ;;
-        (k|kibi|kibibyte) iPOWEROF=1 ;;
-        (m|mebi|mebibyte) iPOWEROF=2 ;;
-        (g|gibi|gibibyte) iPOWEROF=3 ;;
-        (t|tebi|tebibyte) iPOWEROF=4 ;;
-        (p|pebi|pebibyte) iPOWEROF=5 ;;
-        (e|exbi|exbibyte) iPOWEROF=6 ;;
+    case ${binary_prefix,,} in
+        (b|byte|bytes) power_of=0 ;;
+        (k|kibi|kibibyte) power_of=1 ;;
+        (m|mebi|mebibyte) power_of=2 ;;
+        (g|gibi|gibibyte) power_of=3 ;;
+        (t|tebi|tebibyte) power_of=4 ;;
+        (p|pebi|pebibyte) power_of=5 ;;
+        (e|exbi|exbibyte) power_of=6 ;;
     esac
 
-    ((iDEBUG)) && DebugMessage "Checking \"$sFILE_SYSTEM\""
+    ((debug)) && DebugMessage "Checking \"$file_system\""
 
-    if printf '%s' "$(( ($(stat -L --cached=never -c '%s' -f "$sFILE_SYSTEM") * $(stat -L --cached=never -c '%a' -f "$sFILE_SYSTEM")) / ( 1024 ** iPOWEROF ) ))"; then
+    if printf '%s' "$(( ($(stat -L --cached=never -c '%s' -f "$file_system") * $(stat -L --cached=never -c '%a' -f "$file_system")) / ( 1024 ** power_of ) ))"; then
         return 0
     else
         return 1
@@ -1495,124 +1651,128 @@ SpaceRemaining() {
 }
 
 ###############################################################################
-# Calculate the real remaining memory if MemAvailable isn't available from /proc/meminfo
-# Supports some fairly old kernels
-# NOTE This function is currently not used by this script. I created this function before
-#      SpaceRemaining which is more suitable for use in this script (determining free space
-#      on a file system eg. /tmp)
-# NOTE 1597756 kB (1x package + 1x extracted package)
-# https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0a
-# https://github.com/torvalds/linux/blob/6aa303defb7454a2520c4ddcdf6b081f62a15890/mm/page_alloc.c#L4025
+# Purpose: Check if a requested amount of memory is currently free. Calculate
+#          the real remaining memory if MemAvailable isn't available from
+#          /proc/meminfo. Supports some fairly old kernels. Currently, this
+#          function is not used by this script.
+# Input:   1 (required) An integer representing the amount needed in kB
+# Output:  None
+# Return:  0 = Success
+#          1 = Failure
+# NOTE https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0a
+# NOTE https://github.com/torvalds/linux/blob/6aa303defb7454a2520c4ddcdf6b081f62a15890/mm/page_alloc.c#L4025
 MemFree() {
 
     # MemAvailable
-    local iMEM_AVAILABLE=0
-    local iNEED_FREE_KB=${1:-0}
+    local -i memory_available=0
+    local -i requested_memory_free_kb=${1:-0}
     # MemAvailable not available
-    local iSUM_LOW_WATERMARKS=0
-    local iMEM_FREE=0
-    local iTOTAL_PAGE_CACHE=0
-    local iSRECLAIMABLE=0
-    local iAVAILABLE=0
-    local iSLAB_UNRECLAIMABLE=0
+    local -i low_watermarks_total=0
+    local -i memory_free=0
+    local -i page_cache_total=0
+    local -i sreclaimable=0
+    local -i memory_available_kb=0
+    local -i sunreclaimable=0
 
-    [[ -z $iNEED_FREE_KB ]] && { ((iDEBUG)) && DebugMessage "Parameter error (NULL)"; return 1; }
+    [[ -z $requested_memory_free_kb ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
 
-    ((iDEBUG)) && DebugMessage "Requested free: $iNEED_FREE_KB"
+    ((debug)) && DebugMessage "Requested free: $requested_memory_free_kb"
 
     # If MemAvailable is present in /proc/meminfo (kernel >= 3.14)
     while IFS= read -r; do
         [[ ${REPLY,,} == *memavailable* ]] && {
             REPLY=${REPLY%[[:blank:]]*}
-            iMEM_AVAILABLE=${REPLY##*[[:blank:]]}
-            [[ $iMEM_AVAILABLE =~ ^[[:digit:]]+$ ]] && {
-                ((iDEBUG)) && DebugMessage "MemAvailable found in /proc/meminfo"
-                ((iDEBUG)) && DebugMessage "MemAvailable: $iMEM_AVAILABLE"
+            memory_available=${REPLY##*[[:blank:]]}
+            [[ $memory_available =~ ^[[:digit:]]+$ ]] && {
+                ((debug)) && DebugMessage "MemAvailable found in /proc/meminfo"
+                ((debug)) && DebugMessage "MemAvailable: $memory_available"
 
-                return $((iMEM_AVAILABLE > iNEED_FREE_KB ? 0 : 1))
+                return $((memory_available > requested_memory_free_kb ? 0 : 1))
             }
         }
     done < /proc/meminfo
 
     # If MemAvailable is not available in /proc/meminfo - adds support for older kernel versions ( v2.6 < [uname -r] < v3.14)
-    ((iDEBUG)) && DebugMessage "MemAvailable not found, using older methods"
+    ((debug)) && DebugMessage "MemAvailable not found, using older methods"
 
     # Get the sum of the low water marks across all zones
     while IFS= read -r; do
         [[ ${REPLY,,} == *low* ]] && {
             REPLY=${REPLY//[[:alpha:]]}
             REPLY=${REPLY//[[:blank:]]}
-            iSUM_LOW_WATERMARKS=$((iSUM_LOW_WATERMARKS+REPLY))
+            low_watermarks_total=$((low_watermarks_total+REPLY))
         }
         # Get nr_slab_unreclaimable if available (v4.8+)
         [[ ${REPLY,,} == *nr_slab_unreclaimable* ]] && {
             REPLY=${REPLY##*[[:blank:]]}
             REPLY=${REPLY%[[:blank:]]*} # Not needed on my system, kept just in case
-            iSLAB_UNRECLAIMABLE=$REPLY
+            sunreclaimable=$REPLY
         }
     done < /proc/zoneinfo
     # TODO 0 could indicate a serious problem or a customization?
-    #[[ $iSUM_LOW_WATERMARKS -le 0 ]] && return 1
+    #[[ $low_watermarks_total -le 0 ]] && return 1
 
     # Parse /proc/meminfo
     while IFS= read -r; do
         # MemFree
         [[ ${REPLY,,} == *memfree* ]] && {
             REPLY=${REPLY%[[:blank:]]*}
-            iMEM_FREE=${REPLY##*[[:blank:]]}
-            iAVAILABLE=$((iMEM_FREE-iSUM_LOW_WATERMARKS))
+            memory_free=${REPLY##*[[:blank:]]}
+            memory_available_kb=$((memory_free-low_watermarks_total))
         }
         # SReclaimable
         [[ ${REPLY,,} == *sreclaimable* ]] && {
             REPLY=${REPLY%[[:blank:]]*}
-            iSRECLAIMABLE=${REPLY##*[[:blank:]]}
+            sreclaimable=${REPLY##*[[:blank:]]}
         }
         # PageCache [ active(file) + inactive(file) ]
         if [[ ${REPLY,,} == *active\(file\)* ]] || [[ ${REPLY,,} == *inactive\(file\)* ]]; then
             REPLY=${REPLY%[[:blank:]]*}
             REPLY=${REPLY##*[[:blank:]]}
-            iTOTAL_PAGE_CACHE=$((iTOTAL_PAGE_CACHE+REPLY)) # NOTE two iterations are required to add both
+            page_cache_total=$((page_cache_total+REPLY)) # NOTE two iterations are required to add both
         fi
     done < /proc/meminfo
 
     # pagecache -= min(pagecache / 2, wmark_low);
-    # subtract the lower of the two (iTOTAL_PAGE_CACHE/2) vs iSUM_LOW_WATERMARKS
-    if [[ $iSUM_LOW_WATERMARKS -lt $((iTOTAL_PAGE_CACHE/2)) ]]; then
-        iTOTAL_PAGE_CACHE=$((iTOTAL_PAGE_CACHE - iSUM_LOW_WATERMARKS))
-    elif [[ $((iTOTAL_PAGE_CACHE/2)) -lt $iSUM_LOW_WATERMARKS ]]; then
-        iTOTAL_PAGE_CACHE=$((iTOTAL_PAGE_CACHE - (iTOTAL_PAGE_CACHE/2) ))
+    # subtract the lower of the two (page_cache_total/2) vs low_watermarks_total
+    if [[ $low_watermarks_total -lt $(( page_cache_total / 2 )) ]]; then
+        page_cache_total=$(( page_cache_total - low_watermarks_total ))
+    elif [[ $((page_cache_total/2)) -lt $low_watermarks_total ]]; then
+        page_cache_total=$(( page_cache_total - (page_cache_total / 2) ))
     fi
 
     # reclaimable
-    # subtract the lower of the two (iSRECLAIMABLE/2) vs iSUM_LOW_WATERMARKS
-    if [[ $iSUM_LOW_WATERMARKS -lt $((iSRECLAIMABLE/2)) ]]; then
-        iSRECLAIMABLE=$((iSRECLAIMABLE - iSUM_LOW_WATERMARKS ))
-    elif [[ $((iSRECLAIMABLE/2)) -lt $iSUM_LOW_WATERMARKS ]]; then
-        iSRECLAIMABLE=$((iSRECLAIMABLE - (iSRECLAIMABLE/2) ))
+    # subtract the lower of the two (sreclaimable/2) vs low_watermarks_total
+    if [[ $low_watermarks_total -lt $(( sreclaimable / 2 )) ]]; then
+        sreclaimable=$(( sreclaimable - low_watermarks_total ))
+    elif [[ $(( sreclaimable / 2 )) -lt $low_watermarks_total ]]; then
+        sreclaimable=$(( sreclaimable - (sreclaimable / 2) ))
     fi
 
-    # Add both to iAVAILABLE for the grand total
+    # Add both to memory_available_kb for the grand total
     # NOTE nr_slab_unreclaimable may not be available on [uname -r] < 4.8
-    if [[ $iSLAB_UNRECLAIMABLE -gt 0 ]]; then
-        ((iDEBUG)) && DebugMessage "Using kernel v4.8+ calculation"
-        iAVAILABLE=$(( (iAVAILABLE + iTOTAL_PAGE_CACHE + iSRECLAIMABLE) - iSLAB_UNRECLAIMABLE ))
+    if [[ $sunreclaimable -gt 0 ]]; then
+        ((debug)) && DebugMessage "Using kernel v4.8+ calculation"
+        memory_available_kb=$(( (memory_available_kb + page_cache_total + sreclaimable) - sunreclaimable ))
     else
-        ((iDEBUG)) && DebugMessage "Using kernel <4.8 calculation"
-        iAVAILABLE=$(( (iAVAILABLE + iTOTAL_PAGE_CACHE + iSRECLAIMABLE) - (12 * iSUM_LOW_WATERMARKS) ))
+        ((debug)) && DebugMessage "Using kernel <4.8 calculation"
+        memory_available_kb=$(( (memory_available_kb + page_cache_total + sreclaimable) - (12 * low_watermarks_total) ))
     fi
-    ((iDEBUG)) && DebugMessage "Available: $iAVAILABLE"
+    ((debug)) && DebugMessage "Available: $memory_available_kb"
 
-    return $((iAVAILABLE > iNEED_FREE_KB ? 0 : 1))
+    return $((memory_available_kb > requested_memory_free_kb ? 0 : 1))
 }
 
 ###############################################################################
-# If a sFILE_SCRIPT_CONFIG is not found, create a default there
-# NOTE ${XDG_DATA_HOME:-"$HOME"/.local/share/Steam/compatibilitytools.d}
+# Purpose: If file_script_config is not found, create a default
+# Input:   None
+# Output:  None
+# Return:  Always 0
 CreateDefaultConfigFile() {
 
-    cat <<DEFAULT_CONFIG > "$sFILE_SCRIPT_CONFIG"
+    cat <<DEFAULT_CONFIG > "$file_script_config" # This section is subject to expansion, etc.
 #
-# $sSCRIPT_FULL_NAME v$sSCRIPT_VERSION Default configuration file
+# $SCRIPT_FULL_NAME v$SCRIPT_VERSION Default configuration file
 #
 # Quick start format:
 # #comment
@@ -1632,7 +1792,7 @@ CreateDefaultConfigFile() {
 # attempt to auto-detect the Steam installation path.
 #
 # Environment variables and script global variables will be expanded.
-# \$sSCRIPT_FULL_NAME is a script global variable that is always set to the basename of the script.
+# \$SCRIPT_FULL_NAME is a script global variable that is always set to the basename of the script.
 #
 # Symlinks will not be resolved/canonicalized (they are safe to use).
 #
@@ -1640,13 +1800,14 @@ CreateDefaultConfigFile() {
 # you want the quotes included in the value.
 #
 DEFAULT_CONFIG
-    cat <<"DEFAULT_CONFIG" >> "$sFILE_SCRIPT_CONFIG"
+
+    cat <<"DEFAULT_CONFIG" >> "$file_script_config" # This section is not subject to expansion, etc.
 
 # Default install path
 install_path=auto
 
 # Default cache path
-cache_path=${XDG_CACHE_HOME:-"$HOME"/.cache}/$sSCRIPT_FULL_NAME
+cache_path=${XDG_CACHE_HOME:-"$HOME"/.cache}/$SCRIPT_FULL_NAME
 
 # Default command used instead of rm (for removing all but temporary files)
 # NOTE: Any command and its parameters that support the last parameter being either a file or a path is supported
@@ -1667,405 +1828,416 @@ DEFAULT_CONFIG
 
 
 ###############################################################################
-# Parse the config file specified by sFILE_SCRIPT_CONFIG (create it if it doesn't exist)
-# validating recognized keys and their values, set global variables accordingly
-# NOTE: Runs DetectSteamInstallPath if install_path (in the config) is set to the special
-# value "auto".
+# Purpose: Parse the config file specified by file_script_config, validate
+#          recognized key/value pairs and then set global variables accordingly
+# Input:   None
+# Output:  None
+# Return:  Always 0
+# NOTE: Runs DetectSteamInstallPath if install_path is set to the special value "auto"
 ParseConfigFile() {
 
-    local iNUM_LINES=0
-    local iCOUNTER=0
-    local iFAILED=0
-    local iUPDATE_GEINSTALL_PATH=0
-    local sKEY
-    local sVALUE
+    local -i existing_config_file_lines=0
+    local -i counter_config_line=0
+    local -i flag_failed=0
+    local -i flag_update_install_path=0
+    local config_key
+    local config_value
 
-    iNUM_LINES=$(wc -l 2>/dev/null < "$sFILE_SCRIPT_CONFIG") # NOTE do not || return 1 here
+    existing_config_file_lines=$(wc -l 2>/dev/null < "$file_script_config") # NOTE do not || return 1 here
 
-    [[ -z $iNUM_LINES ]] && {
-        ((iDEBUG)) && DebugMessage "Generating a default config file at: \"$sFILE_SCRIPT_CONFIG\""
+    # If existing_config_file_lines is empty, create a default config file
+    [[ -z $existing_config_file_lines ]] && {
+        ((debug)) && DebugMessage "Generating a default config file at: \"$file_script_config\""
         if CreateDefaultConfigFile; then
-            ((iDEBUG)) && DebugMessage "CreateDefaultConfigFile returned success"
-            echo "Default configuration created at \"$sFILE_SCRIPT_CONFIG\""
+            ((debug)) && DebugMessage "CreateDefaultConfigFile returned success"
+            echo "Default configuration created at \"$file_script_config\""
             if [[ -n ${EDITOR-} ]]; then
-                ((iDEBUG)) && DebugMessage "EDITOR is set to: \"$EDITOR\""
+                ((debug)) && DebugMessage "EDITOR is set to: \"$EDITOR\""
                 while :; do
                     read -rp "Would you like to open it with ${EDITOR}? " </dev/tty
                     case ${REPLY,,} in
-                        ("y"|"yes")
-                            $EDITOR "$sFILE_SCRIPT_CONFIG"
-                            exit 0
-                        ;;
-                        ("n"|"no")
-                            exit 0
-                        ;;
-                        ("*")
-                            echo "Enter (y)es or (n)o"
-                        ;;
+                        ("y"|"yes")$EDITOR "$file_script_config"; exit 0 ;;
+                        ("n"|"no") exit 0 ;;
+                        ("*") echo "Enter (y)es or (n)o" ;;
                     esac
                 done
             else
-                echo "EDITOR not set, default configuration created at \"$sFILE_SCRIPT_CONFIG\""
+                echo "EDITOR not set, default configuration created at \"$file_script_config\""
             fi
             exit 0
         else
-            ((iDEBUG)) && DebugMessage "CreateDefaultConfigFile returned failure status"
+            # NOTE CreateDefaultConfigFile currently always returns 0
+            ((debug)) && DebugMessage "CreateDefaultConfigFile returned failure status"
             return 1
         fi
     }
-    ((iDEBUG)) && DebugMessage "sFILE_SCRIPT_CONFIG \"$sFILE_SCRIPT_CONFIG\" contains $iNUM_LINES newlines"
 
-    [[ -z $sFILE_SCRIPT_CONFIG || ! -f $sFILE_SCRIPT_CONFIG || ! -w $sFILE_SCRIPT_CONFIG ]] && {
-        ((iDEBUG)) && DebugMessage "sFILE_SCRIPT_CONFIG error (NULL, not a file, or not writeable)"
+    ((debug)) && DebugMessage "file_script_config \"$file_script_config\" contains $existing_config_file_lines newlines"
+
+    # Sanity checks
+    [[ -z $file_script_config || ! -f $file_script_config || ! -w $file_script_config ]] && {
+        ((debug)) && DebugMessage "file_script_config error (NULL, not a file, or not writeable)"
         return 1
     }
 
+    # Begin parsing file_script_config
     while IFS= read -r; do
-        ((iCOUNTER++))
-        # Ignore lines that begin with a #
-        [[ $REPLY =~ ^#.*$ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (begins with a \"#\")"; continue; }
 
-        # Ignore lines that contain one or more semi-colon ";"
-        [[ $REPLY =~ ^.*\;+.*$ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (contains one or more \";\")"; continue; }
+        # Increment the line counter
+        ((counter_config_line++))
 
-        # Ignore lines containing potential escape sequences
-        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (contains potential escape code)"; continue; }
+        # Ignore lines that begin with a # (comments)
+        [[ $REPLY =~ ^#.*$ ]] && { ((debug)) && DebugMessage "Ignoring line $counter_config_line (begins with a \"#\")"; continue; }
 
-        # Trim comments that don't appear at the begining away and then trim any remaining trailing spaces/tabs
-        if [[ $REPLY =~ ^.*#.*$ ]] || [[ $REPLY =~ ^.*#$ ]]; then
-            ((iDEBUG)) && DebugMessage "Partially commented line $iCOUNTER: \"$REPLY\""
-            # remove the # and everything to the right of it
-            # BUG this will mangle comments inside herestrings
-            REPLY=${REPLY%%' #'*}
+        # Ignore lines that contain one or more semi-colon ";". Anti-exploit measure.
+        [[ $REPLY =~ ^.*\;+.*$ ]] && { ((debug)) && DebugMessage "Ignoring line $counter_config_line (contains one or more \";\")"; continue; }
+
+        # Ignore lines containing potential escape sequences. Anti-exploit measure.
+        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { ((debug)) && DebugMessage "Ignoring line $counter_config_line (contains potential escape code)"; continue; }
+
+        # Trim away inline comments
+        if [[ $REPLY =~ ^.*#.*$ ]]; then
+            ((debug)) && DebugMessage "Partially commented line $counter_config_line: \"$REPLY\""
+            # remove the ' #' and everything to the right of it
+            # NOTE valid comments are preceded by at least one [[:blank:]]
+            # BUG this will mangle herestrings that contain comments
+            REPLY=${REPLY%%[[:blank:]]#*}
         fi
 
-        # Ignore lines that are empty after stripping comments away
-        [[ -z $REPLY ]] && { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (empty)"; continue; }
+        # Ignore lines that are empty
+        [[ -z $REPLY ]] && { ((debug)) && DebugMessage "Ignoring line $counter_config_line (empty)"; continue; }
 
         # Ignore lines that don't contain exactly one = and also don't have characters on either side of the = sign. If there are characters on either
         # side of the = sign, they may not be spaces or tabs
-        [[ $REPLY =~ ^[^=[:blank:]]+=[^=[:blank:]]+$ ]] || { ((iDEBUG)) && DebugMessage "Ignoring line $iCOUNTER (improperly formatted)"; continue; }
+        [[ $REPLY =~ ^[^=[:blank:]]+=[^=[:blank:]]+$ ]] || { ((debug)) && DebugMessage "Ignoring line $counter_config_line (improperly formatted)"; continue; }
 
-        ((iDEBUG)) && DebugMessage "Valid config ($iCOUNTER): \"$REPLY\""
+        ((debug)) && DebugMessage "Potentially valid config line ($counter_config_line): \"$REPLY\""
 
-        sKEY=${REPLY%%=*}
-        sVALUE=${REPLY#*=}
+        # Get the key (the characters to the left of the equals "=" sign)
+        config_key=${REPLY%%=*}
 
-        ((iDEBUG)) && DebugMessage "($iCOUNTER) Key: \"$sKEY\" Value: \"$sVALUE\""
+        # Get the value (the characters to the right of the equals "=" sign)
+        config_value=${REPLY#*=}
 
-        # expand any variables in the config, additionaly supporting some basic parameter expansion
-        # such as :-, :=, :?, and/or :+
-        #
-        # NOTE: If sVALUE contains a :+, :-, :=, or :? envsubst does not handle parameter expansion
-        if [[ $sVALUE =~ ^.*:[+-=?]{1}.*$ ]]; then
-            ((iDEBUG)) && DebugMessage "Using 'eval' to expand sVALUE: \"$sVALUE\""
-            sVALUE=$(eval printf '%s' "$sVALUE")
-            #echo "value: $(eval echo "$sVALUE")"
-            ((iDEBUG)) && DebugMessage "sVALUE expanded to: \"$sVALUE\""
+        ((debug)) && DebugMessage "($counter_config_line) Key: \"$config_key\" Value: \"$config_value\""
+
+        # Expand any variables in the config using envsubst if possible and if not use eval
+        # Simply put, envsubst can handle only simple environment variable expansion
+        if [[ $config_value =~ ^.*:[+-=?]{1}.*$ ]]; then
+            ((debug)) && DebugMessage "Using 'eval' to expand config_value: \"$config_value\""
+            config_value=$(eval printf '%s' "$config_value")
+            ((debug)) && DebugMessage "config_value expanded to: \"$config_value\""
         else
             if command -v envsubst >/dev/null; then
-                ((iDEBUG)) && DebugMessage "Using 'envsubst' to expand sVALUE: \"$sVALUE\""
-                sVALUE=$(envsubst <<< "$sVALUE")
-                # If there is still a $ in sVALUE it contained a variable envsubst can't handle
-                [[ $sVALUE =~ ^.*\$+.*$ ]] && {
-                    ((iDEBUG)) && DebugMessage "sVALUE still contains one or more $ after envsubst"
-                    sVALUE=$(eval printf '%s' "$sVALUE")
-                    ((iDEBUG)) && DebugMessage "sVALUE expanded again with 'eval' to: \"$sVALUE\""
+                ((debug)) && DebugMessage "Using 'envsubst' to expand config_value: \"$config_value\""
+                config_value=$(envsubst <<< "$config_value")
+                # If there is still a $ in config_value it contained a variable envsubst can't handle
+                [[ $config_value =~ ^.*\$+.*$ ]] && {
+                    ((debug)) && DebugMessage "config_value still contains one or more $ after envsubst"
+                    config_value=$(eval printf '%s' "$config_value")
+                    ((debug)) && DebugMessage "config_value expanded again with 'eval' to: \"$config_value\""
                 }
-                ((iDEBUG)) && DebugMessage "sVALUE expanded to: \"$sVALUE\""
+                ((debug)) && DebugMessage "config_value expanded to: \"$config_value\""
             else
-                ((iDEBUG)) && DebugMessage "Command 'envsubst' not available, using 'eval' to expand sVALUE: \"$sVALUE\""
-                sVALUE=$(eval printf '%s' "$sVALUE")
-                ((iDEBUG)) && DebugMessage "sVALUE expanded to: \"$sVALUE\""
+                ((debug)) && DebugMessage "Command 'envsubst' not available, using 'eval' to expand config_value: \"$config_value\""
+                config_value=$(eval printf '%s' "$config_value")
+                ((debug)) && DebugMessage "config_value expanded to: \"$config_value\""
             fi
         fi
 
         # Validate values for recognized keys and set global variables accordingly
-        case $sKEY in
+        case $config_key in
             (install_path)
                 # if the value for install_path is the special value "auto", attempt to auto detect the steam install path
-                # NOTE if one is found/chosen the global variable sOVERRIDE_DEFAULT_INSTALL_PATH will be set accordingly
-                #      a value of NULL indicates a problem, error, or user chose manual configuration in which case
+                # NOTE If one is found/chosen the global variable override_default_install_path will be set accordingly.
+                #      A value of NULL indicates a problem, error, or user chose manual configuration in which case
                 #      the value will remain auto.
-                [[ ${sVALUE,,} = "auto" ]] && {
-                    ((iDEBUG)) && DebugMessage "$sKEY is set to $sVALUE, Running DetectSteamInstallPath"
+                [[ ${config_value,,} = "auto" ]] && {
+                    ((debug)) && DebugMessage "$config_key is set to $config_value, Running DetectSteamInstallPath"
                     DetectSteamInstallPath
-                    if [[ -n $sOVERRIDE_DEFAULT_INSTALL_PATH && ${sOVERRIDE_DEFAULT_INSTALL_PATH,,} != "auto" ]]; then
-                        sVALUE=$sOVERRIDE_DEFAULT_INSTALL_PATH/compatibilitytools.d
-                        iUPDATE_GEINSTALL_PATH=1
+                    if [[ -n $override_default_install_path && ${override_default_install_path,,} != "auto" ]]; then
+                        config_value=$override_default_install_path/compatibilitytools.d
+                        flag_update_install_path=1
                     else
                         return 1
                     fi
                 }
-                if [[ -d $sVALUE && -w $sVALUE ]]; then
-                    ((iDEBUG)) && DebugMessage "$sVALUE is a directory and the script has write permission to it"
-                    sGE_INSTALL_PATH=$sVALUE
-                    iUPDATE_GEINSTALL_PATH=1 # probably not needed, unless things change
+                if [[ -d $config_value && -w $config_value ]]; then
+                    ((debug)) && DebugMessage "$config_value is a directory and the script has write permission to it"
+                    install_path=$config_value
+                    flag_update_install_path=1
                 else
-                    ((iDEBUG)) && DebugMessage "$sVALUE is not a valid path, attempting to create it"
-                    if mkdir -p "$sVALUE" 2>/dev/null; then
-                        if [[ -w $sVALUE ]]; then
-                            ((iDEBUG)) && DebugMessage "script has write permission to sVALUE"
-                            sGE_INSTALL_PATH=$sVALUE
+                    ((debug)) && DebugMessage "$config_value is not a valid path, attempting to create it"
+                    if mkdir -p "$config_value" 2>/dev/null; then
+                        if [[ -w $config_value ]]; then
+                            ((debug)) && DebugMessage "script has write permission to config_value"
+                            install_path=$config_value
                         else
-                            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                            iFAILED=1
-                            iUPDATE_GEINSTALL_PATH=0
+                            echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            flag_failed=1
+                            flag_update_install_path=0
                         fi
                     else
-                        echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                        iFAILED=1
-                        iUPDATE_GEINSTALL_PATH=0
+                        echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        flag_failed=1
+                        flag_update_install_path=0
                     fi
                 fi
             ;;
             #(config_path)
-            #    if [[ -d $sVALUE && -w $sVALUE ]]; then
-            #        ((iDEBUG)) && DebugMessage "$sVALUE is a directory and the script has write permission to it"
-            #        sSCRIPT_CONFIG_PATH=$sVALUE
+            #    if [[ -d $config_value && -w $config_value ]]; then
+            #        ((debug)) && DebugMessage "$config_value is a directory and the script has write permission to it"
+            #        script_config_path=$config_value
             #    else
-            #        ((iDEBUG)) && DebugMessage "$sVALUE is not a valid path, attempting to create it"
-            #        if mkdir -p "$sVALUE" 2>/dev/null; then
-            #            if [[ -w $sVALUE ]]; then
-            #                ((iDEBUG)) && DebugMessage "script has write permission to sVALUE"
-            #                sSCRIPT_CONFIG_PATH=$sVALUE
+            #        ((debug)) && DebugMessage "$config_value is not a valid path, attempting to create it"
+            #        if mkdir -p "$config_value" 2>/dev/null; then
+            #            if [[ -w $config_value ]]; then
+            #                ((debug)) && DebugMessage "script has write permission to config_value"
+            #                script_config_path=$config_value
             #            else
-            #                echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-            #                iFAILED=1
+            #                echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+            #                flag_failed=1
             #            fi
             #        else
-            #            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-            #            iFAILED=1
+            #            echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+            #            flag_failed=1
             #        fi
             #    fi
             #;;
             (cache_path)
-                if [[ -d $sVALUE && -w $sVALUE ]]; then
-                    ((iDEBUG)) && DebugMessage "$sVALUE is a directory and the script has write permission to it"
-                    sSCRIPT_CACHE_PATH=$sVALUE
+                if [[ -d $config_value && -w $config_value ]]; then
+                    ((debug)) && DebugMessage "$config_value is a directory and the script has write permission to it"
+                    script_cache_path=$config_value
                 else
-                    ((iDEBUG)) && DebugMessage "$sVALUE is not a valid path, attempting to create it"
-                    if mkdir -p "$sVALUE" 2>/dev/null; then
-                        if [[ -w $sVALUE ]]; then
-                            ((iDEBUG)) && DebugMessage "script has write permission to sVALUE"
-                            sSCRIPT_CACHE_PATH=$sVALUE
+                    ((debug)) && DebugMessage "$config_value is not a valid path, attempting to create it"
+                    if mkdir -p "$config_value" 2>/dev/null; then
+                        if [[ -w $config_value ]]; then
+                            ((debug)) && DebugMessage "script has write permission to config_value"
+                            script_cache_path=$config_value
                         else
-                            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                            iFAILED=1
+                            echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            flag_failed=1
                         fi
                     else
-                        echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                        iFAILED=1
+                        echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        flag_failed=1
                     fi
                 fi
             ;;
-            (tmp_path) # sTMP_BASE_PATH
-               if [[ -d $sVALUE && -w $sVALUE ]]; then
-                    ((iDEBUG)) && DebugMessage "$sVALUE is a directory and the script has write permission to it"
-                    sTMP_BASE_PATH=$sVALUE
+            (tmp_path) # temp_base_path
+               if [[ -d $config_value && -w $config_value ]]; then
+                    ((debug)) && DebugMessage "$config_value is a directory and the script has write permission to it"
+                    temp_base_path=$config_value
                 else
-                    ((iDEBUG)) && DebugMessage "$sVALUE is not a valid path, attempting to create it"
-                    if mkdir -p "$sVALUE" 2>/dev/null; then
-                        if [[ -w $sVALUE ]]; then
-                            ((iDEBUG)) && DebugMessage "script has write permission to sVALUE"
-                            sTMP_BASE_PATH=$sVALUE
+                    ((debug)) && DebugMessage "$config_value is not a valid path, attempting to create it"
+                    if mkdir -p "$config_value" 2>/dev/null; then
+                        if [[ -w $config_value ]]; then
+                            ((debug)) && DebugMessage "script has write permission to config_value"
+                            temp_base_path=$config_value
                         else
-                            echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                            iFAILED=1
+                            echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            flag_failed=1
                         fi
                     else
-                        echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                        iFAILED=1
+                        echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        flag_failed=1
                     fi
                 fi
             ;;
             (rm_command)
-                if command -v "$sVALUE" >/dev/null; then
-                    sCOMMAND_RM=$sVALUE
-                    ((iDEBUG)) && DebugMessage "sCOMMAND_RM set to: \"$sCOMMAND_RM\""
+                if command -v "$config_value" >/dev/null; then
+                    command_rm=$config_value
+                    ((debug)) && DebugMessage "command_rm set to: \"$command_rm\""
                 else
-                    ((iDEBUG)) && DebugMessage "command -v \"$sVALUE\" failed"
-                    echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                    echo "($LINENO) ParseConfigFile: If you don't want the script to use 'rm' then change it"
-                    sCOMMAND_RM="rm"
+                    ((debug)) && DebugMessage "command -v \"$config_value\" failed"
+                    echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                    echo "($LINENO) ParseConfigFile: If you don't want the script to use 'rm' then fix it"
+                    command_rm="rm"
                 fi
             ;;
             (latest_version_url)
-                if curl -sLI "$sVALUE" >/dev/null; then
-                    sGE_LATEST_VERSION_URL=$sVALUE
-                    ((iDEBUG)) && DebugMessage "sGE_LATEST_VERSION_URL set to: \"$sGE_LATEST_VERSION_URL\""
+                if curl -sLI "$config_value" >/dev/null; then
+                    latest_version_url=$config_value
+                    ((debug)) && DebugMessage "latest_version_url set to: \"$latest_version_url\""
                 else
-                    echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                    iFAILED=1
+                    echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                    flag_failed=1
                 fi
             ;;
             (releases_url)
-                if curl -sLI "$sVALUE" >/dev/null; then
-                    sGE_RELEASES_URL=$sVALUE
-                    ((iDEBUG)) && DebugMessage "sGE_RELEASES_URL set to: \"$sGE_RELEASES_URL\""
+                if curl -sLI "$config_value" >/dev/null; then
+                    releases_url=$config_value
+                    ((debug)) && DebugMessage "releases_url set to: \"$releases_url\""
                 else
-                    echo "($LINENO) ParseConfigFile: Invalid value for $sKEY at line $iCOUNTER: \"$sVALUE\""
-                    iFAILED=1
+                    echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                    flag_failed=1
                 fi
             ;;
             (*)
-                ((iDEBUG)) && DebugMessage "No key match for valid config ($iCOUNTER): \"$REPLY\""
+                ((debug)) && DebugMessage "No key match for valid config ($counter_config_line): \"$REPLY\""
             ;;
         esac
-    done < "$sFILE_SCRIPT_CONFIG"
+    done < "$file_script_config"
 
     # Update install_path in the configuration file if necessary
-    [[ $iUPDATE_GEINSTALL_PATH -eq 1 ]] && {
-        [[ -n ${sOVERRIDE_DEFAULT_INSTALL_PATH-} ]] && {
-            sGE_INSTALL_PATH=$sOVERRIDE_DEFAULT_INSTALL_PATH/compatibilitytools.d
-            # update install_path in the config file
-            [[ -f $sFILE_SCRIPT_CONFIG ]] && CreateBackup "$sFILE_SCRIPT_CONFIG"
-            sed -i "s|install_path=auto|install_path=$sGE_INSTALL_PATH|" "$sFILE_SCRIPT_CONFIG"
+    [[ $flag_update_install_path -eq 1 ]] && {
+        [[ -n ${override_default_install_path-} ]] && {
+            install_path=$override_default_install_path/compatibilitytools.d
+            [[ -f $file_script_config ]] && CreateBackup "$file_script_config"
+            sed -i "s|install_path=auto|install_path=$install_path|" "$file_script_config"
         }
     }
 
-    # Report
-    # NOTE cp --parents requires GNU cp (not on mac by default)
-    # NOTE cp -Rp
-    ((iDEBUG)) && DebugMessage "Install path set to: \"$sGE_INSTALL_PATH\""
-
-    ((iDEBUG)) && DebugMessage "Temp path set to: \"$sTMP_BASE_PATH\""
-
-    ((iDEBUG)) && DebugMessage "Config path set to: \"$sSCRIPT_CONFIG_PATH\""
+    # Debug report
+    ((debug)) && DebugMessage "Install path set to: \"$install_path\""
+    ((debug)) && DebugMessage "Temp path set to: \"$temp_base_path\""
+    ((debug)) && DebugMessage "Config path set to: \"$script_config_path\""
+    # NOTE config_path is currently not configurable
     # update global variables that depend on this one
-    #sFILE_SCRIPT_CONFIG=$sSCRIPT_CONFIG_PATH/$sSCRIPT_FULL_NAME.conf
-    #((iDEBUG)) && DebugMessage "sFILE_SCRIPT_CONFIG set to: \"$sFILE_SCRIPT_CONFIG\""
-    #((iDEBUG)) && DebugMessage "sFILE_SED_UNMINIFY_SCRIPT set to: \"$sFILE_SED_UNMINIFY_SCRIPT\""
+    #file_script_config=$script_config_path/$SCRIPT_FULL_NAME.conf
 
-    ((iDEBUG)) && DebugMessage "Cache path set to: \"$sSCRIPT_CACHE_PATH\""
+    #((debug)) && DebugMessage "file_script_config set to: \"$file_script_config\""
+    #((debug)) && DebugMessage "file_sed_unminify_script set to: \"$file_sed_unminify_script\""
+
+    ((debug)) && DebugMessage "Cache path set to: \"$script_cache_path\""
     # update global variables that depend on this one
-    sFILE_LATEST_JSON="$sSCRIPT_CACHE_PATH"/latest.json
-    ((iDEBUG)) && DebugMessage "sFILE_LATEST_JSON set to: \"$sFILE_LATEST_JSON\""
-    sFILE_RELEASES_JSON="$sSCRIPT_CACHE_PATH"/releases.json
-    ((iDEBUG)) && DebugMessage "sFILE_RELEASES_JSON set to: \"$sFILE_RELEASES_JSON\""
+    file_latest_json="$script_cache_path"/latest.json
 
-    if [[ $iFAILED -eq 1 ]]; then
-        ((iDEBUG)) && DebugMessage "One or more tasks failed"
+    ((debug)) && DebugMessage "file_latest_json set to: \"$file_latest_json\""
+    file_releases_json="$script_cache_path"/releases.json
+
+    ((debug)) && DebugMessage "file_releases_json set to: \"$file_releases_json\""
+
+    if [[ $flag_failed -eq 1 ]]; then
+        ((debug)) && DebugMessage "One or more tasks failed"
         return 1
     else
-        ((iDEBUG)) && DebugMessage "All tasks and checks passed"
+        ((debug)) && DebugMessage "All tasks and checks passed"
         return 0
     fi
 }
 
 ###############################################################################
-# Support different formats for version specification
-# Internally, the script uses case-sensitive "base" versions such as "5.9-GE-5-ST" but
-# for parsing parameters many other variations are supported. Examples are in usage above.
-# NOTE not only does this enable multiple types of input but it also enables reporting
-#      with the exact input given
-# NOTE if the naming format for packages changes, this function also must be adapted
-# TODO support even more variations?
+# Purpose: "Clean" a specified version. Enables internal support for multiple
+#          formats while still reporting with the original format.
+# Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
+# Output:  A "clean" version string with no trailing newline (stdout) (eg. 5.9-GE-5-ST)
+# Return:  Always 0
 CleanUpVersion() {
 
-    local iLENGTH=0
-    local sVERSION=${1-}
+    local version=${1-}
+    local -i length_characters=0
 
-    [[ -z $sVERSION ]] && { ((iDEBUG)) && DebugMessage "sVERSION is NULL"; printf ''; return 1; }
+    [[ -z $version ]] && { ((debug)) && DebugMessage "version is NULL"; printf ''; return 1; }
 
-    [[ $iDEBUG -eq 1 ]] && {
-        iLENGTH=${#sVERSION}
-        ((iDEBUG)) && DebugMessage "Before: \"$sVERSION\""
-    }
+    ((debug)) && { length_characters=${#version}; DebugMessage "Before: \"$version\""; }
 
     # global upper case
-    sVERSION=${sVERSION^^}
-    # anchored left, remove a single "PROTON-" and anything to the left of it
-    sVERSION=${sVERSION#*'PROTON-'}
-    # anchored right, remove a single ".TAR.GZ" and anything to the right of it
-    sVERSION=${sVERSION%'.TAR.GZ'*}
+    version=${version^^}
 
-    [[ $iDEBUG -eq 1 ]] && {
-        ((iDEBUG)) && DebugMessage "After: \"$sVERSION\""
-        [[ $iLENGTH -ne ${#sVERSION} ]] && ((iDEBUG)) && DebugMessage "Removed $(( iLENGTH - ${#sVERSION} )) characters"
+    # anchored left, remove a single "PROTON-" and anything to the left of it
+    version=${version#*'PROTON-'}
+
+    # anchored right, remove a single ".TAR.GZ" and anything to the right of it
+    version=${version%'.TAR.GZ'*}
+
+    [[ $debug -eq 1 ]] && {
+        DebugMessage "After: \"$version\""
+        [[ $length_characters -ne ${#version} ]] && DebugMessage "Removed $(( length_characters - ${#version} )) characters"
     }
 
-    printf '%s' "$sVERSION"
+    printf '%s' "$version"
 
     return 0
 }
 
 ###############################################################################
-# Bash only primitive replacement for mktemp
-# Accepts no parameters, returns the tmp path/file created
+# Purpose: Bash only primitive replacement for mktemp (file version)
+# Input:   None
+# Output:  A string containing a path and file with no trailing newline (stdout)
+# Return:  0 (Success)
+#          1 (Failure)
 MkTempFile() {
 
-    local sTMP_FILE_CREATED
+    local temp_file
 
-    [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || { ((iDEBUG)) && DebugMessage "sTMP_BASE_PATH is not a valid path or no write access: \"$sTMP_BASE_PATH\""; return 1; }
+    [[ -d $temp_base_path && -w $temp_base_path ]] || { ((debug)) && DebugMessage "temp_base_path is not a valid path or no write access: \"$temp_base_path\""; return 1; }
 
-    sTMP_FILE_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
+    temp_file="$temp_base_path/${TEMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
 
     # Create the empty temp file
-    printf '' > "$sTMP_FILE_CREATED" || return 1
+    printf '' > "$temp_file" || return 1
 
     # "Return" the path and filename,
     # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
-    printf '%s' "$sTMP_FILE_CREATED"
+    printf '%s' "$temp_file"
 
     return 0
 }
 
 ###############################################################################
-# Bash only primitive replacement for mktemp
-# Accepts no parameters, returns the tmp path created
+# Purpose: Bash only primitive replacement for mktemp (path version)
+# Input:   None
+# Output:  A string containing a path with no trailing newline (stdout)
+# Return:  0 (Success)
+#          1 (Failure)
 MkTempPath() {
 
-    local sTMP_PATH_CREATED
+    local temp_path
 
-    [[ -d $sTMP_BASE_PATH && -w $sTMP_BASE_PATH ]] || { ((iDEBUG)) && DebugMessage "sTMP_BASE_PATH is not a valid path or no write access: \"$sTMP_BASE_PATH\""; return 1; }
+    [[ -d $temp_base_path && -w $temp_base_path ]] || { ((debug)) && DebugMessage "temp_base_path is not a valid path or no write access: \"$temp_base_path\""; return 1; }
 
-    sTMP_PATH_CREATED="$sTMP_BASE_PATH/${sTMP_PREFIX}$(GenerateRandomAlphaNumericString 10)" || return 1
+    temp_path="$temp_base_path/${TEMP_PREFIX}$(GenerateRandomAlphaNumericString 10)" || return 1
 
     # Create the path
-    mkdir -p "$sTMP_PATH_CREATED" 2>/dev/null || return 1
+    mkdir -p "$temp_path" 2>/dev/null || return 1
 
     # "Return" the path and filename,
     # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
-    printf '%s' "$sTMP_PATH_CREATED"
+    printf '%s' "$temp_path"
 
     return 0
 }
 
 ###############################################################################
-# Generate a pseudo-random alphanumeric string using only Bash
-# Accepts one optional parameter: the length of the string to generate (range 1-32767) (default: 10)
+# Purpose: Generate a pseudo-random alphanumeric string using only Bash
+# Input:   1 (optional) An integer indicating the length of the sequence to generate
+# Output:  A string containing the generated alphanumeric sequence (stdout)
+# Return:  0 (Success)
+#          1 (Failure)
+# NOTE Valid input length range 1-32767 (default: 10)
 GenerateRandomAlphaNumericString() {
 
-    local sLIST
-    local iLEN=${1:-10}
-    local sRESULT=''
-    local i=1
+    local list
+    local -i length=${1:-10}
+    local result='' # NOTE must be set to NULL
+    local character
+    local -i i
 
-    sLIST=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
+    list=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
 
     # If the length requested is outside sane upper and lower bounds, reset it
-    [[ $iLEN -lt 1 ]] && iLEN=1
-    [[ $iLEN -gt 32767 ]] && iLEN=32767
+    [[ $length -lt 1 ]] && length=1
+    [[ $length -gt 32767 ]] && length=32767
 
-    # Loop iLEN times
-    for (( i=1; i<=iLEN; i++ )); do
+    # Loop length times
+    for (( i=1; i<=length; i++ )); do
 
-        # Randomly choose one offset of length one from sLIST
-        sCHAR=${sLIST:$RANDOM%${#sLIST}:1}
+        # Randomly choose one offset of length one from list
+        character=${list:$RANDOM%${#list}:1}
 
         # Randomly invert the case
-        (( RANDOM % 2 )) && sCHAR=${sCHAR~}
+        (( RANDOM % 2 )) && character=${character~}
 
-        # Concatenate sRESULT and sCHAR
-        sRESULT=${sRESULT}${sCHAR}
+        # Concatenate result and character
+        result=${result}${character}
 
     done
 
     # "Return" the resulting string,
     # meant to be captured using command substitution
     # eg. sSTRING_OF_LENGTH_TEN=$(GenerateRandomAlphaNumericString 10)
-    printf '%s' "$sRESULT"
+    printf '%s' "$result"
 
     return 0
 }
@@ -2087,7 +2259,7 @@ GenerateRandomAlphaNumericString() {
 #      ~/.var/app/com.valvesoftware.Steam/.steam
 DetectSteamInstallPath () {
 
-    sOVERRIDE_DEFAULT_INSTALL_PATH=''
+    override_default_install_path=''
 
     local i=0
     local sCHECK_PATH
@@ -2107,66 +2279,66 @@ DetectSteamInstallPath () {
     # XDG_DATA_HOME
     if [[ ${XDG_DATA_HOME-unset} != "unset" ]]; then
         if [[ ${XDG_DATA_HOME-} != "$HOME/.local/share" ]]; then
-            ((iDEBUG)) && DebugMessage "XDG_DATA_HOME is not set to the default: \"$XDG_DATA_HOME\""
+            ((debug)) && DebugMessage "XDG_DATA_HOME is not set to the default: \"$XDG_DATA_HOME\""
         else
-            ((iDEBUG)) && DebugMessage "XDG_DATA_HOME is set to: \"$XDG_DATA_HOME\""
+            ((debug)) && DebugMessage "XDG_DATA_HOME is set to: \"$XDG_DATA_HOME\""
         fi
     else
-        ((iDEBUG)) && DebugMessage "XDG_DATA_HOME is unset"
+        ((debug)) && DebugMessage "XDG_DATA_HOME is unset"
     fi
 
     # XDG_CONFIG_HOME
     if [[ ${XDG_CONFIG_HOME-unset} != "unset" ]]; then
         if [[ ${XDG_CONFIG_HOME-} != "$HOME/.config" ]]; then
-            ((iDEBUG)) && DebugMessage "XDG_CONFIG_HOME is not set to the default: \"$XDG_CONFIG_HOME\""
+            ((debug)) && DebugMessage "XDG_CONFIG_HOME is not set to the default: \"$XDG_CONFIG_HOME\""
         else
-            ((iDEBUG)) && DebugMessage "XDG_CONFIG_HOME is set to: \"$XDG_CONFIG_HOME\""
+            ((debug)) && DebugMessage "XDG_CONFIG_HOME is set to: \"$XDG_CONFIG_HOME\""
         fi
     else
-        ((iDEBUG)) && DebugMessage "XDG_CONFIG_HOME is unset"
+        ((debug)) && DebugMessage "XDG_CONFIG_HOME is unset"
     fi
 
     # XDG_CACHE_HOME
     if [[ ${XDG_CACHE_HOME-unset} != "unset" ]]; then
         if [[ ${XDG_CACHE_HOME-} != "$HOME/.cache" ]]; then
-            ((iDEBUG)) && DebugMessage "XDG_CACHE_HOME is not set to the default: \"$XDG_CACHE_HOME\""
+            ((debug)) && DebugMessage "XDG_CACHE_HOME is not set to the default: \"$XDG_CACHE_HOME\""
         else
-            ((iDEBUG)) && DebugMessage "XDG_CACHE_HOME is set to: \"$XDG_CACHE_HOME\""
+            ((debug)) && DebugMessage "XDG_CACHE_HOME is set to: \"$XDG_CACHE_HOME\""
         fi
     else
-        ((iDEBUG)) && DebugMessage "XDG_CACHE_HOME is unset"
+        ((debug)) && DebugMessage "XDG_CACHE_HOME is unset"
     fi
 
     # Search each known possible, existing Steam install path path for steam.sh
     #
     # ~/.steam/root/compatibilitytools.d
-    ((iDEBUG)) && DebugMessage "iaSEARCH_PATHS: ${#iaSEARCH_PATHS[@]}"
+    ((debug)) && DebugMessage "iaSEARCH_PATHS: ${#iaSEARCH_PATHS[@]}"
     for sCHECK_PATH in "${iaSEARCH_PATHS[@]}"; do
-        ((iDEBUG)) && DebugMessage "Checking \"$sCHECK_PATH\""
+        ((debug)) && DebugMessage "Checking \"$sCHECK_PATH\""
         if [[ -f $sCHECK_PATH/steam.sh ]]; then
-            ((iDEBUG)) && DebugMessage "steam.sh found in $sCHECK_PATH"
+            ((debug)) && DebugMessage "steam.sh found in $sCHECK_PATH"
             iaVALID_PATHS+=("$sCHECK_PATH")
         else
-            ((iDEBUG)) && DebugMessage "steam.sh not found in $sCHECK_PATH"
+            ((debug)) && DebugMessage "steam.sh not found in $sCHECK_PATH"
         fi
     done
 
-    ((iDEBUG)) && DebugMessage "#iaVALID_PATHS: ${#iaVALID_PATHS[@]}"
-    ((iDEBUG)) && DebugMessage "iaVALID_PATHS[*]: ${iaVALID_PATHS[*]}"
+    ((debug)) && DebugMessage "#iaVALID_PATHS: ${#iaVALID_PATHS[@]}"
+    ((debug)) && DebugMessage "iaVALID_PATHS[*]: ${iaVALID_PATHS[*]}"
 
     if [[ ${#iaVALID_PATHS[@]} -eq 0 ]]; then
         printf '%s\n%s\n%s\n' \
                "ERROR: Unable to detect Steam installation path" \
                "You will need to configure install_path manually in the configuration file" \
-               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME/$sSCRIPT_FULL_NAME.conf)"
-        sOVERRIDE_DEFAULT_INSTALL_PATH=""
+               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+        override_default_install_path=""
     # Prefer to use the symlink if two paths were found and one is a link to the other
     elif [[ ${#iaVALID_PATHS[@]} -eq 1 ]] || [[ ${#iaVALID_PATHS[@]} -eq 2 && ${iaVALID_PATHS[0]} -ef ${iaVALID_PATHS[1]} ]]; then
         printf '%s\n%s\n%s\n' \
                "Steam install path detected as \"${iaVALID_PATHS[0]}\"" \
                "If that path is incorrect, manually adjust install_path in the configuration file" \
-               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME/$sSCRIPT_FULL_NAME.conf)"
-        sOVERRIDE_DEFAULT_INSTALL_PATH=${iaVALID_PATHS[0]}
+               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+        override_default_install_path=${iaVALID_PATHS[0]}
     # Multiple paths detected and the first and second paths checked above are not linked
     elif [[ ${#iaVALID_PATHS[@]} -gt 1 ]] && [[ ${iaVALID_PATHS[0]} -ef ${iaVALID_PATHS[1]} ]]; then
         echo "Multiple Steam install paths detected:"
@@ -2178,7 +2350,7 @@ DetectSteamInstallPath () {
         while :; do
             read -rp "Enter a number from 1-${#iaVALID_PATHS[@]}: " </dev/tty
             [[ $REPLY = @(exit|quit) ]] && {
-                sOVERRIDE_DEFAULT_INSTALL_PATH=""
+                override_default_install_path=""
                 break
             }
             REPLY=${REPLY//[!0-9]/} # typos happen
@@ -2187,13 +2359,13 @@ DetectSteamInstallPath () {
                     if [[ $REPLY -lt 1 || $REPLY -ge $(( ${#iaVALID_PATHS[@]} + 1 )) ]]; then
                         echo "Invalid choice"
                     else
-                        ((iDEBUG)) && DebugMessage "Setting sOVERRIDE_DEFAULT_INSTALL_PATH to \"${iaVALID_PATHS[$((REPLY-1))]}\""
-                        sOVERRIDE_DEFAULT_INSTALL_PATH=${iaVALID_PATHS[$((REPLY-1))]}
+                        ((debug)) && DebugMessage "Setting override_default_install_path to \"${iaVALID_PATHS[$((REPLY-1))]}\""
+                        override_default_install_path=${iaVALID_PATHS[$((REPLY-1))]}
                         printf '%s\n%s\n%s\n' \
-                               "You have chosen the path \"$sOVERRIDE_DEFAULT_INSTALL_PATH\"" \
+                               "You have chosen the path \"$override_default_install_path\"" \
                                "If that is not correct adjust install_path in the configuration file accordingly" \
-                               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME/$sSCRIPT_FULL_NAME.conf)"
-                        ((iDEBUG)) && DebugMessage "sOVERRIDE_DEFAULT_INSTALL_PATH set to \"$sOVERRIDE_DEFAULT_INSTALL_PATH\""
+                               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+                        ((debug)) && DebugMessage "override_default_install_path set to \"$override_default_install_path\""
                         break
                     fi
                 ;;
@@ -2201,10 +2373,10 @@ DetectSteamInstallPath () {
             esac
         done
 
-        [[ -z $sOVERRIDE_DEFAULT_INSTALL_PATH ]] && {
+        [[ -z $override_default_install_path ]] && {
             echo "You will need to manually set install_path in the configuration file"
-            echo "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$sSCRIPT_FULL_NAME/$sSCRIPT_FULL_NAME.conf)"
-            sOVERRIDE_DEFAULT_INSTALL_PATH="auto"
+            echo "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+            override_default_install_path="auto"
         }
     fi
 
@@ -2217,139 +2389,139 @@ SetupEnvironment() {
 
     local iFAILED=0
 
-    # sGE_INSTALL_PATH
-    if [[ -d $sGE_INSTALL_PATH ]]; then
-        ((iDEBUG)) && DebugMessage "Found existing sGE_INSTALL_PATH at \"$sGE_INSTALL_PATH\""
-        if [[ -w $sGE_INSTALL_PATH ]]; then
-            ((iDEBUG)) && DebugMessage "Script has write access to sGE_INSTALL_PATH"
+    # install_path
+    if [[ -d $install_path ]]; then
+        ((debug)) && DebugMessage "Found existing install_path at \"$install_path\""
+        if [[ -w $install_path ]]; then
+            ((debug)) && DebugMessage "Script has write access to install_path"
         else
-            ((iDEBUG)) && DebugMessage "Script does not have write access to sGE_INSTALL_PATH"
-            echo "Invalid install path: \"$sGE_INSTALL_PATH\""
+            ((debug)) && DebugMessage "Script does not have write access to install_path"
+            echo "Invalid install path: \"$install_path\""
             iFAILED=1
         fi
-    elif [[ ! -d $sGE_INSTALL_PATH ]]; then
-        ((iDEBUG)) && DebugMessage "sGE_INSTALL_PATH not found. Creating at \"$sGE_INSTALL_PATH\""
-        if mkdir -p "$sGE_INSTALL_PATH" 2>/dev/null; then
-            ((iDEBUG)) && DebugMessage "Create install path succeeded"
+    elif [[ ! -d $install_path ]]; then
+        ((debug)) && DebugMessage "install_path not found. Creating at \"$install_path\""
+        if mkdir -p "$install_path" 2>/dev/null; then
+            ((debug)) && DebugMessage "Create install path succeeded"
         else
-            ((iDEBUG)) && DebugMessage "Create install path failed"
-            echo "Invalid install path: \"$sGE_INSTALL_PATH\""
-            iFAILED=1
-        fi
-    fi
-
-    # sSCRIPT_CONFIG_PATH
-    if [[ -d $sSCRIPT_CONFIG_PATH ]]; then
-        ((iDEBUG)) && DebugMessage "Found existing sSCRIPT_CONFIG_PATH at \"$sSCRIPT_CONFIG_PATH\""
-        if [[ -w $sSCRIPT_CONFIG_PATH ]]; then
-            ((iDEBUG)) && DebugMessage "Script has write access to sSCRIPT_CONFIG_PATH"
-        else
-            ((iDEBUG)) && DebugMessage "Script does not have write access to sSCRIPT_CONFIG_PATH"
-            echo "Invalid config path: \"$sSCRIPT_CONFIG_PATH\""
-            iFAILED=1
-        fi
-    elif [[ ! -d $sSCRIPT_CONFIG_PATH ]]; then
-        ((iDEBUG)) && DebugMessage "sSCRIPT_CONFIG_PATH not found. Creating at \"$sSCRIPT_CONFIG_PATH\""
-        if mkdir -p "$sSCRIPT_CONFIG_PATH" 2>/dev/null; then
-            ((iDEBUG)) && DebugMessage "Create config path succeeded"
-        else
-            ((iDEBUG)) && DebugMessage "Create config path failed"
-            echo "Invalid config path: \"$sSCRIPT_CONFIG_PATH\""
+            ((debug)) && DebugMessage "Create install path failed"
+            echo "Invalid install path: \"$install_path\""
             iFAILED=1
         fi
     fi
 
-    # sSCRIPT_CACHE_PATH
-    if [[ -d $sSCRIPT_CACHE_PATH ]]; then
-        ((iDEBUG)) && DebugMessage "Found existing sSCRIPT_CACHE_PATH at \"$sSCRIPT_CACHE_PATH\""
-        if [[ -w $sSCRIPT_CACHE_PATH ]]; then
-            ((iDEBUG)) && DebugMessage "Script has write access to sSCRIPT_CACHE_PATH"
+    # script_config_path
+    if [[ -d $script_config_path ]]; then
+        ((debug)) && DebugMessage "Found existing script_config_path at \"$script_config_path\""
+        if [[ -w $script_config_path ]]; then
+            ((debug)) && DebugMessage "Script has write access to script_config_path"
         else
-            ((iDEBUG)) && DebugMessage "Script does not have write access to sSCRIPT_CACHE_PATH"
-            echo "Invalid cache path: \"$sSCRIPT_CACHE_PATH\""
+            ((debug)) && DebugMessage "Script does not have write access to script_config_path"
+            echo "Invalid config path: \"$script_config_path\""
             iFAILED=1
         fi
-    elif [[ ! -d $sSCRIPT_CACHE_PATH ]]; then
-        ((iDEBUG)) && DebugMessage "sSCRIPT_CACHE_PATH not found. Creating at \"$sSCRIPT_CACHE_PATH\""
-        if mkdir -p "$sSCRIPT_CACHE_PATH" 2>/dev/null; then
-            ((iDEBUG)) && DebugMessage "Create cache path succeeded"
+    elif [[ ! -d $script_config_path ]]; then
+        ((debug)) && DebugMessage "script_config_path not found. Creating at \"$script_config_path\""
+        if mkdir -p "$script_config_path" 2>/dev/null; then
+            ((debug)) && DebugMessage "Create config path succeeded"
         else
-            ((iDEBUG)) && DebugMessage "Create cache path failed"
-            echo "Invalid cache path: \"$sSCRIPT_CACHE_PATH\""
-            iFAILED=1
-        fi
-    fi
-
-    # sFILE_SCRIPT_CONFIG
-    if [[ -f $sFILE_SCRIPT_CONFIG ]]; then
-        ((iDEBUG)) && DebugMessage "Found existing sFILE_SCRIPT_CONFIG at \"$sFILE_SCRIPT_CONFIG\""
-        if [[ -w $sFILE_SCRIPT_CONFIG ]]; then
-            ((iDEBUG)) && DebugMessage "Script has write access to sFILE_SCRIPT_CONFIG"
-        else
-            ((iDEBUG)) && DebugMessage "Script does not have write access to sFILE_SCRIPT_CONFIG"
-            echo "No write access to config file: \"$sFILE_SCRIPT_CONFIG\""
-            iFAILED=1
-        fi
-        if [[ -r $sFILE_SCRIPT_CONFIG ]]; then
-            ((iDEBUG)) && DebugMessage "Script has read access to sFILE_SCRIPT_CONFIG"
-        else
-            ((iDEBUG)) && DebugMessage "Script does not have read access to sFILE_SCRIPT_CONFIG"
-            echo "No read access to config file: \"$sFILE_SCRIPT_CONFIG\""
-            iFAILED=1
-        fi
-    elif [[ ! -f $sFILE_SCRIPT_CONFIG ]]; then
-        ((iDEBUG)) && DebugMessage "sFILE_SCRIPT_CONFIG not found. Creating at \"$sFILE_SCRIPT_CONFIG\""
-        if printf '' > "$sFILE_SCRIPT_CONFIG"; then
-            ((iDEBUG)) && DebugMessage "Create script config file succeeded"
-        else
-            ((iDEBUG)) && DebugMessage "Create script config file failed"
-            echo "Failed to create config file: \"$sFILE_SCRIPT_CONFIG\""
+            ((debug)) && DebugMessage "Create config path failed"
+            echo "Invalid config path: \"$script_config_path\""
             iFAILED=1
         fi
     fi
 
-    # sTMP_BASE_PATH
-    if [[ -d $sTMP_BASE_PATH ]]; then
-        ((iDEBUG)) && DebugMessage "Found existing sTMP_BASE_PATH at \"$sTMP_BASE_PATH\""
-        if [[ -w $sTMP_BASE_PATH ]]; then
-            ((iDEBUG)) && DebugMessage "Script has write access to sTMP_BASE_PATH"
+    # script_cache_path
+    if [[ -d $script_cache_path ]]; then
+        ((debug)) && DebugMessage "Found existing script_cache_path at \"$script_cache_path\""
+        if [[ -w $script_cache_path ]]; then
+            ((debug)) && DebugMessage "Script has write access to script_cache_path"
         else
-            ((iDEBUG)) && DebugMessage "Script does not have write access to sTMP_BASE_PATH"
-            echo "Invalid tmp_path path: \"$sTMP_BASE_PATH\""
+            ((debug)) && DebugMessage "Script does not have write access to script_cache_path"
+            echo "Invalid cache path: \"$script_cache_path\""
             iFAILED=1
         fi
-    elif [[ ! -d $sTMP_BASE_PATH ]]; then
-        ((iDEBUG)) && DebugMessage "sTMP_BASE_PATH not found. Creating at \"$sTMP_BASE_PATH\""
-        if mkdir -p "$sTMP_BASE_PATH" 2>/dev/null; then
-            ((iDEBUG)) && DebugMessage "Create cache path succeeded"
+    elif [[ ! -d $script_cache_path ]]; then
+        ((debug)) && DebugMessage "script_cache_path not found. Creating at \"$script_cache_path\""
+        if mkdir -p "$script_cache_path" 2>/dev/null; then
+            ((debug)) && DebugMessage "Create cache path succeeded"
         else
-            ((iDEBUG)) && DebugMessage "Create cache path failed"
-            echo "Invalid tmp_path path: \"$sTMP_BASE_PATH\""
+            ((debug)) && DebugMessage "Create cache path failed"
+            echo "Invalid cache path: \"$script_cache_path\""
             iFAILED=1
         fi
     fi
 
-    # sFILE_LATEST_JSON
-    [[ -f $sFILE_LATEST_JSON ]] && {
-        [[ $(stat -c '%s' "$sFILE_LATEST_JSON" 2>/dev/null) -eq 0 ]] && {
-            ((iDEBUG)) && DebugMessage "sFILE_LATEST_JSON is size 0, removing"
-            $sCOMMAND_RM "$sFILE_LATEST_JSON"
+    # file_script_config
+    if [[ -f $file_script_config ]]; then
+        ((debug)) && DebugMessage "Found existing file_script_config at \"$file_script_config\""
+        if [[ -w $file_script_config ]]; then
+            ((debug)) && DebugMessage "Script has write access to file_script_config"
+        else
+            ((debug)) && DebugMessage "Script does not have write access to file_script_config"
+            echo "No write access to config file: \"$file_script_config\""
+            iFAILED=1
+        fi
+        if [[ -r $file_script_config ]]; then
+            ((debug)) && DebugMessage "Script has read access to file_script_config"
+        else
+            ((debug)) && DebugMessage "Script does not have read access to file_script_config"
+            echo "No read access to config file: \"$file_script_config\""
+            iFAILED=1
+        fi
+    elif [[ ! -f $file_script_config ]]; then
+        ((debug)) && DebugMessage "file_script_config not found. Creating at \"$file_script_config\""
+        if printf '' > "$file_script_config"; then
+            ((debug)) && DebugMessage "Create script config file succeeded"
+        else
+            ((debug)) && DebugMessage "Create script config file failed"
+            echo "Failed to create config file: \"$file_script_config\""
+            iFAILED=1
+        fi
+    fi
+
+    # temp_base_path
+    if [[ -d $temp_base_path ]]; then
+        ((debug)) && DebugMessage "Found existing temp_base_path at \"$temp_base_path\""
+        if [[ -w $temp_base_path ]]; then
+            ((debug)) && DebugMessage "Script has write access to temp_base_path"
+        else
+            ((debug)) && DebugMessage "Script does not have write access to temp_base_path"
+            echo "Invalid tmp_path path: \"$temp_base_path\""
+            iFAILED=1
+        fi
+    elif [[ ! -d $temp_base_path ]]; then
+        ((debug)) && DebugMessage "temp_base_path not found. Creating at \"$temp_base_path\""
+        if mkdir -p "$temp_base_path" 2>/dev/null; then
+            ((debug)) && DebugMessage "Create cache path succeeded"
+        else
+            ((debug)) && DebugMessage "Create cache path failed"
+            echo "Invalid tmp_path path: \"$temp_base_path\""
+            iFAILED=1
+        fi
+    fi
+
+    # file_latest_json
+    [[ -f $file_latest_json ]] && {
+        [[ $(stat -c '%s' "$file_latest_json" 2>/dev/null) -eq 0 ]] && {
+            ((debug)) && DebugMessage "file_latest_json is size 0, removing"
+            $command_rm -- "$file_latest_json"
         }
     }
 
-    # sFILE_RELEASES_JSON
-    [[ -f $sFILE_RELEASES_JSON ]] && {
-        [[ $(stat -c '%s' "$sFILE_RELEASES_JSON" 2>/dev/null) -eq 0 ]] && {
-            ((iDEBUG)) && DebugMessage "sFILE_RELEASES_JSON is size 0, removing"
-            $sCOMMAND_RM "$sFILE_RELEASES_JSON"
+    # file_releases_json
+    [[ -f $file_releases_json ]] && {
+        [[ $(stat -c '%s' "$file_releases_json" 2>/dev/null) -eq 0 ]] && {
+            ((debug)) && DebugMessage "file_releases_json is size 0, removing"
+            $command_rm -- "$file_releases_json"
         }
     }
 
     if [[ $iFAILED -eq 0 ]]; then
-        ((iDEBUG)) && DebugMessage "All tasks succeeded"
+        ((debug)) && DebugMessage "All tasks succeeded"
         return 0
     elif [[ $iFAILED -eq 1 ]]; then
-        ((iDEBUG)) && DebugMessage "One or more tasks failed"
+        ((debug)) && DebugMessage "One or more tasks failed"
         return 1
     fi
 
@@ -2395,10 +2567,10 @@ CheckRequirements() {
     fi
 
     if [[ $iFAILED -eq 0 ]]; then
-        ((iDEBUG)) && DebugMessage "All tasks succeeded"
+        ((debug)) && DebugMessage "All tasks succeeded"
         return 0
     elif [[ $iFAILED -eq 1 ]]; then
-        ((iDEBUG)) && DebugMessage "One or more tasks failed"
+        ((debug)) && DebugMessage "One or more tasks failed"
         return 1
     fi
 }
@@ -2428,7 +2600,7 @@ ShowConsoleDiff() {
 DebugMessage() {
 
     # If debug mode is not active, do nothing
-    [[ $iDEBUG -eq 1 ]] || return 0
+    [[ $debug -eq 1 ]] || return 0
     [[ -z ${1-} ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
 
     local i
@@ -2453,7 +2625,7 @@ ReportEnvironmentInfo() {
 
     # All hope abandon, ye who enter here!
     #-------------------------------------------------------------------------------------
-    if [[ $iINTEGRATION_TESTING -eq 1 ]]; then
+    if [[ $integration_testing -eq 1 ]]; then
         if InitializeGlobalVars; then
             if CheckRequirements; then
                 if ParseConfigFile; then
@@ -2462,26 +2634,26 @@ ReportEnvironmentInfo() {
             fi
         fi
         #if MemFree "1597756"; then
-        #    ((iDEBUG)) && DebugMessage "MemFree returned success"
+        #    ((debug)) && DebugMessage "MemFree returned success"
         #else
-        #    ((iDEBUG)) && DebugMessage "MemFree returned failure"
+        #    ((debug)) && DebugMessage "MemFree returned failure"
         #fi
 
-        #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "b") bytes remaining on $sTMP_BASE_PATH"
-        #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "k") kibibytes remaining on $sTMP_BASE_PATH"
-        #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "m") mebibytes remaining on $sTMP_BASE_PATH"
-        #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "g") gibibytes remaining on $sTMP_BASE_PATH"
-        #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "t") tebibytes remaining on $sTMP_BASE_PATH"
-        #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "p") pebibytes remaining on $sTMP_BASE_PATH"
-        #((iDEBUG)) && DebugMessage "$(SpaceRemaining "$sTMP_BASE_PATH" "e") exbibytes remaining on $sTMP_BASE_PATH"
+        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "b") bytes remaining on $temp_base_path"
+        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "k") kibibytes remaining on $temp_base_path"
+        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "m") mebibytes remaining on $temp_base_path"
+        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "g") gibibytes remaining on $temp_base_path"
+        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "t") tebibytes remaining on $temp_base_path"
+        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "p") pebibytes remaining on $temp_base_path"
+        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "e") exbibytes remaining on $temp_base_path"
 
         #CreateBackup "/home/toazd/.config/ge-install-manager/ge-install-manager.conf"
         #CreateBackup "/home/toazd/github/personal/scripts/bash/ge-install-manager/tmp"
 
-        #SpaceRemaining "$sTMP_BASE_PATH" "b"
+        #SpaceRemaining "$temp_base_path" "b"
         :
     fi
-    ((iINTEGRATION_TESTING)) && exit
+    ((integration_testing)) && exit
     #-------------------------------------------------------------------------------------
 
     echo "###############################################################################"
@@ -2529,15 +2701,15 @@ CleanUp() {
 
     local sNODE
 
-    for sNODE in "$sTMP_BASE_PATH/$sTMP_PREFIX"*; do
+    for sNODE in "$temp_base_path/$TEMP_PREFIX"*; do
         # paths
         [[ -d $sNODE ]] && {
-            ((iDEBUG)) && DebugMessage "Temporary path found at \"$sNODE\""
-            if [[ $iDEBUG -eq 1 ]]; then
-                ((iDEBUG)) && DebugMessage "Debug enabled. Temporary path not removed."
+            ((debug)) && DebugMessage "Temporary path found at \"$sNODE\""
+            if [[ $debug -eq 1 ]]; then
+                DebugMessage "Debug enabled. Temporary path not removed."
             else
                 if rm -r "$sNODE"; then
-                    ((iDEBUG)) && DebugMessage "Temporary path removed"
+                    DebugMessage "Temporary path removed"
                 else
                     echo "($LINENO) CleanUp: Failed to remove temporary path: \"$sNODE\""
                 fi
@@ -2546,12 +2718,12 @@ CleanUp() {
 
         # files
         [[ -f $sNODE ]] && {
-            ((iDEBUG)) && DebugMessage "Tmp file found at \"$sNODE\""
-            if [[ $iDEBUG -eq 1 ]]; then
-                ((iDEBUG)) && DebugMessage "Debug enabled. Temporary file not removed."
+            ((debug)) && DebugMessage "Tmp file found at \"$sNODE\""
+            if [[ $debug -eq 1 ]]; then
+                DebugMessage "Debug enabled. Temporary file not removed."
             else
                 if rm "$sNODE"; then
-                    ((iDEBUG)) && DebugMessage "Temporary file removed"
+                    DebugMessage "Temporary file removed"
                 else
                     echo "($LINENO) CleanUp: Failed to remove temporary file: \"$sNODE\""
                 fi
@@ -2572,46 +2744,46 @@ ParseParameters() {
     OPTERR=1 # make sure it's on
     while getopts 'zZThHflSs:i:d:R:r:NuUXv:V' sOPT; do
         case "$sOPT" in
-            (h) iSHOW_HELP=1 ;;
-            (H) iSHOW_USAGE=1 ;;
-            (f) iFORCE=1 ;;
-            (T) iINTEGRATION_TESTING=1 ;; # -fTzZ (undocumented, used for integration testing new features)
-            (z) iDEBUG=1 ;;
+            (h) show_help=1 ;;
+            (H) show_usage=1 ;;
+            (f) force=1 ;;
+            (T) integration_testing=1 ;; # -fTzZ (undocumented, used for integration testing new features)
+            (z) debug=1 ;;
             (Z)
-                if [[ $iFORCE -eq 1 ]] && [[ $iDEBUG -eq 1 ]]; then
+                if [[ $force -eq 1 ]] && [[ $debug -eq 1 ]]; then
                     ReportEnvironmentInfo # exactly -fzZ (undocumented diagnostic tool)
                 fi
             ;;
-            (u) iCHECK_UPDATE=1 ;;
-            (X) iREMOVE_INSTALL_PATH=1 ;;
-            (N) iREMOVE_ALL_SAVED_PACKAGES=1 ;;
+            (u) check_update=1 ;;
+            (X) remove_install_path=1 ;;
+            (N) remove_all_saved_packages=1 ;;
             (R)
-                iREMOVE_INSTALLED_VERSION=1
-                sREMOVE_INSTALLED_VERSION=$OPTARG
+                remove_installed_version=1
+                remove_installed_version=$OPTARG
             ;;
             (r)
-                iREMOVE_SAVED_PACKAGE=1
-                sREMOVE_SAVED_VERSION=$OPTARG
+                remove_saved_package=1
+                remove_saved_version=$OPTARG
             ;;
-            (l) iLIST_INSTALLED_GE_VERSIONS=1 ;;
+            (l) list_installed_versions=1 ;;
             (s)
-                iREPORT_VERSION_USAGE=1
-                sREPORT_VERSION=$OPTARG
+                report_version_usage=1
+                report_version=$OPTARG
             ;;
-            (S) iREPORT_INSTALL_PATH_USAGE=1 ;;
+            (S) report_install_path_usage=1 ;;
             (d)
-                iDOWNLOAD=1
-                sDOWNLOAD_VERSION=$OPTARG
+                download=1
+                download_version=$OPTARG
             ;;
             (i)
-                iINSTALL=1
-                sINSTALL_VERSION=$OPTARG
+                install=1
+                install_version=$OPTARG
             ;;
-            (U) iUPDATE=1 ;;
-            (V) iVERIFY=1 ;;
+            (U) update=1 ;;
+            (V) verify=1 ;;
             (v)
-                iVERIFY=1
-                sVERIFY_VERSION=$OPTARG
+                verify=1
+                verify_version=$OPTARG
             ;;
             (":"|"?")
                 return 1
@@ -2630,40 +2802,40 @@ Main() {
     ParseParameters "$@" || exit 1
 
     # Report if debug mode is enabled
-    ((iDEBUG)) && DebugMessage "Debug mode enabled"
+    ((debug)) && DebugMessage "Debug mode enabled"
 
     # If no parameters were supplied, show help
-    # NOTE ignore iFORCE and iDEBUG flags
-    if [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && \
-       [[ $iREMOVE_ALL_SAVED_PACKAGES -eq 0 ]] && \
-       [[ $iREMOVE_INSTALLED_VERSION -eq 0 ]] && \
-       [[ $iREMOVE_SAVED_PACKAGE -eq 0 ]] && \
-       [[ $iLIST_INSTALLED_GE_VERSIONS -eq 0 ]] && \
-       [[ $iREPORT_VERSION_USAGE -eq 0 ]] && \
-       [[ $iREPORT_INSTALL_PATH_USAGE -eq 0 ]] && \
-       [[ $iDOWNLOAD -eq 0 ]] && \
-       [[ $iINSTALL -eq 0 ]] && \
-       [[ $iCHECK_UPDATE -eq 0 ]] && \
-       [[ $iVERIFY -eq 0 ]] && \
-       [[ $iSHOW_HELP -eq 0 ]] && \
-       [[ $iSHOW_USAGE -eq 0 ]] && \
-       [[ $iUPDATE -eq 0 ]]; then
+    # NOTE ignore force and debug flags
+    if [[ $remove_install_path -eq 0 ]] && \
+       [[ $remove_all_saved_packages -eq 0 ]] && \
+       [[ $remove_installed_version -eq 0 ]] && \
+       [[ $remove_saved_package -eq 0 ]] && \
+       [[ $list_installed_versions -eq 0 ]] && \
+       [[ $report_version_usage -eq 0 ]] && \
+       [[ $report_install_path_usage -eq 0 ]] && \
+       [[ $download -eq 0 ]] && \
+       [[ $install -eq 0 ]] && \
+       [[ $check_update -eq 0 ]] && \
+       [[ $verify -eq 0 ]] && \
+       [[ $show_help -eq 0 ]] && \
+       [[ $show_usage -eq 0 ]] && \
+       [[ $update -eq 0 ]]; then
 
-        [[ $iDEBUG -eq 1 ]] && {
+        [[ $debug -eq 1 ]] && {
             if IsSteamRunning; then
-                ((iDEBUG)) && DebugMessage "Steam is running"
+                DebugMessage "Steam is running"
             else
-                ((iDEBUG)) && DebugMessage "Steam is not running"
+                DebugMessage "Steam is not running"
             fi
-            ((iDEBUG)) && DebugMessage "Nothing to do, showing help"
+            DebugMessage "Nothing to do, showing help"
         }
 
         # report latest version installed status
         #if GetLatestGEVersion; then
-        #    if IsInstalled "$sGE_LATEST_VERSION"; then
-        #        echo "The latest version \"$sGE_LATEST_VERSION\" is installed"
+        #    if IsInstalled "$latest_version"; then
+        #        echo "The latest version \"$latest_version\" is installed"
         #    else
-        #        echo "The latest version \"$sGE_LATEST_VERSION\" is not installed"
+        #        echo "The latest version \"$latest_version\" is not installed"
         #    fi
         #else
         #    echo "An error occured while checking for the latest release"
@@ -2673,14 +2845,14 @@ Main() {
     fi
 
     # show help and/or usage
-    if [[ $iSHOW_HELP -eq 1 ]] && [[ $iSHOW_USAGE -eq 0 ]]; then
+    if [[ $show_help -eq 1 ]] && [[ $show_usage -eq 0 ]]; then
         ShowHelp
         exit 0
-    elif [[ $iSHOW_HELP -eq 1 ]] && [[ $iSHOW_USAGE -eq 1 ]]; then
+    elif [[ $show_help -eq 1 ]] && [[ $show_usage -eq 1 ]]; then
         ShowHelp
         ShowUsage
         exit 0
-    elif [[ $iSHOW_HELP -eq 0 ]] && [[ $iSHOW_USAGE -eq 1 ]]; then
+    elif [[ $show_help -eq 0 ]] && [[ $show_usage -eq 1 ]]; then
         ShowUsage
         exit 0
     fi
@@ -2706,70 +2878,70 @@ Main() {
     CreateSedUnminifyJSONscript
 
     # checkupdate
-    if [[ $iCHECK_UPDATE -eq 1 && $iUPDATE -eq 0 ]]; then
+    if [[ $check_update -eq 1 && $update -eq 0 ]]; then
         if GetLatestGEVersion; then
-            if IsInstalled "$sGE_LATEST_VERSION"; then
-                echo "The latest version \"$sGE_LATEST_VERSION\" is installed"
+            if IsInstalled "$latest_version"; then
+                echo "The latest version \"$latest_version\" is installed"
             else
-                echo "The latest version \"$sGE_LATEST_VERSION\" is not installed"
+                echo "The latest version \"$latest_version\" is not installed"
             fi
         fi
     fi
 
     # remove install path
-    if [[ $iREMOVE_INSTALL_PATH -eq 1 ]] && [[ $iFORCE -eq 1 ]]; then
+    if [[ $remove_install_path -eq 1 ]] && [[ $force -eq 1 ]]; then
         if IsSteamRunning; then
             echo "Please close Steam before removing the install path"
         else
             RemoveGEInstallPath
         fi
-    elif [[ $iREMOVE_INSTALL_PATH -eq 1 ]] && [[ $iFORCE -eq 0 ]]; then
+    elif [[ $remove_install_path -eq 1 ]] && [[ $force -eq 0 ]]; then
         echo "-X must be combined with -f to confirm that you are sure"
     fi
 
     # remove saved packages
-    if [[ $iREMOVE_ALL_SAVED_PACKAGES -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]]; then
+    if [[ $remove_all_saved_packages -eq 1 ]] && [[ $remove_install_path -eq 0 ]]; then
         RemoveAllSavedPackages # TODO -f required?
     fi
 
     # Remove an installed version
-    if [[ $iREMOVE_INSTALLED_VERSION -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && [[ $iREMOVE_ALL_SAVED_PACKAGES -eq 0 ]]; then
-        RemoveGEVersion "$sREMOVE_INSTALLED_VERSION" # NOTE sREMOVE_VERSION is set in getops
+    if [[ $remove_installed_version -eq 1 ]] && [[ $remove_install_path -eq 0 ]] && [[ $remove_all_saved_packages -eq 0 ]]; then
+        RemoveGEVersion "$remove_installed_version" # NOTE sREMOVE_VERSION is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
-    elif [[ $iREMOVE_INSTALLED_VERSION -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 1 ]]; then
+    elif [[ $remove_installed_version -eq 1 ]] && [[ $remove_install_path -eq 1 ]]; then
         echo "Skipping remove version/package because remove install path was also requested"
     fi
 
     # Remove a saved package
-    if [[ $iREMOVE_SAVED_PACKAGE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 0 ]] && [[ $iREMOVE_ALL_SAVED_PACKAGES -eq 0 ]]; then
-        RemoveSavedPackage "$sREMOVE_SAVED_VERSION" # NOTE sREMOVE_VERSION is set in getops
+    if [[ $remove_saved_package -eq 1 ]] && [[ $remove_install_path -eq 0 ]] && [[ $remove_all_saved_packages -eq 0 ]]; then
+        RemoveSavedPackage "$remove_saved_version" # NOTE sREMOVE_VERSION is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
-    elif [[ $iREMOVE_SAVED_PACKAGE -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -eq 1 ]]; then
+    elif [[ $remove_saved_package -eq 1 ]] && [[ $remove_install_path -eq 1 ]]; then
         echo "Skipping remove version/package because remove install path was also requested"
     fi
 
     # Download a package
-    [[ $iDOWNLOAD -eq 1 ]] && {
-        if ! DownloadGEPackage "$sDOWNLOAD_VERSION"; then # NOTE sDOWNLOAD_VERSION is set in getops
+    [[ $download -eq 1 ]] && {
+        if ! DownloadGEPackage "$download_version"; then # NOTE download_version is set in getops
             echo "Download failed"
         fi
     }
 
     # Check for new version and if it is not installed install it
-    if [[ $iUPDATE -eq 1 ]]; then
+    if [[ $update -eq 1 ]]; then
         if UpdateSavedGELatestRelease; then
-            if GetLatestGEVersion; then # set sGE_LATEST_VERSION
-                if IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 1 ]]; then # Latest version is installed and -f is supplied
-                    if RemoveGEVersion "$sGE_LATEST_VERSION"; then
-                        if InstallGEVersion; then # InstallGEVersion checks iUPDATE then sINSTALL_VERSION and/or sGE_LATEST_VERSION
+            if GetLatestGEVersion; then # set latest_version
+                if IsInstalled "$latest_version" && [[ $force -eq 1 ]]; then # Latest version is installed and -f is supplied
+                    if RemoveGEVersion "$latest_version"; then
+                        if InstallGEVersion; then # InstallGEVersion checks $update then $install_version and/or $latest_version
                             echo "Update succeeded"
                         else
                             echo "Update failed"
                         fi
                     fi
-                elif IsInstalled "$sGE_LATEST_VERSION" && [[ $iFORCE -eq 0 ]]; then # Latest version is installed and -f was not supplied
-                    echo "Latest version is already installed ($sGE_LATEST_VERSION)"
-                elif ! IsInstalled "$sGE_LATEST_VERSION"; then # Latest version is not installed
+                elif IsInstalled "$latest_version" && [[ $force -eq 0 ]]; then # Latest version is installed and -f was not supplied
+                    echo "Latest version is already installed ($latest_version)"
+                elif ! IsInstalled "$latest_version"; then # Latest version is not installed
                     echo "Latest version is not installed"
                     if InstallGEVersion; then
                         echo "Update succeeded"
@@ -2781,37 +2953,37 @@ Main() {
                     fi
                 fi
             else
-                ((iDEBUG)) && DebugMessage "Update: GetLatestGEVersion returned failure status"
+                ((debug)) && DebugMessage "Update: GetLatestGEVersion returned failure status"
             fi
         else
             # GetLatestGEVersionInfo failed
-            ((iDEBUG)) && DebugMessage "Update: GetLatestGEVersionInfo returned failure status"
+            ((debug)) && DebugMessage "Update: GetLatestGEVersionInfo returned failure status"
             echo "Update failed"
         fi
         # Like purchasing a tribble, this is probably a bad idea
-        [[ $iINSTALL -eq 1 ]] && iUPDATE=0 # Reset iUPDATE to 0 so update and install can run in the same invocation
+        [[ $install -eq 1 ]] && update=0 # Reset update to 0 so update and install can run in the same invocation
     fi
 
     # Install a package
-    if [[ $iINSTALL -eq 1 ]] && [[ $iUPDATE -eq 0 ]]; then
-        InstallGEVersion "$sINSTALL_VERSION" # NOTE sINSTALL_VERSION is set in getops
+    if [[ $install -eq 1 ]] && [[ $update -eq 0 ]]; then
+        InstallGEVersion "$install_version" # NOTE install_version is set in getops
     fi
 
     # List installed versions
-    [[ $iLIST_INSTALLED_GE_VERSIONS -eq 1 ]] && ListInstalledGEVersions
+    [[ $list_installed_versions -eq 1 ]] && ListInstalledGEVersions
 
     # Report entire install path disk usage and file count
-    [[ $iREPORT_INSTALL_PATH_USAGE -eq 1 ]] && ReportGEDiskUsage
+    [[ $report_install_path_usage -eq 1 ]] && ReportGEDiskUsage
 
     # Report disk usage and file count for a specific version
-    [[ $iREPORT_VERSION_USAGE -eq 1 ]] && ReportGEDiskUsage "$sREPORT_VERSION"
+    [[ $report_version_usage -eq 1 ]] && ReportGEDiskUsage "$report_version"
 
     # Run verify if remove install path and remove saved packages wasn't requested
     # TODO add support to verify even if remove saved packages and/or remove install path was invoked
     # so long as some sort of install was also requested. Additionally, maybe support installing a version
     # that is not installed when verify is called and force mode is active.
-    if [[ $iVERIFY -eq 1 ]] && [[ $iREMOVE_INSTALL_PATH -ne 1 && $iREMOVE_ALL_SAVED_PACKAGES -ne 1 ]]; then
-        VerifyGEInstall "${sVERIFY_VERSION-}"
+    if [[ $verify -eq 1 ]] && [[ $remove_install_path -ne 1 && $remove_all_saved_packages -ne 1 ]]; then
+        VerifyGEInstall "${verify_version-}"
     fi
 
     return 0
@@ -2820,7 +2992,7 @@ Main() {
 ###############################################################################
 # EXIT INT trap
 # NOTE This only shows information when debug mode is enable
-trap 'iREAL_EXIT_STATUS=$?; ((iDEBUG)) && DebugMessage "Exit status (before CleanUp): $iREAL_EXIT_STATUS"; CleanUp; ((iDEBUG)) && DebugMessage "Exit status (after CleanUp): $?"; exit $iREAL_EXIT_STATUS' EXIT INT
+trap 'real_exit_status=$?; ((debug)) && DebugMessage "Exit status (before CleanUp): $real_exit_status"; CleanUp; ((debug)) && DebugMessage "Exit status (after CleanUp): $?"; exit $real_exit_status' EXIT INT
 
 ###############################################################################
 # Wait...the end is just a new begining? Always has been.
