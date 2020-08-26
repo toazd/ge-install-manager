@@ -1,14 +1,12 @@
-#!/usr/bin/bash
-ctags --language-force=Sh --sort=no --kinds-Sh='{function}' ge-install-manager
+#!/usr/bin/env bash
 
-regex='^ia.+='
-i=0
-
-while IFS= read -r; do
-    [[ $REPLY =~ $regex ]] && { i=$((i+1)); continue; }
-    printf '%s\n' "$REPLY"
-done < tags > tags.new
-
-echo "Removed $i lines"
-mv -vf tags.new tags
-
+if [[ -f ge-install-manager ]]; then
+    [[ -w $PWD ]] || { echo "No write access to $PWD"; exit 1; }
+    if ctags --language-force=Sh --sort=no --kinds-Sh='{function}' ge-install-manager; then
+        echo "ctags returned success"
+    else
+        echo "ctags returned >0"
+    fi
+else
+    echo "ge-install-manager not found"
+fi
