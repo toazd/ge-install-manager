@@ -3,12 +3,7 @@ Version 0.7.4
 Help:
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
-    Optional:       du, tail, cut (disk usage, file count)
-                    ps (is steam running)
-                    sort, cmp (verify)
-                    envsubst (config file parsing)
-                    fallocate (preallocate package downloads)
-                    trash (used in place of of rm [excluding temporary files])
+    Optional:       du, ps, sort, cmp, envsubst, fallocate, trash
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
@@ -100,4 +95,4 @@ Version history:
     (git log --all --full-history ge-install-manager.sh)
 
 misc-bash/script-sloc:
-ge-install-manager: 1989/2999 SLOC (~66%) [SLOC/Comment:2.94], 676 comments (~22%) [S:~94%,I:~5%] [Comment/SLOC:0.34], 370 empty (~12%)
+ge-install-manager: 1969/2999 SLOC (~65%) [SLOC/Comment:2.80], 703 comments (~23%) [S:~94%,I:~5%] [Comment/SLOC:0.36], 363 empty (~12%)

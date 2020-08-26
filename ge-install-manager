@@ -39,6 +39,7 @@ declare -gr SCRIPT_VERSION="0.7.4"
 declare -gr SCRIPT_CODENAME="Cochrane Bonaventure"
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr TEMP_PREFIX=$SCRIPT_FULL_NAME.tmp.
+declare -g temp_base_path=/tmp # Configuration file: tmp_path
 declare -gi debug=0
 declare -gi remove_install_path=0
 declare -gi remove_all_saved_packages=0
@@ -54,7 +55,8 @@ declare -gi verify=0
 declare -gi show_help=0
 declare -gi show_usage=0
 declare -gi update=0
-declare -g temp_base_path=/tmp # Configuration file: tmp_path
+declare -gi force=0
+declare -gi integration_testing=0
 
 ###############################################################################
 # Purpose: Set global variables that are not required to show help and/or usage
@@ -66,7 +68,6 @@ InitializeGlobalVars() {
     declare -gr CURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
     declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
     declare -gr CURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
-    declare -gi force=0
     declare -gi integration_testing=0
     declare -gi size_bytes_sed_unminify_script=824
     declare -gi real_exit_status=0
@@ -105,12 +106,7 @@ ShowHelp() {
     $(basename "$0")  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
-    Optional:       du, tail, cut (disk usage, file count)
-                    ps (is steam running)
-                    sort, cmp (verify)
-                    envsubst (config file parsing)
-                    fallocate (preallocate package downloads)
-                    trash (used in place of of rm [excluding temporary files])
+    Optional:       du, ps, sort, cmp, envsubst, fallocate, trash
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
@@ -1359,7 +1355,7 @@ END_OF_SED_SCRIPT
 # Return:  0 Yes/True
 #          1 No/False
 # NOTE Currently only checks if a path for the version exists
-# TODO Find a better way
+# TODO Find a better way that is reliable
 IsInstalled() {
 
     local version
@@ -1828,8 +1824,9 @@ DEFAULT_CONFIG
 
 
 ###############################################################################
-# Purpose: Parse the config file specified by file_script_config, validate
-#          recognized key/value pairs and then set global variables accordingly
+# Purpose: Parse the config file set in the global variable file_script_config,
+#          validate recognized key/value pairs and then set/reset global
+#          variables accordingly.
 # Input:   None
 # Output:  None
 # Return:  Always 0
@@ -2243,34 +2240,38 @@ GenerateRandomAlphaNumericString() {
 }
 
 ###############################################################################
-# Attempt to auto-detect the Steam installation path and set the global variable
-# sOVERRITE_DEFAULT_INSTALL_PATH accordingly. That variable is then read by
-# ParseConfigFile to set install_path in the config file accordingly.
-#
-# NOTE ~/.steam/root/compatibilitytools.d #proton-ge-custom install notes
+# Purpose: Attempt to auto-detect the Steam installation path and set the
+#          global variable override_default_install_path to it. That variable
+#          is then read by ParseConfigFile to set install_path in the config
+#          file. If multiple potential install paths are detected the user will
+#          be prompted to choose one of them. If none/exit is chosen or an abort
+#          occurs install_path will remain set to auto.
+# Input:   None
+# Output:  None
+# Return:  Always 0
+# NOTE ~/.steam/root/compatibilitytools.d                                   # proton-ge-custom install notes
 #      /usr/share/steam/compatibilitytools.d
 #      /usr/local/share/steam/compatibilitytools.d
-#      Colon-separated global paths in $STEAM_EXTRA_COMPAT_TOOLS_PATHS
-#      ~/.steam/root/compatibilitytools.d (steam install folder symlink) || ~/.local/share/Steam/compatibilitytools.d
-#
 # flatpak
-#      ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/ #proton-ge-custom install notes
+#      ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/  # proton-ge-custom install notes
 #      ~/.var/app/com.valvesoftware.Steam/.local/share/Steam
 #      ~/.var/app/com.valvesoftware.Steam/.steam
+# TODO Colon-separated global paths in $STEAM_EXTRA_COMPAT_TOOLS_PATHS
+#      ~/.steam/root/compatibilitytools.d (steam install folder symlink) || ~/.local/share/Steam/compatibilitytools.d
 DetectSteamInstallPath () {
 
     override_default_install_path=''
 
-    local i=0
-    local sCHECK_PATH
-    local iaVALID_PATHS=()
-    local iaSEARCH_PATHS=("$HOME/.steam/root" \
-                          "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
-                          "/usr/share/steam" \
-                          "/usr/local/share/steam" \
-                          "$HOME/.var/app/com.valvesoftware.Steam/data/Steam" \
-                          "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
-                          "$HOME/.var/app/com.valvesoftware.Steam/.steam")
+    local -i i=0
+    local check_path
+    local -a valid_paths
+    local -a search_paths=("$HOME/.steam/root" \
+                           "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
+                           "/usr/share/steam" \
+                           "/usr/local/share/steam" \
+                           "$HOME/.var/app/com.valvesoftware.Steam/data/Steam" \
+                           "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
+                           "$HOME/.var/app/com.valvesoftware.Steam/.steam")
 
     #sSTEAMSH=$(find / -xdev -type f -name "steam.sh" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
     #sSTEAMCOMPATTOOLSD=$(find / -xdev -type d -name "compatibilitytools.d" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
@@ -2312,55 +2313,57 @@ DetectSteamInstallPath () {
     # Search each known possible, existing Steam install path path for steam.sh
     #
     # ~/.steam/root/compatibilitytools.d
-    ((debug)) && DebugMessage "iaSEARCH_PATHS: ${#iaSEARCH_PATHS[@]}"
-    for sCHECK_PATH in "${iaSEARCH_PATHS[@]}"; do
-        ((debug)) && DebugMessage "Checking \"$sCHECK_PATH\""
-        if [[ -f $sCHECK_PATH/steam.sh ]]; then
-            ((debug)) && DebugMessage "steam.sh found in $sCHECK_PATH"
-            iaVALID_PATHS+=("$sCHECK_PATH")
+    ((debug)) && DebugMessage "search_paths: ${#search_paths[@]}"
+    for check_path in "${search_paths[@]}"; do
+        ((debug)) && DebugMessage "Checking \"$check_path\""
+        if [[ -f $check_path/steam.sh ]]; then
+            ((debug)) && DebugMessage "steam.sh found in $check_path"
+            valid_paths+=("$check_path")
         else
-            ((debug)) && DebugMessage "steam.sh not found in $sCHECK_PATH"
+            ((debug)) && DebugMessage "steam.sh not found in $check_path"
         fi
     done
 
-    ((debug)) && DebugMessage "#iaVALID_PATHS: ${#iaVALID_PATHS[@]}"
-    ((debug)) && DebugMessage "iaVALID_PATHS[*]: ${iaVALID_PATHS[*]}"
+    ((debug)) && DebugMessage "#valid_paths: ${#valid_paths[@]}"
+    ((debug)) && DebugMessage "valid_paths[*]: ${valid_paths[*]}"
 
-    if [[ ${#iaVALID_PATHS[@]} -eq 0 ]]; then
+    if [[ ${#valid_paths[@]} -eq 0 ]]; then
         printf '%s\n%s\n%s\n' \
                "ERROR: Unable to detect Steam installation path" \
                "You will need to configure install_path manually in the configuration file" \
                "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
         override_default_install_path=""
+
     # Prefer to use the symlink if two paths were found and one is a link to the other
-    elif [[ ${#iaVALID_PATHS[@]} -eq 1 ]] || [[ ${#iaVALID_PATHS[@]} -eq 2 && ${iaVALID_PATHS[0]} -ef ${iaVALID_PATHS[1]} ]]; then
+    elif [[ ${#valid_paths[@]} -eq 1 ]] || [[ ${#valid_paths[@]} -eq 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]; then
         printf '%s\n%s\n%s\n' \
-               "Steam install path detected as \"${iaVALID_PATHS[0]}\"" \
+               "Steam install path detected as \"${valid_paths[0]}\"" \
                "If that path is incorrect, manually adjust install_path in the configuration file" \
                "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
-        override_default_install_path=${iaVALID_PATHS[0]}
-    # Multiple paths detected and the first and second paths checked above are not linked
-    elif [[ ${#iaVALID_PATHS[@]} -gt 1 ]] && [[ ${iaVALID_PATHS[0]} -ef ${iaVALID_PATHS[1]} ]]; then
+        override_default_install_path=${valid_paths[0]}
+
+    # Multiple paths detected with or without the Steam home link pointing to one of them
+    elif [[ ${#valid_paths[@]} -gt 1 && ! ${valid_paths[0]} -ef ${valid_paths[1]} ]] || [[ ${#valid_paths[@]} -gt 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]; then
         echo "Multiple Steam install paths detected:"
-        for (( i=0; i < ${#iaVALID_PATHS[@]}; i++ )); do
-            echo "($((i+1))) ${iaVALID_PATHS[i]}"
+        for (( i=0; i < ${#valid_paths[@]}; i++ )); do
+            echo "($(( i + 1 ))) ${valid_paths[i]}"
         done
 
         echo "Choose a path from above or type in exit/quit"
         while :; do
-            read -rp "Enter a number from 1-${#iaVALID_PATHS[@]}: " </dev/tty
+            read -rp "Enter a number from 1-${#valid_paths[@]}: " </dev/tty
             [[ $REPLY = @(exit|quit) ]] && {
                 override_default_install_path=""
                 break
             }
-            REPLY=${REPLY//[!0-9]/} # typos happen
+            REPLY=${REPLY//[!0-9]/} # Remove characters that are not {0..9}
             case $REPLY in
                 (*[[:digit:]]*)
-                    if [[ $REPLY -lt 1 || $REPLY -ge $(( ${#iaVALID_PATHS[@]} + 1 )) ]]; then
+                    if [[ $REPLY -lt 1 || $REPLY -ge $(( ${#valid_paths[@]} + 1 )) ]]; then
                         echo "Invalid choice"
                     else
-                        ((debug)) && DebugMessage "Setting override_default_install_path to \"${iaVALID_PATHS[$((REPLY-1))]}\""
-                        override_default_install_path=${iaVALID_PATHS[$((REPLY-1))]}
+                        ((debug)) && DebugMessage "Setting override_default_install_path to \"${valid_paths[$((REPLY-1))]}\""
+                        override_default_install_path=${valid_paths[$((REPLY-1))]}
                         printf '%s\n%s\n%s\n' \
                                "You have chosen the path \"$override_default_install_path\"" \
                                "If that is not correct adjust install_path in the configuration file accordingly" \
@@ -2374,8 +2377,9 @@ DetectSteamInstallPath () {
         done
 
         [[ -z $override_default_install_path ]] && {
-            echo "You will need to manually set install_path in the configuration file"
-            echo "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+            printf '%s\n%s\n' \
+                   "You will need to manually set install_path in the configuration file" \
+                   "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
             override_default_install_path="auto"
         }
     fi
@@ -2384,10 +2388,15 @@ DetectSteamInstallPath () {
 }
 
 ###############################################################################
-# Ensure critical paths exist and the script has the correct permissions to them
+# Purpose: Ensure critical paths exist and that the script has the required
+#          permissions to each of them.
+# Input:   None
+# Output:  None
+# Return:  0 (Success) All checks passed
+#          1 (Failure) Any one check failed
 SetupEnvironment() {
 
-    local iFAILED=0
+    local -i flag_failed=0
 
     # install_path
     if [[ -d $install_path ]]; then
@@ -2397,7 +2406,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Script does not have write access to install_path"
             echo "Invalid install path: \"$install_path\""
-            iFAILED=1
+            flag_failed=1
         fi
     elif [[ ! -d $install_path ]]; then
         ((debug)) && DebugMessage "install_path not found. Creating at \"$install_path\""
@@ -2406,7 +2415,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Create install path failed"
             echo "Invalid install path: \"$install_path\""
-            iFAILED=1
+            flag_failed=1
         fi
     fi
 
@@ -2418,7 +2427,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Script does not have write access to script_config_path"
             echo "Invalid config path: \"$script_config_path\""
-            iFAILED=1
+            flag_failed=1
         fi
     elif [[ ! -d $script_config_path ]]; then
         ((debug)) && DebugMessage "script_config_path not found. Creating at \"$script_config_path\""
@@ -2427,7 +2436,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Create config path failed"
             echo "Invalid config path: \"$script_config_path\""
-            iFAILED=1
+            flag_failed=1
         fi
     fi
 
@@ -2439,7 +2448,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Script does not have write access to script_cache_path"
             echo "Invalid cache path: \"$script_cache_path\""
-            iFAILED=1
+            flag_failed=1
         fi
     elif [[ ! -d $script_cache_path ]]; then
         ((debug)) && DebugMessage "script_cache_path not found. Creating at \"$script_cache_path\""
@@ -2448,7 +2457,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Create cache path failed"
             echo "Invalid cache path: \"$script_cache_path\""
-            iFAILED=1
+            flag_failed=1
         fi
     fi
 
@@ -2460,14 +2469,14 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Script does not have write access to file_script_config"
             echo "No write access to config file: \"$file_script_config\""
-            iFAILED=1
+            flag_failed=1
         fi
         if [[ -r $file_script_config ]]; then
             ((debug)) && DebugMessage "Script has read access to file_script_config"
         else
             ((debug)) && DebugMessage "Script does not have read access to file_script_config"
             echo "No read access to config file: \"$file_script_config\""
-            iFAILED=1
+            flag_failed=1
         fi
     elif [[ ! -f $file_script_config ]]; then
         ((debug)) && DebugMessage "file_script_config not found. Creating at \"$file_script_config\""
@@ -2476,7 +2485,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Create script config file failed"
             echo "Failed to create config file: \"$file_script_config\""
-            iFAILED=1
+            flag_failed=1
         fi
     fi
 
@@ -2488,7 +2497,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Script does not have write access to temp_base_path"
             echo "Invalid tmp_path path: \"$temp_base_path\""
-            iFAILED=1
+            flag_failed=1
         fi
     elif [[ ! -d $temp_base_path ]]; then
         ((debug)) && DebugMessage "temp_base_path not found. Creating at \"$temp_base_path\""
@@ -2497,7 +2506,7 @@ SetupEnvironment() {
         else
             ((debug)) && DebugMessage "Create cache path failed"
             echo "Invalid tmp_path path: \"$temp_base_path\""
-            iFAILED=1
+            flag_failed=1
         fi
     fi
 
@@ -2517,10 +2526,10 @@ SetupEnvironment() {
         }
     }
 
-    if [[ $iFAILED -eq 0 ]]; then
+    if [[ $flag_failed -eq 0 ]]; then
         ((debug)) && DebugMessage "All tasks succeeded"
         return 0
-    elif [[ $iFAILED -eq 1 ]]; then
+    elif [[ $flag_failed -eq 1 ]]; then
         ((debug)) && DebugMessage "One or more tasks failed"
         return 1
     fi
@@ -2529,54 +2538,43 @@ SetupEnvironment() {
 }
 
 ###############################################################################
-# Check for required commands and report if any are missing
+# Purpose: Check for minimum required external commands for basic functionality
+#          and report if any are missing.
+# Input:   None
+# Output:  None
+# Return:  0 (Success) All checks passed
+#          1 (Failure) Any one check failed
 CheckRequirements() {
 
-    local iFAILED=0
+    local -i flag_failed=0
+    local -a required_commands=(curl sed tar gzip stat wc)
 
-    # check for all required commands
+    while IFS= read -r; do
+        [[ ${REPLY,,} == *is* ]] && { ((debug)) && DebugMessage "$REPLY"; continue; }
+        [[ ${REPLY,,} == *"not found"* ]] && {
+            REPLY=${REPLY#*:} # remove script_name:
+            REPLY=${REPLY#*:} # remove lineno:
+            # Remove a leading space if found
+            [[ ${REPLY:0:1} = [[:blank:]] ]] && REPLY=${REPLY/#[[:blank:]]}
+            echo "Required $REPLY"
+            flag_failed=1
+        }
+    done < <(command -V "${required_commands[@]}" 2>&1)
 
-    if ! command -v curl >/dev/null; then
-        echo "($LINENO) CheckRequirements: Command 'curl' is required"
-        iFAILED=1
-    fi
-
-    if ! command -v sed >/dev/null; then
-        echo "($LINENO) CheckRequirements: Command 'sed' is required"
-        iFAILED=1
-    fi
-
-    if ! command -v tar >/dev/null; then
-        echo "($LINENO) CheckRequirements: Command 'tar' is required"
-        iFAILED=1
-    fi
-
-    if ! command -v gzip >/dev/null; then
-        echo "($LINENO) CheckRequirements: Command 'gzip' is required"
-        iFAILED=1
-    fi
-
-    if ! command -v stat >/dev/null; then
-        echo "($LINENO) CheckRequirements: Command 'stat' is required"
-        iFAILED=1
-    fi
-
-    if ! command -v wc >/dev/null; then
-        echo "($LINENO) CheckRequirements: Command 'wc' is required"
-        iFAILED=1
-    fi
-
-    if [[ $iFAILED -eq 0 ]]; then
+    if [[ $flag_failed -eq 0 ]]; then
         ((debug)) && DebugMessage "All tasks succeeded"
         return 0
-    elif [[ $iFAILED -eq 1 ]]; then
+    elif [[ $flag_failed -eq 1 ]]; then
         ((debug)) && DebugMessage "One or more tasks failed"
         return 1
     fi
 }
 
 ###############################################################################
-# A simple helper function used only for debugging and integration testing
+# Purpose: A simple helper function used only for testing
+# Input:   None
+# Output:  None
+# Return:  Always 0
 ShowConsoleDiff() {
 
     [[ $# -ne 2 ]] && { echo "It takes two to tango!"; return 1; }
@@ -2595,19 +2593,23 @@ ShowConsoleDiff() {
 }
 
 ###############################################################################
-# Output to stderr a message and also report the calling line and calling function
-# Almost mimic the caller built-in but exclude the source file name and 'main'
+# Purpose: Print a supplied message to stderr and prefix that message with the
+#          line number that called this function followed by a function trace
+#          that excludes "main". Similar to the caller built-in.
+# Input:   1 (required) A string (the message to output)
+# Output:  None
+# Return:  Always 0
 DebugMessage() {
 
     # If debug mode is not active, do nothing
     [[ $debug -eq 1 ]] || return 0
     [[ -z ${1-} ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
 
-    local i
+    local -i i
 
     # Calling line number
     printf '%s' "(${BASH_LINENO[0]})[" 1>&2
-    for ((i=$((${#FUNCNAME[@]}-2));i>1;i--)); do
+    for (( i=$(( ${#FUNCNAME[@]} - 2 )); i>1; i-- )); do
         # Function trace (excluding 'main')
         printf '%s' "${FUNCNAME[i]}," 1>&2
     done
@@ -2620,41 +2622,12 @@ DebugMessage() {
 }
 
 ###############################################################################
-# Diagnostic tool - exactly -fzZ invokes this function
+# Purpose: Provide a basic diagnostic tool that reports environment information.
+# Input:   None
+# Output:  None
+# Return:  Always 0
+# NOTE Exactly -fzZ invokes this function
 ReportEnvironmentInfo() {
-
-    # All hope abandon, ye who enter here!
-    #-------------------------------------------------------------------------------------
-    if [[ $integration_testing -eq 1 ]]; then
-        if InitializeGlobalVars; then
-            if CheckRequirements; then
-                if ParseConfigFile; then
-                    exit
-                fi
-            fi
-        fi
-        #if MemFree "1597756"; then
-        #    ((debug)) && DebugMessage "MemFree returned success"
-        #else
-        #    ((debug)) && DebugMessage "MemFree returned failure"
-        #fi
-
-        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "b") bytes remaining on $temp_base_path"
-        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "k") kibibytes remaining on $temp_base_path"
-        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "m") mebibytes remaining on $temp_base_path"
-        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "g") gibibytes remaining on $temp_base_path"
-        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "t") tebibytes remaining on $temp_base_path"
-        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "p") pebibytes remaining on $temp_base_path"
-        #((debug)) && DebugMessage "$(SpaceRemaining "$temp_base_path" "e") exbibytes remaining on $temp_base_path"
-
-        #CreateBackup "/home/toazd/.config/ge-install-manager/ge-install-manager.conf"
-        #CreateBackup "/home/toazd/github/personal/scripts/bash/ge-install-manager/tmp"
-
-        #SpaceRemaining "$temp_base_path" "b"
-        :
-    fi
-    ((integration_testing)) && exit
-    #-------------------------------------------------------------------------------------
 
     echo "###############################################################################"
 
@@ -2696,36 +2669,57 @@ ReportEnvironmentInfo() {
 }
 
 ###############################################################################
-# Remove any temporary files/paths created by the script if debug mode is not enabled
+# Purpose: Provide a function to test new features and/or changes independent
+#          of the rest of the script.
+# Input:   None
+# Output:  None
+# Return:  Always 0
+# NOTE Exactly -fzT invokes this function
+# # All hope abandon, ye who enter here!
+ProvingGround() {
+
+    [[ $integration_testing -eq 1 ]] && {
+        CheckRequirements
+    }
+
+    exit
+}
+
+###############################################################################
+# Purpose: Remove any temporary files/paths created by the script if debug mode
+#          is not enabled
+# Input:   None
+# Output:  None
+# Return:  Always 0
 CleanUp() {
 
-    local sNODE
+    local node
 
-    for sNODE in "$temp_base_path/$TEMP_PREFIX"*; do
-        # paths
-        [[ -d $sNODE ]] && {
-            ((debug)) && DebugMessage "Temporary path found at \"$sNODE\""
+    for node in "$temp_base_path/$TEMP_PREFIX"*; do
+        # Paths
+        [[ -d $node ]] && {
+            ((debug)) && DebugMessage "Temporary path found at \"$node\""
             if [[ $debug -eq 1 ]]; then
                 DebugMessage "Debug enabled. Temporary path not removed."
             else
-                if rm -r "$sNODE"; then
+                if rm -r "$node"; then
                     DebugMessage "Temporary path removed"
                 else
-                    echo "($LINENO) CleanUp: Failed to remove temporary path: \"$sNODE\""
+                    echo "($LINENO) CleanUp: Failed to remove temporary path: \"$node\""
                 fi
             fi
         }
 
-        # files
-        [[ -f $sNODE ]] && {
-            ((debug)) && DebugMessage "Tmp file found at \"$sNODE\""
+        # Files
+        [[ -f $node ]] && {
+            ((debug)) && DebugMessage "Temp file found at \"$node\""
             if [[ $debug -eq 1 ]]; then
                 DebugMessage "Debug enabled. Temporary file not removed."
             else
-                if rm "$sNODE"; then
+                if rm "$node"; then
                     DebugMessage "Temporary file removed"
                 else
-                    echo "($LINENO) CleanUp: Failed to remove temporary file: \"$sNODE\""
+                    echo "($LINENO) CleanUp: Failed to remove temporary file: \"$node\""
                 fi
             fi
         }
@@ -2735,11 +2729,13 @@ CleanUp() {
 }
 
 ###############################################################################
-# Parse command line parameters and set global variables according to what was
-# requested. Order of operations for invocations that involve multiple parameters
-# are listed at the end of the usage section.
-# TODO write something that doesn't use getopts so multiple identical parameters
-#      can be used in one invocation.
+# Purpose: Parse command line parameters using getopts and set global variables
+#          according to what was requested.
+# Input:   None
+# Output:  None
+# Return:  getopts exist status (man getopts):
+#          0  (An option, specified or unspecified by optstring, was found.)
+#          >0 (The end of options was encountered or an error occurred.)
 ParseParameters() {
     OPTERR=1 # make sure it's on
     while getopts 'zZThHflSs:i:d:R:r:NuUXv:V' sOPT; do
@@ -2747,11 +2743,15 @@ ParseParameters() {
             (h) show_help=1 ;;
             (H) show_usage=1 ;;
             (f) force=1 ;;
-            (T) integration_testing=1 ;; # -fTzZ (undocumented, used for integration testing new features)
             (z) debug=1 ;;
+            (T) if [[ $force -eq 1 ]] && [[ $debug -eq 1 ]]; then
+                    integration_testing=1
+                    ProvingGround
+                fi
+            ;;
             (Z)
                 if [[ $force -eq 1 ]] && [[ $debug -eq 1 ]]; then
-                    ReportEnvironmentInfo # exactly -fzZ (undocumented diagnostic tool)
+                    ReportEnvironmentInfo
                 fi
             ;;
             (u) check_update=1 ;;
@@ -2785,17 +2785,17 @@ ParseParameters() {
                 verify=1
                 verify_version=$OPTARG
             ;;
-            (":"|"?")
-                return 1
-            ;;
+            (":"|"?") return 1 ;;
         esac
     done
-
-    return 0
 }
 
 ###############################################################################
-
+# Purpose: Supervise and control the flow of the script depending on how it was invoked
+# Input:   1 (required) "$@" (all command line positional parameters)
+# Output:  None
+# Return:  0 (Success)
+#          1 (An error occured)
 Main() {
 
     # Parse script parameters and arguments, set global variables
@@ -2830,7 +2830,7 @@ Main() {
             DebugMessage "Nothing to do, showing help"
         }
 
-        # report latest version installed status
+        # Report latest version installed status
         #if GetLatestGEVersion; then
         #    if IsInstalled "$latest_version"; then
         #        echo "The latest version \"$latest_version\" is installed"
@@ -2857,7 +2857,6 @@ Main() {
         exit 0
     fi
 
-    # TODO
     if InitializeGlobalVars; then
         if CheckRequirements; then
             if ParseConfigFile; then
@@ -2874,7 +2873,6 @@ Main() {
         exit 1
     fi
 
-    #TODO
     CreateSedUnminifyJSONscript
 
     # checkupdate
@@ -2990,11 +2988,13 @@ Main() {
 }
 
 ###############################################################################
-# EXIT INT trap
-# NOTE This only shows information when debug mode is enable
+# Purpose: Run the function CleanUp on SIGEXIT or SIGINT
+#          Save the exit status of the last executed command before invoking
+#          the CleanUp function. Report both the saved exit status and the exit
+#          status of CleanUp if debug mode is enabled.
 trap 'real_exit_status=$?; ((debug)) && DebugMessage "Exit status (before CleanUp): $real_exit_status"; CleanUp; ((debug)) && DebugMessage "Exit status (after CleanUp): $?"; exit $real_exit_status' EXIT INT
 
 ###############################################################################
-# Wait...the end is just a new begining? Always has been.
+# Wait...the end is just a new beginning? Always has been.
 
 Main "$@"
