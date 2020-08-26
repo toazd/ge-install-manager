@@ -55,7 +55,7 @@ declare -gi verify=0
 declare -gi show_help=0
 declare -gi show_usage=0
 declare -gi update=0
-declare -gi force=0
+declare -gi force=0 # Required only for -fzT
 declare -gi integration_testing=0
 
 ###############################################################################
@@ -2676,7 +2676,7 @@ ReportEnvironmentInfo() {
 # Return:  Always 0
 # NOTE Exactly -fzT invokes this function
 # # All hope abandon, ye who enter here!
-ProvingGround() {
+ProvingGrounds() {
 
     [[ $integration_testing -eq 1 ]] && {
         CheckRequirements
@@ -2746,7 +2746,7 @@ ParseParameters() {
             (z) debug=1 ;;
             (T) if [[ $force -eq 1 ]] && [[ $debug -eq 1 ]]; then
                     integration_testing=1
-                    ProvingGround
+                    ProvingGrounds
                 fi
             ;;
             (Z)

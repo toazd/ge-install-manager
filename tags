@@ -13,6 +13,7 @@ GetLatestGEVersion	ge-install-manager	/^GetLatestGEVersion() {$/;"	f
 UpdateSavedGELatestRelease	ge-install-manager	/^UpdateSavedGELatestRelease() {$/;"	f
 UpdateSavedGEReleases	ge-install-manager	/^UpdateSavedGEReleases() {$/;"	f
 DownloadGEPackage	ge-install-manager	/^DownloadGEPackage() {$/;"	f
+UpdateGEVersion	ge-install-manager	/^UpdateGEVersion() {$/;"	f
 InstallGEVersion	ge-install-manager	/^InstallGEVersion() {$/;"	f
 RemoveGEVersion	ge-install-manager	/^RemoveGEVersion() {$/;"	f
 ExtractGEPackage	ge-install-manager	/^ExtractGEPackage() {$/;"	f
@@ -45,6 +46,7 @@ CheckRequirements	ge-install-manager	/^CheckRequirements() {$/;"	f
 ShowConsoleDiff	ge-install-manager	/^ShowConsoleDiff() {$/;"	f
 DebugMessage	ge-install-manager	/^DebugMessage() {$/;"	f
 ReportEnvironmentInfo	ge-install-manager	/^ReportEnvironmentInfo() {$/;"	f
+ProvingGrounds	ge-install-manager	/^ProvingGrounds() {$/;"	f
 CleanUp	ge-install-manager	/^CleanUp() {$/;"	f
 ParseParameters	ge-install-manager	/^ParseParameters() {$/;"	f
 Main	ge-install-manager	/^Main() {$/;"	f
