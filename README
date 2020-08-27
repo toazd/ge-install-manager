@@ -3,7 +3,7 @@ Version 0.7.4
 Help:
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
-    Optional:       du, ps, sort, cmp, envsubst, fallocate, trash
+    Optional:       date, du, ps, sort, cmp, envsubst, fallocate, trash
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
@@ -94,5 +94,5 @@ Version history:
   Commit history for ge-install-manager.sh:
     (git log --all --full-history ge-install-manager.sh)
 
-misc-bash/script-sloc:
-1969/2999 SLOC (65%) [SLOC/Comment:2.80], 703 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.36], 363 empty (12%)
+misc-bash/script-sloc ge-install-manager:
+2024/3080 SLOC (65%) [SLOC/Comment:2.81], 720 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.35], 373 empty (12%)
