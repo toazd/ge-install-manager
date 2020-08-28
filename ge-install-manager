@@ -23,7 +23,7 @@ set -huo pipefail
 
 # -a Remove all alias definitions.
 # NOTE If the shebang is changed, this may have undesired behavior
-builtin unalias -a
+unalias -a
 
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
@@ -105,7 +105,7 @@ InitializeGlobalVars() {
 # Return:  Always 0
 ShowHelp() {
 
-    (cat) <<HELP_HEREDOC
+    cat <<HELP_HEREDOC
 
     $(basename "$0")  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
@@ -148,7 +148,7 @@ HELP_HEREDOC
 # Return: Always 0
 ShowUsage() {
 
-     (cat) <<USAGE_HEREDOC
+     cat <<USAGE_HEREDOC
 Usage:
 
   - Acceptable formats for <version>:
@@ -311,6 +311,7 @@ DownloadGEPackage() {
     local temp_path
     local temp_package
     local temp_path_remaining_bytes
+    local install_path_remaining_bytes
     local expected_size_bytes
     local package_download_url
     local -i downloaded_package_size_bytes=0
@@ -320,27 +321,43 @@ DownloadGEPackage() {
     [[ -z $version ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
     temp_path=$(MkTempPath) || { ((debug)) && DebugMessage "MkTempPath returned failure"; return 1; }
     temp_package=$temp_path/Proton-${version}.tar.gz
-    temp_path_remaining_bytes=$(SpaceRemaining "$temp_path" "b") || { ((debug)) && DebugMessage "SpaceRemaining returned failure"; return 1; }
+    temp_path_remaining_bytes=$(SpaceRemaining "$temp_path" "b") || { ((debug)) && DebugMessage "SpaceRemaining returned failure checking $temp_path"; return 1; }
+    install_path_remaining_bytes=$(SpaceRemaining "$install_path" "b") || { ((debug)) && DebugMessage "SpaceRemaining returned failure checking $install_path"; return 1; }
     package_download_url=$(QueryGEAttribute "$version" "browser_download_url") || { ((debug)) && DebugMessage "QueryGEAttribute browser_download_url returned failure"; return 1; }
     expected_size_bytes=$(QueryGEAttribute "$version" "size") || { ((debug)) && DebugMessage "QueryGEAttribute size returned failure"; return 1; }
     [[ -z $package_download_url ]] && { ((debug)) && DebugMessage "package_download_url is NULL"; return 1; }
 
+    # Check if there is enough free space to copy the package to install_path
+    if [[ $expected_size_bytes -gt $install_path_remaining_bytes ]]; then
+        printf '%s\n%s\n' \
+               "WARNING: Not enough free space at \"$install_path\"" \
+               "Need at least $expected_size_bytes bytes but there is only $install_path_remaining_bytes bytes free"
+        exit 1
+    else
+        ((debug)) && {
+            DebugMessage "install_path ($install_path) remaining bytes: $install_path_remaining_bytes"
+            DebugMessage "temp_path ($temp_path) remaining bytes: $temp_path_remaining_bytes"
+            DebugMessage "Expected package size (bytes): $expected_size_bytes"
+        }
+    fi
+
     # If there is not enough free space remaining on the temp_path file system
-    # TODO Use a different path as a fallback
+    # TODO Use a different path as a fallback?
     if [[ $temp_path_remaining_bytes -lt $expected_size_bytes ]]; then
         ((debug)) && DebugMessage "Free space on \"$temp_path\" is $temp_path_remaining_bytes bytes"
-        builtin printf '%s\n%s\n' \
-                       "Not enough free space on \"$temp_path\" (need at least $expected_size_bytes bytes)" \
-                       "Free up space or change tmp_path in the configuration file"
-        return 1
+        printf '%s\n%s\n%s\n' \
+               "WARNING: Not enough free space at \"$temp_path\"" \
+               "Need at least $expected_size_bytes bytes but there is only $temp_path_remaining_bytes bytes free" \
+               "Free up space or change tmp_path in the configuration file"
+        exit 1
     else
         # If fallocate is found, preallocate the file to be downloaded
-        if builtin command -v fallocate &>/dev/null; then
+        if command -v fallocate &>/dev/null; then
             if fallocate -l "$expected_size_bytes" -- "$temp_package"; then
                 ((debug)) && DebugMessage "fallocate succeeded"
             else
-                #builtin echo "Failed to preallocate \"$sTMP_FILE\", download may fail"
-                ((debug)) && DebugMessage "fallocate failed (-l $expected_size_bytes -- $temp_package)"
+                #echo "Failed to preallocate \"$sTMP_FILE\", download may fail"
+                ((debug)) && DebugMessage "\"fallocate -l $expected_size_bytes -- $temp_package\" returned failure"
                 [[ -f $temp_package ]] && rm -f -- "$temp_package"
             fi
         else
@@ -349,7 +366,7 @@ DownloadGEPackage() {
     fi
 
     # Attempt to retrieve the package with curl
-    builtin echo "Downloading \"$package_download_url\""
+    echo "Downloading \"$package_download_url\""
     if curl -# -L "$package_download_url" -o "$temp_package"; then
 
         # Get the file size in bytes
@@ -359,18 +376,18 @@ DownloadGEPackage() {
         # A file size of 9 bytes indicates the response was "Not Found"
         # TODO Also check for rate limit exceeded - need a sample file first
         if [[ $downloaded_package_size_bytes -eq 9 ]]; then
-            builtin echo "Server responded \"Not Found\" for version \"$version\""
+            echo "Server responded \"Not Found\" for version \"$version\""
             CleanUp
             return 1
         fi
 
         # Check if the the package size and expected size are equal
         if [[ $downloaded_package_size_bytes -eq $(QueryGEAttribute "$version" "size") ]]; then
-            builtin echo "Downloaded package is the expected size ($expected_size_bytes bytes)"
+            echo "Downloaded package is the expected size ($expected_size_bytes bytes)"
         else
-            builtin printf '%s\n%s\n' \
-                           "Downloaded file size and expected size do not match" \
-                           "(\"$downloaded_package_size_bytes\" vs \"$expected_size_bytes\")"
+            printf '%s\n%s\n' \
+                   "Downloaded file size and expected size do not match" \
+                   "(\"$downloaded_package_size_bytes\" vs \"$expected_size_bytes\")"
            CleanUp
            return 1
         fi
@@ -379,17 +396,17 @@ DownloadGEPackage() {
         ((debug)) && DebugMessage "Copying package \"$temp_package\" to \"$install_path\""
         if cp -- "$temp_package" "$install_path"; then
             ((debug)) && DebugMessage "Package copied successfully"
-            builtin echo "Download succeeded"
+            echo "Download succeeded"
             CleanUp
         else
             ((debug)) && DebugMessage "Copy package from \"$temp_package\" to \"$install_path\" failed"
-            builtin echo "Download failed"
+            echo "Download failed"
             CleanUp
             return 1
         fi
     else
         # curl returned >0
-        builtin echo "Download failed"
+        echo "Download failed"
         CleanUp
         return 1
     fi
@@ -462,21 +479,21 @@ InstallGEVersion() {
     # Re-install a version that is already installed
     if (IsInstalled "$version"); then
         if [[ $force -eq 0 ]]; then
-            builtin echo "Version \"$version\" is already installed"
+            echo "Version \"$version\" is already installed"
             return 0
         elif [[ $force -eq 1 ]]; then
             if (IsSteamRunning); then
-                builtin echo "Please close Steam before re-installing a version that is already installed"
+                echo "Please close Steam before re-installing a version that is already installed"
                 return 1
             else
-                builtin echo "Forcing re-install of version \"$version\""
+                echo "Forcing re-install of version \"$version\""
             fi
         fi
     fi
 
     # if a saved package exists and force mode is not active
     if [[ -f $install_path/Proton-${version}.tar.gz ]] && [[ $force -eq 0 ]]; then
-        builtin echo "Using saved package: \"$install_path/Proton-${version}.tar.gz\""
+        echo "Using saved package: \"$install_path/Proton-${version}.tar.gz\""
         if (ExtractGEPackage "$version"); then
             return 0
         else
@@ -484,11 +501,11 @@ InstallGEVersion() {
         fi
     # if a saved package exists and force mode is active
     elif [[ -f $install_path/Proton-${version}.tar.gz ]] && [[ $force -eq 1 ]]; then
-        builtin echo "Removing saved package \"$install_path/Proton-${version}.tar.gz\""
+        echo "Removing saved package \"$install_path/Proton-${version}.tar.gz\""
         if ($command_rm -- "$install_path/Proton-${version}.tar.gz"); then
-            builtin echo "Package removed"
+            echo "Package removed"
         else
-            builtin echo "Removing package failed"
+            echo "Removing package failed"
             return 1
         fi
     fi
@@ -496,14 +513,14 @@ InstallGEVersion() {
     # If a saved package for this version doesn't exist or it was removed, download it and install it
     if (DownloadGEPackage "$version"); then
         if (ExtractGEPackage "$version"); then
-            builtin echo "Installation of version \"$version\" was successful"
+            echo "Installation of version \"$version\" was successful"
             return 0
         else
-            builtin echo "Installation of version \"$version\" failed"
+            echo "Installation of version \"$version\" failed"
             return 1
         fi
     else
-        builtin echo "Version \"$version\" not found"
+        echo "Version \"$version\" not found"
         return 1
     fi
 
@@ -535,17 +552,17 @@ RemoveGEVersion() {
             disk_usage=$(du -sh -- "$remove_path" 2>/dev/null)
             disk_usage=${disk_usage%[[:space:]]*}
             if ($command_rm -rf -- "$remove_path" &>/dev/null); then
-                builtin echo "Removed path \"$remove_path\" (${disk_usage:-'error'})"
+                echo "Removed path \"$remove_path\" (${disk_usage:-'error'})"
             else
-                builtin echo "Failed to remove \"$remove_path\""
+                echo "Failed to remove \"$remove_path\""
                 return 1
             fi
         else
-            builtin echo "Please close Steam before removing an install path"
+            echo "Please close Steam before removing an install path"
             return 1
         fi
     else
-        builtin echo "Install path not found for version \"$version\""
+        echo "Install path not found for version \"$version\""
     fi
 
     return 0
@@ -572,23 +589,23 @@ ExtractGEPackage() {
     [[ ! -d $extract_path && -w $extract_path ]] && { ((debug)) && DebugMessage "Parameter error (not a valid path)"; return 1; }
 
     # Display "Extracting" with trailing dots indicating the extraction progress
-    builtin printf '%s' "Extracting \"$extract_file\" to \"$extract_path\""
+    printf '%s' "Extracting \"$extract_file\" to \"$extract_path\""
     if tar --checkpoint=.10000 -C "$extract_path" -xzf "$extract_file" 2>/dev/null; then
         # Return to the beginning of the line, erase from that position to the end of the line
-        builtin printf '\r\033[0K%s\n' "Package extracted successfully"
+        printf '\r\033[0K%s\n' "Package extracted successfully"
         return 0
     else
         # Return to the beginning of the line, erase from that position to the end of the line
-        builtin printf '\r\033[0K%s\n' "Package extraction failed"
+        printf '\r\033[0K%s\n' "Package extraction failed"
         # If the extraction failed, remove the partially extracted path
         [[ -d $extract_path/Proton-${version} ]] && {
             if ($command_rm -- "$extract_path/Proton-${version}"); then
                 ((debug)) && DebugMessage "Removal succeeded"
-                builtin echo "Removed failed extraction path at \"$extract_path/Proton-${version}\""
+                echo "Removed failed extraction path at \"$extract_path/Proton-${version}\""
             else
-                builtin echo "Failed to remove path of failed extraction: \"$extract_path/Proton-${version}\""
+                echo "Failed to remove path of failed extraction: \"$extract_path/Proton-${version}\""
                 # TODO update/remove message when install verification is updated
-                builtin echo "This script may interpret it as a valid install until it is removed"
+                echo "This script may interpret it as a valid install until it is removed"
             fi
         }
         return 1
@@ -613,18 +630,18 @@ ListInstalledGEVersions() {
 
     ((debug)) && DebugMessage "Install path: \"$install_path\""
 
-    builtin echo "Installed version(s):"
+    echo "Installed version(s):"
     for node in "$install_path"/Proton-*; do
         if [[ -d $node ]]; then
             ((i++))
             # Get the disk usage of the package in human readable format
             IFS=$'\t' read -r -- installed_version_disk_usage path < <(du -sh -- "$node")
-            builtin echo "  ${node##*/} ($installed_version_disk_usage)"
+            echo "  ${node##*/} ($installed_version_disk_usage)"
         fi
     done
-    [[ $i -eq 0 ]] && builtin echo "  None found"
+    [[ $i -eq 0 ]] && echo "  None found"
 
-    builtin echo "Saved package(s):"
+    echo "Saved package(s):"
     i=0
     for node in "$install_path"/Proton-*.tar.gz; do
         if [[ -f $node ]]; then
@@ -633,7 +650,7 @@ ListInstalledGEVersions() {
                 DebugMessage "${node##*/} (size: $(stat -c '%s' -- "$node"), expected size: $(QueryGEAttribute "${node##*/}" "size"))"
             else
                 IFS=$'\t' read -r -- saved_package_disk_usage path < <(du -h -- "$node")
-                builtin echo "  ${node##*/} ($saved_package_disk_usage)"
+                echo "  ${node##*/} ($saved_package_disk_usage)"
             fi
         fi
     done
@@ -642,9 +659,9 @@ ListInstalledGEVersions() {
             [[ $path = "total" ]] && saved_packages_total_disk_usage=$size
         done < <(du -csh -- "$install_path/"*.tar.gz)
 
-        builtin echo "Saved packages total: $saved_packages_total_disk_usage"
+        echo "Saved packages total: $saved_packages_total_disk_usage"
     elif [[ $i -eq 0 ]]; then
-        builtin echo "  None found"
+        echo "  None found"
     fi
 
     return 0
@@ -672,13 +689,13 @@ ReportGEDiskUsage() {
     # NOTE do not return 1 if version is NULL, functionality below depends on it
 
     # Optional commands that are required for this function
-    if ! builtin command -v du &>/dev/null; then
-        builtin echo "Command 'du' not found"
+    if ! command -v du &>/dev/null; then
+        echo "Command 'du' not found"
         missing_command=1
     fi
 
-    if ! builtin command -v find &>/dev/null; then
-        builtin echo "Command 'find' not found"
+    if ! command -v find &>/dev/null; then
+        echo "Command 'find' not found"
         missing_command=1
     fi
 
@@ -690,14 +707,14 @@ ReportGEDiskUsage() {
             if [[ -d $install_path ]]; then
                 disk_usage=$(du -sh -- "$install_path")
                 file_counter=$(find "$install_path" -type f | wc -l)
-                builtin echo "Install path report:"
-                builtin printf '  %s\n  %s\n  %s\n' \
-                               "Path: $install_path" \
-                               "Files: $file_counter" \
-                               "Disk usage: ${disk_usage%%[[:blank:]]*}"
+                echo "Install path report:"
+                printf '  %s\n  %s\n  %s\n' \
+                       "Path: $install_path" \
+                       "Files: $file_counter" \
+                       "Disk usage: ${disk_usage%%[[:blank:]]*}"
             else
                 ((debug)) && DebugMessage "Path: $install_path"
-                builtin echo "Version \"$version\" not found"
+                echo "Version \"$version\" not found"
                 return 1
             fi
         fi
@@ -707,20 +724,20 @@ ReportGEDiskUsage() {
             if [[ -d $path ]]; then
                 disk_usage=$(du -sh -- "$path")
                 file_counter=$(find "$path" -type f | wc -l)
-                builtin echo "Version \"$version\" report:"
-                builtin printf '  %s\n  %s\n  %s\n' \
-                               "Path: $path" \
-                               "Files: $file_counter" \
-                               "Disk usage: ${disk_usage%%[[:blank:]]*}"
+                echo "Version \"$version\" report:"
+                printf '  %s\n  %s\n  %s\n' \
+                       "Path: $path" \
+                       "Files: $file_counter" \
+                       "Disk usage: ${disk_usage%%[[:blank:]]*}"
             else
                 ((debug)) && DebugMessage "Path: $path"
-                builtin echo "Version \"$version\" not found"
+                echo "Version \"$version\" not found"
                 return 1
             fi
         fi
     # If any command check failed
     elif [[ $missing_command -eq 1 ]]; then
-        builtin echo "Report not available."
+        echo "Report not available."
         return 1
     fi
 
@@ -745,18 +762,18 @@ RemoveSavedPackage() {
     if [[ -f $package ]]; then
         if [[ -w $package ]]; then
             if ($command_rm -- "$package"); then
-                builtin echo "Removed \"$package\""
+                echo "Removed \"$package\""
                 return 0
             else
-                builtin echo "Failed to remove version \"$version\" ($command_rm failed)"
+                echo "Failed to remove version \"$version\" ($command_rm failed)"
                 return 1
             fi
         else
-            builtin echo "Failed to remove version \"$version\" (no write permission)"
+            echo "Failed to remove version \"$version\" (no write permission)"
             return 1
         fi
     else
-        builtin echo "Failed to remove version \"$version\" (file not found)"
+        echo "Failed to remove version \"$version\" (file not found)"
         return 1
     fi
 
@@ -780,23 +797,23 @@ RemoveAllSavedPackages() {
     for package in "$install_path"/Proton-*.tar.gz; do
         if [[ -f $package ]]; then
             if ($command_rm -- "$package"); then
-                builtin echo "Removed \"$package\""
+                echo "Removed \"$package\""
                 ((success_counter++))
             else
-                builtin echo "Remove \"$package\" failed"
+                echo "Remove \"$package\" failed"
                 ((failure_counter++))
             fi
         fi
     done
 
     if [[ $success_counter -eq 0 ]]; then
-        builtin echo "0 packages removed"
+        echo "0 packages removed"
     elif [[ $success_counter -gt 0 ]]; then
-        builtin echo "$success_counter packages removed"
+        echo "$success_counter packages removed"
     fi
 
     [[ $failure_counter -gt 0 ]] && {
-        builtin echo "Failed to remove $failure_counter package(s)"
+        echo "Failed to remove $failure_counter package(s)"
         return 1
     }
 
@@ -813,7 +830,7 @@ RemoveGEInstallPath() {
 
     local disk_usage="0"
 
-    if builtin command -v du &>/dev/null; then
+    if command -v du &>/dev/null; then
         disk_usage=$(du -sh -- "$install_path")
     else
         ((debug)) && DebugMessage "Command 'du' not found"
@@ -821,7 +838,7 @@ RemoveGEInstallPath() {
     fi
 
     if ($command_rm -- "$install_path"); then
-        builtin echo "Remove install path succeeded ( ${disk_usage%%[[:blank:]]*} removed )"
+        echo "Remove install path succeeded ( ${disk_usage%%[[:blank:]]*} removed )"
         ((debug)) && DebugMessage "Recreating install path at \"$install_path\""
 
         # Re-create the install_path
@@ -831,12 +848,12 @@ RemoveGEInstallPath() {
             if [[ $debug -eq 1 ]]; then
                 DebugMessage "mkdir -p \"$install_path\" failed"
             else
-                builtin echo "Warning: failed to re-create install path at \"$install_path\""
+                echo "Warning: failed to re-create install path at \"$install_path\""
                 return 1
             fi
         fi
     else
-        builtin echo "Removal of install path \"$install_path\" failed"
+        echo "Removal of install path \"$install_path\" failed"
         return 1
     fi
 
@@ -871,7 +888,7 @@ VerifyGEInstall() {
     local -i counter_extracted=0
     local -i counter_installed=0
     local -i start_time_seconds=0 # NOTE bash 5+ is required for EPOCHSECONDS
-    local -i end_time_seconds=0   # NOTE bash 4.2+ is required for builtin printf $()T
+    local -i end_time_seconds=0   # NOTE bash 4.2+ is required for printf $()T
     local -i progress_percent=0
     local -i prev_progress=1
 
@@ -879,16 +896,16 @@ VerifyGEInstall() {
     version=$(CleanUpVersion "${1-}")
 
     # Required external commands
-    if ! builtin command -v cmp &>/dev/null; then
-        builtin echo "Command 'cmp' is required to use this function"
+    if ! command -v cmp &>/dev/null; then
+        echo "Command 'cmp' is required to use this function"
         return 1
     fi
-    if ! builtin command -v sort &>/dev/null; then
-        builtin echo "Command 'sort' is required to use this function"
+    if ! command -v sort &>/dev/null; then
+        echo "Command 'sort' is required to use this function"
         return 1
     fi
-    if ! builtin command -v date &>/dev/null; then
-        builtin echo "Command 'date' is required to use this function"
+    if ! command -v date &>/dev/null; then
+        echo "Command 'date' is required to use this function"
         return 1
     fi
 
@@ -901,7 +918,7 @@ VerifyGEInstall() {
 
                 # If no saved package exists for this version
                 [[ ! -f $install_path/${node##*/}.tar.gz ]] && {
-                    builtin echo "Package not found for installed version \"${node##*/}\""
+                    echo "Package not found for installed version \"${node##*/}\""
                     if (! DownloadGEPackage "${node##*/Proton-}"); then
                         return 1
                     fi
@@ -914,12 +931,12 @@ VerifyGEInstall() {
     for node in "$install_path"/Proton-${version:-*}.tar.gz; do
         [[ -f $node ]] && {
             version=$(CleanUpVersion "${node##*/}")
-            builtin echo "Found a package for version \"$version\""
+            echo "Found a package for version \"$version\""
             if (! IsInstalled "$version"); then
-                builtin echo "Version \"$version\" is not installed"
+                echo "Version \"$version\" is not installed"
                 continue
             else
-                builtin echo "Version \"$version\" is installed"
+                echo "Version \"$version\" is installed"
 
                 # Extract the package to a temporary path
                 if (! ExtractGEPackage "$version" "$temp_path"); then
@@ -933,7 +950,7 @@ VerifyGEInstall() {
 
                 # Create two indexed arrays, each containing a seperate list of files,
                 # one from the extracted path and the other from the installed path respectively
-                builtin echo "Indexing files to compare"
+                echo "Indexing files to compare"
                 while IFS= read -r -- file_extracted; do
                     files_extracted+=("$file_extracted")
                 done < <(find "$temp_path/Proton-${version}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
@@ -942,17 +959,17 @@ VerifyGEInstall() {
                 done < <(find "$install_path/Proton-${version}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
 
                 # Report the number of files found in each path
-                builtin echo "${#files_extracted[@]} (extracted) vs ${#files_installed[@]} (installed)"
+                echo "${#files_extracted[@]} (extracted) vs ${#files_installed[@]} (installed)"
 
                 # Based on array element sizes, decide on a method to compare files
                 # The faster method is a one-to-one comparison of each array element.
                 # The slower method takes each element of the extracted array and then searches through
                 # the entire installed array until it finds a matching file name.
                 if [[ ${#files_extracted[@]} -ne ${#files_installed[@]} ]]; then
-                    builtin echo "Using slower method for comparing"
+                    echo "Using slower method for comparing"
                     files_arrays_count_match=0
                 else
-                    builtin echo "Using faster method for comparing"
+                    echo "Using faster method for comparing"
                     files_arrays_count_match=1
                 fi
 
@@ -960,13 +977,13 @@ VerifyGEInstall() {
                 # NOTE This isn't necessary by default. It is included in the event that
                 #      the shebang is changed and a custom alias exists for cmp.
                 # TODO do other shells subshells inherent aliases like bash?
-                if builtin alias cmp &>/dev/null; then
-                    builtin echo "Saving existing alias for command cmp"
-                    saved_cmp_alias=$(builtin alias cmp)
-                    builtin unalias cmp
+                if alias cmp &>/dev/null; then
+                    echo "Saving existing alias for command cmp"
+                    saved_cmp_alias=$(alias cmp)
+                    unalias cmp
                 fi
 
-                builtin printf '%s\033[s' "Comparing files"
+                printf '%s\033[s' "Comparing files"
 
                 # Begin comparing, using the faster method
                 # If the number of elements match
@@ -994,7 +1011,7 @@ VerifyGEInstall() {
 
                         # Progress report
                         progress_percent=$(( (counter_extracted * 100) / total_files ))
-                        [[ $progress_percent -ne $prev_progress ]] && builtin printf '\033[u%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
+                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
                         prev_progress=$progress_percent
                     done
                     end_time_seconds=$(date +%s)
@@ -1021,7 +1038,7 @@ VerifyGEInstall() {
                                 esac
                                 # Some test results - fastest is what remains
                                 # fastest - 5.9-GE-3-ST - 246 seconds
-                                builtin unset 'files_installed[counter_installed]'
+                                unset 'files_installed[counter_installed]'
 
                                 # do nothing1 - 5.9-GE-3-ST - 376 seconds
                                 # do nothing2 - 5.9-GE-3-ST - 484 seconds
@@ -1040,7 +1057,7 @@ VerifyGEInstall() {
 
                         # Progress report
                         progress_percent=$(( (counter_extracted * 100) / total_files ))
-                        [[ $progress_percent -ne $prev_progress ]] && builtin printf '\033[u%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
+                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
                         prev_progress=$progress_percent
                     done
                     end_time_seconds=$(date +%s)
@@ -1049,15 +1066,15 @@ VerifyGEInstall() {
                 # Restore saved cmp alias
                 # TODO do other shells alias command output in a reusable format?
                 [[ -n $saved_cmp_alias ]] && {
-                    builtin echo "Restoring saved alias for command cmp"
+                    echo "Restoring saved alias for command cmp"
                     if ! $saved_cmp_alias; then
-                        builtin echo "Failed to restore alias for 'cmp'"
+                        echo "Failed to restore alias for 'cmp'"
                     fi
                 }
 
-                builtin printf "\033[u\033[0K%s\n" ". Finished in $((end_time_seconds-start_time_seconds)) seconds."
+                printf "\033[u\033[0K%s\n" ". Finished in $((end_time_seconds-start_time_seconds)) seconds."
 
-                builtin echo "$match_counter files match. $missing_counter files are missing. $mismatch_counter do not match."
+                echo "$match_counter files match. $missing_counter files are missing. $mismatch_counter do not match."
             fi
         }
     done
@@ -1102,10 +1119,10 @@ QueryGEAttribute() {
     fi
 
     if [[ -n $value ]]; then
-        builtin printf '%s' "$value"
+        printf '%s' "$value"
         return 0
     else
-        builtin printf '' # TODO is it really necessary to return NULL?
+        printf '' # TODO is it really necessary to return NULL?
         return 1
     fi
 
@@ -1230,20 +1247,20 @@ QueryJSONAttribute() {
     if [[ -n $value_size_bytes && -n $value_browser_url ]]; then
         case $key in
             (size)
-                builtin printf '%s' "$value_size_bytes"
+                printf '%s' "$value_size_bytes"
             ;;
             (browser_download_url)
-                builtin printf '%s' "$value_browser_url"
+                printf '%s' "$value_browser_url"
             ;;
             (*)
                 # NOTE NULL response indicates error OR not found
                 #      this is NOT ideal
-                builtin printf '' # TODO is it really necessary to return NULL?
+                printf '' # TODO is it really necessary to return NULL?
                 return 1
             ;;
         esac
     else
-        builtin printf ''
+        printf ''
         return 1
     fi
 
@@ -1437,7 +1454,7 @@ IsSteamRunning() {
     if [[ $found_steam -eq 1 ]]; then
         return 0
     elif [[ $found_steam -eq 0 && $found_steamwebhelper -eq 1 ]]; then
-        builtin echo "Warning: at least one steamwebhelper process is still running but Steam is not"
+        echo "Warning: at least one steamwebhelper process is still running but Steam is not"
         # TODO report their PIDs
         return 1
     elif [[ $found_steam -eq 0 && $found_steamwebhelper -eq 0 ]]; then
@@ -1480,12 +1497,12 @@ RequestURL() {
                 # TODO replace pattern matching tests with size comparisons using stat (need a sample for rate limit exceeded)
                 while IFS= read -r --; do
                     [[ $REPLY == *"rate limit exceeded"* ]] && {
-                        builtin echo "($LINENO) RequestURL: Github API request rate limit exceeded. Try again later." 1>&2
+                        echo "($LINENO) RequestURL: Github API request rate limit exceeded. Try again later." 1>&2
                         CleanUp
                         return 1
                     }
                     [[ ${REPLY,,} == *"not found"* ]] && {
-                        builtin echo "($LINENO) RequestURL: Server responded \"Not Found\"" 1>&2
+                        echo "($LINENO) RequestURL: Server responded \"Not Found\"" 1>&2
                         CleanUp
                         return 1
                     }
@@ -1607,7 +1624,7 @@ CreateBackup() {
                     ((debug)) && DebugMessage "Removed highest index greater than $max_backups: \"${files_existing_backups[backup_index-1]}\""
                     backup_index=$((backup_index-1))
                 else
-                    builtin echo "($LINENO) CreateBackup: Failed to remove backup file ${files_existing_backups[backup_index-1]}"
+                    echo "($LINENO) CreateBackup: Failed to remove backup file ${files_existing_backups[backup_index-1]}"
                     return 1
                 fi
             done
@@ -1618,7 +1635,7 @@ CreateBackup() {
             if mv -- "${files_existing_backups[backup_index-1]}" "${files_existing_backups[backup_index-1]/${backup_index}/$((backup_index+1))}"; then
                 ((debug)) && DebugMessage "${files_existing_backups[backup_index-1]} renamed to ${files_existing_backups[backup_index-1]/${backup_index}/$((backup_index+1))}"
             else
-                builtin echo "($LINENO) CreateBackup: Failed to rename backup file: \"${files_existing_backups[backup_index-1]}\""
+                echo "($LINENO) CreateBackup: Failed to rename backup file: \"${files_existing_backups[backup_index-1]}\""
                 return 1
             fi
         done
@@ -1673,7 +1690,7 @@ SpaceRemaining() {
 
     ((debug)) && DebugMessage "Checking \"$file_system\""
 
-    if builtin printf '%s' "$(( ($(stat -L --cached=never -c '%s' -f -- "$file_system") * $(stat -L --cached=never -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"; then
+    if printf '%s' "$(( ($(stat -L --cached=never -c '%s' -f -- "$file_system") * $(stat -L --cached=never -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"; then
         return 0
     else
         return 1
@@ -1831,7 +1848,7 @@ CreateDefaultConfigFile() {
 #
 DEFAULT_CONFIG
 
-    (cat) <<"DEFAULT_CONFIG" >> "$file_script_config" # This section is not subject to expansion, etc.
+    cat <<"DEFAULT_CONFIG" >> "$file_script_config" # This section is not subject to expansion, etc.
 
 # Default install path
 install_path=auto
@@ -1881,7 +1898,7 @@ ParseConfigFile() {
         ((debug)) && DebugMessage "Generating a default config file at: \"$file_script_config\""
         if (CreateDefaultConfigFile); then
             ((debug)) && DebugMessage "CreateDefaultConfigFile returned success"
-            builtin echo "Default configuration created at \"$file_script_config\""
+            echo "Default configuration created at \"$file_script_config\""
             if [[ -n ${EDITOR-} ]]; then
                 ((debug)) && DebugMessage "EDITOR is set to: \"$EDITOR\""
                 while :; do
@@ -1889,11 +1906,11 @@ ParseConfigFile() {
                     case ${REPLY,,} in
                         ("y"|"yes") ($EDITOR "$file_script_config"); exit 0 ;;
                         ("n"|"no") exit 0 ;;
-                        ("*") builtin echo "Enter (y)es or (n)o" ;;
+                        ("*") echo "Enter (y)es or (n)o" ;;
                     esac
                 done
             else
-                builtin echo "EDITOR not set, default configuration created at \"$file_script_config\""
+                echo "EDITOR not set, default configuration created at \"$file_script_config\""
             fi
             exit 0
         else
@@ -1958,22 +1975,22 @@ ParseConfigFile() {
         if [[ $config_value =~ ^.*[$]+.*$ ]]; then
             if [[ $config_value =~ ^.*:[+-=?]{1}.*$ ]]; then
                 ((debug)) && DebugMessage "Using 'eval' to expand config_value: \"$config_value\""
-                config_value=$(builtin eval builtin printf '%s' "$config_value")
+                config_value=$(eval printf '%s' "$config_value")
                 ((debug)) && DebugMessage "config_value expanded to: \"$config_value\""
             else
-                if builtin command -v envsubst &>/dev/null; then
+                if command -v envsubst &>/dev/null; then
                     ((debug)) && DebugMessage "Using 'envsubst' to expand config_value: \"$config_value\""
                     config_value=$(envsubst <<< "$config_value")
                     # If there is still a $ in config_value it contained a variable envsubst can't handle
                     [[ $config_value =~ ^.*\$+.*$ ]] && {
                         ((debug)) && DebugMessage "config_value still contains one or more $ after envsubst"
-                        config_value=$(builtin eval builtin printf '%s' "$config_value")
+                        config_value=$(eval printf '%s' "$config_value")
                         ((debug)) && DebugMessage "config_value expanded again with 'eval' to: \"$config_value\""
                     }
                     ((debug)) && DebugMessage "config_value expanded to: \"$config_value\""
                 else
                     ((debug)) && DebugMessage "Command 'envsubst' not available, using 'eval' to expand config_value: \"$config_value\""
-                    config_value=$(builtin eval builtin printf '%s' "$config_value")
+                    config_value=$(eval printf '%s' "$config_value")
                     ((debug)) && DebugMessage "config_value expanded to: \"$config_value\""
                 fi
             fi
@@ -2010,12 +2027,12 @@ ParseConfigFile() {
                             ((debug)) && DebugMessage "script has write permission to config_value"
                             install_path=$config_value
                         else
-                            builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
                             flag_failed=1
                             flag_update_install_path=0
                         fi
                     else
-                        builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
                         flag_failed=1
                         flag_update_install_path=0
                     fi
@@ -2032,11 +2049,11 @@ ParseConfigFile() {
             #                ((debug)) && DebugMessage "script has write permission to config_value"
             #                script_config_path=$config_value
             #            else
-            #                builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+            #                echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
             #                flag_failed=1
             #            fi
             #        else
-            #            builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+            #            echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
             #            flag_failed=1
             #        fi
             #    fi
@@ -2052,11 +2069,11 @@ ParseConfigFile() {
                             ((debug)) && DebugMessage "script has write permission to config_value"
                             script_cache_path=$config_value
                         else
-                            builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
                             flag_failed=1
                         fi
                     else
-                        builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
                         flag_failed=1
                     fi
                 fi
@@ -2072,11 +2089,11 @@ ParseConfigFile() {
                             ((debug)) && DebugMessage "script has write permission to config_value"
                             temp_base_path=$config_value
                         else
-                            builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
                             flag_failed=1
                         fi
                     else
-                        builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
                         flag_failed=1
                     fi
                 fi
@@ -2087,7 +2104,7 @@ ParseConfigFile() {
                     ((debug)) && DebugMessage "command_rm set to: \"$command_rm\""
                 else
                     ((debug)) && DebugMessage "command -v \"$config_value\" failed"
-                    builtin printf '%s\n%s\n' \
+                    printf '%s\n%s\n' \
                                    "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\"" \
                                    "($LINENO) ParseConfigFile: If you don't want the script to use 'rm' then fix it"
                     command_rm='rm'
@@ -2098,7 +2115,7 @@ ParseConfigFile() {
                     latest_version_url=$config_value
                     ((debug)) && DebugMessage "latest_version_url set to: \"$latest_version_url\""
                 else
-                    builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                    echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
                     flag_failed=1
                 fi
             ;;
@@ -2107,7 +2124,7 @@ ParseConfigFile() {
                     releases_url=$config_value
                     ((debug)) && DebugMessage "releases_url set to: \"$releases_url\""
                 else
-                    builtin echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                    echo "($LINENO) ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
                     flag_failed=1
                 fi
             ;;
@@ -2128,22 +2145,22 @@ ParseConfigFile() {
 
     # If any crucial config options are empty (missing from config, except script_config_path)
     [[ -z ${install_path-} ]] && {
-        builtin echo "($LINENO) ParseConfigFile: Invalid/missing install_path ($file_script_config)"
+        echo "($LINENO) ParseConfigFile: Invalid/missing install_path ($file_script_config)"
         return 1
     }
 
     [[ -z ${temp_base_path-} ]] && {
-        builtin echo "($LINENO) ParseConfigFile: Invalid/missing temp_base_path ($file_script_config)"
+        echo "($LINENO) ParseConfigFile: Invalid/missing temp_base_path ($file_script_config)"
         return 1
     }
 
     [[ -z ${script_config_path-} ]] && {
-        builtin echo "($LINENO) ParseConfigFile: Invalid/missing script_config_path (See InitializeGlobalVars)"
+        echo "($LINENO) ParseConfigFile: Invalid/missing script_config_path (See InitializeGlobalVars)"
         return 1
     }
 
     [[ -z ${script_cache_path-} ]] && {
-        builtin echo "($LINENO) ParseConfigFile: Invalid/missing script_cache_path ($file_script_config)"
+        echo "($LINENO) ParseConfigFile: Invalid/missing script_cache_path ($file_script_config)"
         return 1
     }
 
@@ -2185,7 +2202,7 @@ CleanUpVersion() {
     local version=${1-}
     local -i length_characters=0
 
-    [[ -z $version ]] && { ((debug)) && DebugMessage "version is NULL"; builtin printf ''; return 1; }
+    [[ -z $version ]] && { ((debug)) && DebugMessage "version is NULL"; printf ''; return 1; }
 
     [[ $debug -eq 1 ]] && {
         length_characters=${#version}
@@ -2206,7 +2223,7 @@ CleanUpVersion() {
         [[ $length_characters -ne ${#version} ]] && DebugMessage "Removed $(( length_characters - ${#version} )) characters"
     }
 
-    builtin printf '%s' "$version"
+    printf '%s' "$version"
 
     return 0
 }
@@ -2226,11 +2243,11 @@ MkTempFile() {
     temp_file="$temp_base_path/${TEMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
 
     # Create the empty temp file
-    builtin printf '' > "$temp_file" || return 1
+    printf '' > "$temp_file" || return 1
 
     # "Return" the path and filename,
     # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
-    builtin printf '%s' "$temp_file"
+    printf '%s' "$temp_file"
 
     return 0
 }
@@ -2254,7 +2271,7 @@ MkTempPath() {
 
     # "Return" the path and filename,
     # meant to be captured using command substitution eg. sTEMPFILE=$(MkTemp)
-    builtin printf '%s' "$temp_path"
+    printf '%s' "$temp_path"
 
     return 0
 }
@@ -2274,7 +2291,7 @@ GenerateRandomAlphaNumericString() {
     local character
     local -i i
 
-    list=$(builtin printf '%s' {a..z}{0..9}{A..Z}) || return 1
+    list=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
 
     # If the length requested is outside sane upper and lower bounds, reset it
     [[ $length -lt 1 ]] && length=1
@@ -2297,7 +2314,7 @@ GenerateRandomAlphaNumericString() {
     # "Return" the resulting string,
     # meant to be captured using command substitution
     # eg. sSTRING_OF_LENGTH_TEN=$(GenerateRandomAlphaNumericString 10)
-    builtin printf '%s' "$result"
+    printf '%s' "$result"
 
     return 0
 }
@@ -2389,28 +2406,28 @@ DetectSteamInstallPath () {
     ((debug)) && DebugMessage "valid_paths[*]: ${valid_paths[*]}"
 
     if [[ ${#valid_paths[@]} -eq 0 ]]; then
-        builtin printf '%s\n%s\n%s\n' \
-                       "ERROR: Unable to detect Steam installation path" \
-                       "You will need to configure install_path manually in the configuration file" \
-                       "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+        printf '%s\n%s\n%s\n' \
+               "ERROR: Unable to detect Steam installation path" \
+               "You will need to configure install_path manually in the configuration file" \
+               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
         override_default_install_path=""
 
     # Prefer to use the symlink if two paths were found and one is a link to the other
     elif [[ ${#valid_paths[@]} -eq 1 ]] || [[ ${#valid_paths[@]} -eq 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]; then
-        builtin printf '%s\n%s\n%s\n' \
-                       "Steam install path detected as \"${valid_paths[0]}\"" \
-                       "If that path is incorrect, manually adjust install_path in the configuration file" \
-                       "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+        printf '%s\n%s\n%s\n' \
+               "Steam install path detected as \"${valid_paths[0]}\"" \
+               "If that path is incorrect, manually adjust install_path in the configuration file" \
+               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
         override_default_install_path=${valid_paths[0]}
 
     # Multiple paths detected with or without the Steam home link pointing to one of them
     elif [[ ${#valid_paths[@]} -gt 1 && ! ${valid_paths[0]} -ef ${valid_paths[1]} ]] || [[ ${#valid_paths[@]} -gt 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]; then
-        builtin echo "Multiple Steam install paths detected:"
+        echo "Multiple Steam install paths detected:"
         for (( i=0; i < ${#valid_paths[@]}; i++ )); do
-            builtin echo "($(( i + 1 ))) ${valid_paths[i]}"
+            echo "($(( i + 1 ))) ${valid_paths[i]}"
         done
 
-        builtin echo "Choose a path from above or type in exit/quit"
+        echo "Choose a path from above or type in exit/quit"
         while :; do
             read -rp "Enter a number from 1-${#valid_paths[@]}: " </dev/tty
             [[ $REPLY = @(exit|quit) ]] && {
@@ -2421,26 +2438,26 @@ DetectSteamInstallPath () {
             case $REPLY in
                 (*[[:digit:]]*)
                     if [[ $REPLY -lt 1 || $REPLY -ge $(( ${#valid_paths[@]} + 1 )) ]]; then
-                        builtin echo "Invalid choice"
+                        echo "Invalid choice"
                     else
                         ((debug)) && DebugMessage "Setting override_default_install_path to \"${valid_paths[$((REPLY-1))]}\""
                         override_default_install_path=${valid_paths[$((REPLY-1))]}
-                        builtin printf '%s\n%s\n%s\n' \
-                                       "You have chosen the path \"$override_default_install_path\"" \
-                                       "If that is not correct adjust install_path in the configuration file accordingly" \
-                                       "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+                        printf '%s\n%s\n%s\n' \
+                               "You have chosen the path \"$override_default_install_path\"" \
+                               "If that is not correct adjust install_path in the configuration file accordingly" \
+                               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
                         ((debug)) && DebugMessage "override_default_install_path set to \"$override_default_install_path\""
                         break
                     fi
                 ;;
-                (*) builtin echo "Invalid choice" ;;
+                (*) echo "Invalid choice" ;;
             esac
         done
 
         [[ -z $override_default_install_path ]] && {
-            builtin printf '%s\n%s\n' \
-                           "You will need to manually set install_path in the configuration file" \
-                           "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+            printf '%s\n%s\n' \
+                   "You will need to manually set install_path in the configuration file" \
+                   "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
             override_default_install_path="auto"
         }
     fi
@@ -2466,7 +2483,7 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Script has write access to install_path"
         else
             ((debug)) && DebugMessage "Script does not have write access to install_path"
-            builtin echo "Invalid install path: \"$install_path\""
+            echo "Invalid install path: \"$install_path\""
             flag_failed=1
         fi
     elif [[ ! -d $install_path ]]; then
@@ -2475,7 +2492,7 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Create install path succeeded"
         else
             ((debug)) && DebugMessage "Create install path failed"
-            builtin echo "Invalid install path: \"$install_path\""
+            echo "Invalid install path: \"$install_path\""
             flag_failed=1
         fi
     fi
@@ -2487,7 +2504,7 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Script has write access to script_config_path"
         else
             ((debug)) && DebugMessage "Script does not have write access to script_config_path"
-            builtin echo "Invalid config path: \"$script_config_path\""
+            echo "Invalid config path: \"$script_config_path\""
             flag_failed=1
         fi
     elif [[ ! -d $script_config_path ]]; then
@@ -2496,7 +2513,7 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Create config path succeeded"
         else
             ((debug)) && DebugMessage "Create config path failed"
-            builtin echo "Invalid config path: \"$script_config_path\""
+            echo "Invalid config path: \"$script_config_path\""
             flag_failed=1
         fi
     fi
@@ -2508,7 +2525,7 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Script has write access to script_cache_path"
         else
             ((debug)) && DebugMessage "Script does not have write access to script_cache_path"
-            builtin echo "Invalid cache path: \"$script_cache_path\""
+            echo "Invalid cache path: \"$script_cache_path\""
             flag_failed=1
         fi
     elif [[ ! -d $script_cache_path ]]; then
@@ -2517,7 +2534,7 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Create cache path succeeded"
         else
             ((debug)) && DebugMessage "Create cache path failed"
-            builtin echo "Invalid cache path: \"$script_cache_path\""
+            echo "Invalid cache path: \"$script_cache_path\""
             flag_failed=1
         fi
     fi
@@ -2529,23 +2546,23 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Script has write access to file_script_config"
         else
             ((debug)) && DebugMessage "Script does not have write access to file_script_config"
-            builtin echo "No write access to config file: \"$file_script_config\""
+            echo "No write access to config file: \"$file_script_config\""
             flag_failed=1
         fi
         if [[ -r $file_script_config ]]; then
             ((debug)) && DebugMessage "Script has read access to file_script_config"
         else
             ((debug)) && DebugMessage "Script does not have read access to file_script_config"
-            builtin echo "No read access to config file: \"$file_script_config\""
+            echo "No read access to config file: \"$file_script_config\""
             flag_failed=1
         fi
     elif [[ ! -f $file_script_config ]]; then
         ((debug)) && DebugMessage "file_script_config not found. Creating at \"$file_script_config\""
-        if builtin printf '' > "$file_script_config"; then
+        if printf '' > "$file_script_config"; then
             ((debug)) && DebugMessage "Create script config file succeeded"
         else
             ((debug)) && DebugMessage "Create script config file failed"
-            builtin echo "Failed to create config file: \"$file_script_config\""
+            echo "Failed to create config file: \"$file_script_config\""
             flag_failed=1
         fi
     fi
@@ -2557,7 +2574,7 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Script has write access to temp_base_path"
         else
             ((debug)) && DebugMessage "Script does not have write access to temp_base_path"
-            builtin echo "Invalid tmp_path path: \"$temp_base_path\""
+            echo "Invalid tmp_path path: \"$temp_base_path\""
             flag_failed=1
         fi
     elif [[ ! -d $temp_base_path ]]; then
@@ -2566,7 +2583,7 @@ SetupEnvironment() {
             ((debug)) && DebugMessage "Create cache path succeeded"
         else
             ((debug)) && DebugMessage "Create cache path failed"
-            builtin echo "Invalid tmp_path path: \"$temp_base_path\""
+            echo "Invalid tmp_path path: \"$temp_base_path\""
             flag_failed=1
         fi
     fi
@@ -2617,7 +2634,7 @@ CheckRequirements() {
             REPLY=${REPLY#*:} # remove lineno:
             # Remove a leading space if found
             [[ ${REPLY:0:1} = [[:blank:]] ]] && REPLY=${REPLY/#[[:blank:]]}
-            builtin echo "Required $REPLY"
+            echo "Required $REPLY"
             flag_failed=1
         }
     done < <(command -V -- "${required_commands[@]}" 2>&1)
@@ -2632,13 +2649,15 @@ CheckRequirements() {
 }
 
 ###############################################################################
-# Purpose: A simple helper function used only for testing
-# Input:   None
+# Purpose: A simple helper function used only for testing. When provided two
+#          files show a diff in a particular format on the console.
+# Input:   1 (required) File A
+#          2 (required) File B
 # Output:  None
 # Return:  Always 0
 ShowConsoleDiff() {
 
-    [[ $# -ne 2 ]] && { builtin echo "It takes two to tango!"; return 1; }
+    [[ $# -ne 2 ]] && { echo "It takes two to tango!"; return 1; }
 
     # iCOLUMNS=$(stty size)
     # iCOLUMNS=${iCOLUMNS##*[[:space:]]}
@@ -2664,20 +2683,20 @@ DebugMessage() {
 
     # If debug mode is not active, do nothing
     [[ $debug -eq 1 ]] || return 0
-    [[ -z ${1-} ]] && { builtin echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
+    [[ -z ${1-} ]] && { echo "($LINENO)[DebugMessage]: Parameter error (NULL)" 1>&2; return 1; }
 
     local -i i
 
     # Calling line number
-    builtin printf '%s' "(${BASH_LINENO[0]})[" 1>&2
+    printf '%s' "(${BASH_LINENO[0]})[" 1>&2
     for (( i=$(( ${#FUNCNAME[@]} - 2 )); i>1; i-- )); do
         # Function trace (excluding 'main')
-        builtin printf '%s' "${FUNCNAME[i]}," 1>&2
+        printf '%s' "${FUNCNAME[i]}," 1>&2
     done
     # The last function in the function trace doesn't get a comma suffix
-    builtin printf '%s' "${FUNCNAME[i]}]: " 1>&2
+    printf '%s' "${FUNCNAME[i]}]: " 1>&2
     # Message
-    builtin printf '%s\n' "$1" 1>&2
+    printf '%s\n' "$1" 1>&2
 
     return 0
 }
@@ -2690,41 +2709,41 @@ DebugMessage() {
 # NOTE Exactly -fzZ invokes this function
 ReportEnvironmentInfo() {
 
-    builtin echo "###############################################################################"
+    echo "###############################################################################"
 
-    if ! stty -a; then builtin echo "stty -a failed"; fi
+    if ! stty -a; then echo "stty -a failed"; fi
 
-    builtin echo "###############################################################################"
+    echo "###############################################################################"
 
-    if ! env -v --list-signal-handling 2>&1; then builtin echo "env -v --list-signal-handling failed"; fi
+    if ! env -v --list-signal-handling 2>&1; then echo "env -v --list-signal-handling failed"; fi
 
-    builtin echo "###############################################################################"
+    echo "###############################################################################"
 
     # report found/not found status of commands used
-    command -V du find wc curl tar gzip ps stat sed cmp sort envsubst builtin printf
+    command -V du find wc curl tar gzip ps stat sed cmp sort envsubst printf
 
-    builtin echo "###############################################################################"
+    echo "###############################################################################"
 
-    if ! shopt -p; then builtin echo "shopt -p failed"; fi
+    if ! shopt -p; then echo "shopt -p failed"; fi
 
-    builtin echo "###############################################################################"
+    echo "###############################################################################"
 
-    builtin echo "PWD: \"$PWD\""
-    builtin echo "SHELL: \"$SHELL\""
-    builtin echo "SHELLOPTS: \"$SHELLOPTS\""
-    builtin echo "SHLVL: \"$SHLVL\""
-    builtin echo "BASH_VERSINFO: \"${BASH_VERSINFO[*]}\""
-    builtin echo "BASH_VERSION: \"$BASH_VERSION\""
-    builtin echo "MACHTYPE: \"$MACHTYPE\""
-    builtin echo "OSTYPE: \"$OSTYPE\""
-    builtin echo "PROMPT_COMMAND: \"$PROMPT_COMMAND\""
-    builtin echo "LANG: \"$LANG\""
-    builtin echo "LC_MESSAGES: \"$LC_MESSAGES\""
-    builtin echo "LC_ALL: \"$LC_ALL\""
-    builtin echo "EUID: \"$EUID\""
-    builtin echo "GROUPS: ${GROUPS[*]}"
+    echo "PWD: \"$PWD\""
+    echo "SHELL: \"$SHELL\""
+    echo "SHELLOPTS: \"$SHELLOPTS\""
+    echo "SHLVL: \"$SHLVL\""
+    echo "BASH_VERSINFO: \"${BASH_VERSINFO[*]}\""
+    echo "BASH_VERSION: \"$BASH_VERSION\""
+    echo "MACHTYPE: \"$MACHTYPE\""
+    echo "OSTYPE: \"$OSTYPE\""
+    echo "PROMPT_COMMAND: \"$PROMPT_COMMAND\""
+    echo "LANG: \"$LANG\""
+    echo "LC_MESSAGES: \"$LC_MESSAGES\""
+    echo "LC_ALL: \"$LC_ALL\""
+    echo "EUID: \"$EUID\""
+    echo "GROUPS: ${GROUPS[*]}"
 
-    builtin echo "###############################################################################"
+    echo "###############################################################################"
 
     exit 0
 }
@@ -2739,9 +2758,7 @@ ReportEnvironmentInfo() {
 # # All hope abandon, ye who enter here!
 ProvingGrounds() {
 
-    [[ $integration_testing -eq 1 ]] && {
-        CheckRequirements
-    }
+    [[ $integration_testing -eq 1 ]] || return 1
 
     exit
 }
@@ -2769,7 +2786,7 @@ CleanUp() {
                 if rm -fr -- "$node" &>/dev/null; then
                     DebugMessage "Temporary path removed"
                 else
-                    builtin echo "($LINENO) CleanUp: Failed to remove temporary path: \"$node\""
+                    echo "($LINENO) CleanUp: Failed to remove temporary path: \"$node\""
                 fi
             fi
         }
@@ -2783,7 +2800,7 @@ CleanUp() {
                 if rm -f -- "$node" &>/dev/null; then
                     DebugMessage "Temporary file removed"
                 else
-                    builtin echo "($LINENO) CleanUp: Failed to remove temporary file: \"$node\""
+                    echo "($LINENO) CleanUp: Failed to remove temporary file: \"$node\""
                 fi
             fi
         }
@@ -2791,8 +2808,8 @@ CleanUp() {
 
     # Handle the received SIGINT properly by terminating the script/process group with SIGINT
     [[ $flag_sigint_caught -eq 1 ]] && {
-        # If the builtin kill fails
-        if ! builtin kill -s SIGINT %1; then
+        # If the kill fails
+        if ! kill -s SIGINT %1; then
             # Try the external command
             if ! $(which --skip-alias --skip-functions -- kill) -2 0; then
                 kill -2 0
@@ -2908,12 +2925,12 @@ Main() {
         # Report latest version installed status
         #if GetLatestGEVersion; then
         #    if IsInstalled "$latest_version"; then
-        #        builtin echo "The latest version \"$latest_version\" is installed"
+        #        echo "The latest version \"$latest_version\" is installed"
         #    else
-        #        builtin echo "The latest version \"$latest_version\" is not installed"
+        #        echo "The latest version \"$latest_version\" is not installed"
         #    fi
         #else
-        #    builtin echo "An error occured while checking for the latest release"
+        #    echo "An error occured while checking for the latest release"
         #fi
         (ShowHelp)
         exit 0
@@ -2954,9 +2971,9 @@ Main() {
     if [[ $check_update -eq 1 && $update -eq 0 ]]; then
         if GetLatestGEVersion; then
             if (IsInstalled "$latest_version"); then
-                builtin echo "The latest version \"$latest_version\" is installed"
+                echo "The latest version \"$latest_version\" is installed"
             else
-                builtin echo "The latest version \"$latest_version\" is not installed"
+                echo "The latest version \"$latest_version\" is not installed"
             fi
         fi
     fi
@@ -2964,12 +2981,12 @@ Main() {
     # remove install path
     if [[ $remove_install_path -eq 1 ]] && [[ $force -eq 1 ]]; then
         if (IsSteamRunning); then
-            builtin echo "Please close Steam before removing the install path"
+            echo "Please close Steam before removing the install path"
         else
             (RemoveGEInstallPath)
         fi
     elif [[ $remove_install_path -eq 1 ]] && [[ $force -eq 0 ]]; then
-        builtin echo "-X must be combined with -f to confirm that you are sure"
+        echo "-X must be combined with -f to confirm that you are sure"
     fi
 
     # remove saved packages
@@ -2982,7 +2999,7 @@ Main() {
         (RemoveGEVersion "$remove_installed_version") # NOTE sREMOVE_VERSION is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
     elif [[ $remove_installed_version -eq 1 ]] && [[ $remove_install_path -eq 1 ]]; then
-        builtin echo "Skipping remove version/package because remove install path was also requested"
+        echo "Skipping remove version/package because remove install path was also requested"
     fi
 
     # Remove a saved package
@@ -2990,40 +3007,40 @@ Main() {
         (RemoveSavedPackage "$remove_saved_version") # NOTE sREMOVE_VERSION is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
     elif [[ $remove_saved_package -eq 1 ]] && [[ $remove_install_path -eq 1 ]]; then
-        builtin echo "Skipping remove version/package because remove install path was also requested"
+        echo "Skipping remove version/package because remove install path was also requested"
     fi
 
     # Download a package
     [[ $download -eq 1 ]] && {
         if (! DownloadGEPackage "$download_version"); then # NOTE download_version is set in getops
-            builtin echo "Download failed"
+            echo "Download failed"
         fi
     }
 
     # Check for new version and if it is not installed install it
     if [[ $update -eq 1 ]]; then
         if (UpdateSavedGELatestRelease); then
-            if GetLatestGEVersion; then # set latest_version
+            if GetLatestGEVersion; then # set global variable latest_version
                 if (IsInstalled "$latest_version") && [[ $force -eq 1 ]]; then # Latest version is installed and -f is supplied
                     if (RemoveGEVersion "$latest_version"); then
                         # TODO Replace InstallGEVersion with UpdateGEVersion
                         if (InstallGEVersion); then # InstallGEVersion checks $update then $install_version and/or $latest_version
-                            builtin echo "Update succeeded"
+                            echo "Update succeeded"
                         else
-                            builtin echo "Update failed"
+                            echo "Update failed"
                         fi
                     fi
                 elif (IsInstalled "$latest_version") && [[ $force -eq 0 ]]; then # Latest version is installed and -f was not supplied
-                    builtin echo "Latest version is already installed ($latest_version)"
+                    echo "Latest version is already installed ($latest_version)"
                 elif (! IsInstalled "$latest_version"); then # Latest version is not installed
-                    builtin echo "Latest version is not installed"
+                    echo "Latest version is not installed"
                     if (InstallGEVersion); then
-                        builtin echo "Update succeeded"
+                        echo "Update succeeded"
                         if (IsSteamRunning); then
-                            builtin echo "Restart Steam to use the new version"
+                            echo "Restart Steam to use the new version"
                         fi
                     else
-                        builtin echo "Update failed"
+                        echo "Update failed"
                     fi
                 fi
             else
@@ -3032,7 +3049,7 @@ Main() {
         else
             # GetLatestGEVersionInfo failed
             ((debug)) && DebugMessage "Update: GetLatestGEVersionInfo returned failure status"
-            builtin echo "Update failed"
+            echo "Update failed"
         fi
         # Like purchasing a tribble, this is probably a bad idea
         [[ $install -eq 1 ]] && update=0 # Reset update to 0 so update and install can run in the same invocation
