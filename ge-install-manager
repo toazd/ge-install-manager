@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap et sta shiftwidth=4 ts=8 sts=0
 # misc-bash/script-sloc ge-install-manager:
-# 2061/3128 SLOC (65%) [SLOC/Comment:2.84], 725 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.35], 379 empty (12%)
+# 2061/3129 SLOC (65%) [SLOC/Comment:2.84], 726 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.35], 379 empty (12%)
 
 ###############################################################################
 #                                                                             #
@@ -106,7 +106,7 @@ InitializeGlobalVars() {
 # Return:  Always 0
 ShowHelp() {
 
-    cat <<HELP_HEREDOC
+    (cat) <<HELP_HEREDOC
 
     $(basename "$0")  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
@@ -149,7 +149,7 @@ HELP_HEREDOC
 # Return: Always 0
 ShowUsage() {
 
-     cat <<USAGE_HEREDOC
+     (cat) <<USAGE_HEREDOC
 Usage:
 
   - Acceptable formats for <version>:
@@ -226,13 +226,14 @@ GetLatestGEVersion() {
 
     if (UpdateSavedGELatestRelease); then
         while IFS= read -r --; do
-            # WARNING do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST",
-            #         they are not always the same as the version name in browser_download_url
-            # NOTE The regex must match all 3 of the following potential formats:
+            # WARNING: Do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST"
+            #          for matching. The versione extracted from them (eg. 5.9-GE-5-ST) is not
+            #          always the same as the version extracted from browser_download_url
+            # NOTE: The regex must match all 3 of the following potential formats:
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
-            # "name":"Proton-5.9-GE-5-ST.tar.gz"
-            [[ $REPLY =~ ^.*\"name\":.*\"Proton-.*\.tar\.gz\".*$ ]] && {
+            # "name": "Proton-5.9-GE-5-ST.tar.gz"
+            [[ $REPLY =~ ^[[:blank:]]*\"name\":.*\"Proton-.*\.tar\.gz\".*$ ]] && {
                 latest_version=${REPLY#*\"name\":}
                 latest_version=${latest_version#*\"}
                 latest_version=${latest_version%.tar.gz\"*}
@@ -333,7 +334,7 @@ DownloadGEPackage() {
         printf '%s\n%s\n' \
                "WARNING: Not enough free space at \"$install_path\"" \
                "Need at least $expected_size_bytes bytes but there is only $install_path_remaining_bytes bytes free"
-        exit 1
+        return 1
     else
         ((debug)) && {
             DebugMessage "install_path ($install_path) remaining bytes: $install_path_remaining_bytes"
@@ -350,7 +351,7 @@ DownloadGEPackage() {
                "WARNING: Not enough free space at \"$temp_base_path\"" \
                "Need at least $expected_size_bytes bytes but there is only $temp_base_path_remaining_bytes bytes free" \
                "Free up space or change tmp_path in the configuration file"
-        exit 1
+        return 1
     else
         # If fallocate is found, preallocate the file to be downloaded
         if command -v fallocate &>/dev/null; then
@@ -687,7 +688,7 @@ ReportGEDiskUsage() {
     local path
 
     version=$(CleanUpVersion "${1-}")
-    # NOTE do not return 1 if version is NULL, functionality below depends on it
+    # NOTE: do not return 1 if version is NULL, functionality below depends on it
 
     # Optional commands that are required for this function
     if ! command -v du &>/dev/null; then
@@ -869,8 +870,8 @@ RemoveGEInstallPath() {
 # Output:  None
 # Return:  0 Success
 #          1 Failure
-# NOTE __pycache__ is created at runtime in an installed version path and will
-#      not be present in the saved packages.
+# NOTE: __pycache__ is created at runtime in an installed version path and will
+#       not be present in the saved packages.
 VerifyGEInstall() {
 
     local node
@@ -891,8 +892,8 @@ VerifyGEInstall() {
     local -i total_files=0
     local -i counter_extracted=0
     local -i counter_installed=0
-    local -i start_time_seconds=0 # NOTE bash 5+ is required for EPOCHSECONDS
-    local -i end_time_seconds=0   # NOTE bash 4.2+ is required for printf $()T
+    local -i start_time_seconds=0 # NOTE: bash 5+ is required for EPOCHSECONDS
+    local -i end_time_seconds=0   # NOTE: bash 4.2+ is required for printf $()T
     local -i progress_percent=0
     local -i prev_progress=1
 
@@ -1175,9 +1176,9 @@ QueryGEAttribute() {
 # 2.(Line 65) "size": 406721946,
 # 3.(line 69) "browser_download_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
 #
-# NOTE The default media-type requested is "application/vnd.github.v3.text+json" and
-#      the current sed script also reformats the body_text section to plain text. Those
-#      choices were made to more easily support (eventually) showing release notes.
+# NOTE: The default media-type requested is "application/vnd.github.v3.text+json" and
+#       the current sed script also reformats the body_text section to plain text. Those
+#       choices were made to more easily support (eventually) showing release notes.
 QueryJSONAttribute() {
 
     # If the number of parameters is not exactly three, the second parameter is not a regular file, or any of the three parameters are empty
@@ -1286,7 +1287,7 @@ QueryJSONAttribute() {
             (*)
                 # NOTE: NULL response indicates error OR not found
                 #       this is NOT ideal
-                printf '' # TODO is it really necessary to return NULL?
+                printf '' # TODO: is it really necessary to return NULL?
                 return 1
             ;;
         esac
@@ -1456,7 +1457,7 @@ IsInstalled() {
         return 1
     fi
 
-    # NOTE do not return 0 here
+    # NOTE: do not return 0 here
 }
 
 ###############################################################################
@@ -1539,7 +1540,7 @@ RequestURL() {
                     }
                 done < "$file_temp"
 
-                # NOTE Only the status is checked, unminify is run regardless of the result
+                # NOTE: Only the status is checked, unminify is run regardless of the result
                 (IsJSONminified "$file_temp")
 
                 if (ReformatJSONUsingSed "$file_temp"); then
@@ -1807,7 +1808,7 @@ MemFree() {
         if [[ ${REPLY,,} == *active\(file\)* ]] || [[ ${REPLY,,} == *inactive\(file\)* ]]; then
             REPLY=${REPLY%[[:blank:]]*}
             REPLY=${REPLY##*[[:blank:]]}
-            page_cache_total=$((page_cache_total+REPLY)) # NOTE two iterations are required to add both
+            page_cache_total=$((page_cache_total+REPLY)) # NOTE: two iterations are required to add both
         fi
     done </proc/meminfo
 
@@ -1945,7 +1946,7 @@ ParseConfigFile() {
             fi
             exit 0
         else
-            # NOTE CreateDefaultConfigFile currently always returns 0
+            # NOTE: CreateDefaultConfigFile currently always returns 0
             ((debug)) && DebugMessage "CreateDefaultConfigFile returned failure status"
             return 1
         fi
@@ -2034,9 +2035,9 @@ ParseConfigFile() {
         case $config_key in
             (install_path)
                 # if the value for install_path is the special value "auto", attempt to auto detect the steam install path
-                # NOTE If one is found/chosen the global variable override_default_install_path will be set accordingly.
-                #      A value of NULL indicates a problem, error, or user chose manual configuration in which case
-                #      the value will remain auto.
+                # NOTE: If one is found/chosen the global variable override_default_install_path will be set accordingly.
+                #       A value of NULL indicates a problem, error, or user chose manual configuration in which case
+                #       the value will remain auto.
                 [[ ${config_value,,} = "auto" ]] && {
                     ((debug)) && DebugMessage "$config_key is set to $config_value, Running DetectSteamInstallPath"
                     DetectSteamInstallPath
@@ -2928,7 +2929,7 @@ Main() {
     ((debug)) && DebugMessage "Debug mode enabled"
 
     # If no parameters were supplied, show help
-    # NOTE ignore force and debug flags
+    # NOTE: Ignore force and debug flags
     if [[ $remove_install_path -eq 0 ]] && \
        [[ $remove_all_saved_packages -eq 0 ]] && \
        [[ $remove_installed_version -eq 0 ]] && \
@@ -3027,7 +3028,7 @@ Main() {
 
     # Remove an installed version
     if [[ $remove_installed_version -eq 1 ]] && [[ $remove_install_path -eq 0 ]] && [[ $remove_all_saved_packages -eq 0 ]]; then
-        (RemoveGEVersion "$remove_installed_version") # NOTE sREMOVE_VERSION is set in getops
+        (RemoveGEVersion "$remove_installed_version") # NOTE: sREMOVE_VERSION is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
     elif [[ $remove_installed_version -eq 1 ]] && [[ $remove_install_path -eq 1 ]]; then
         echo "Skipping remove version/package because remove install path was also requested"
@@ -3035,7 +3036,7 @@ Main() {
 
     # Remove a saved package
     if [[ $remove_saved_package -eq 1 ]] && [[ $remove_install_path -eq 0 ]] && [[ $remove_all_saved_packages -eq 0 ]]; then
-        (RemoveSavedPackage "$remove_saved_version") # NOTE sREMOVE_VERSION is set in getops
+        (RemoveSavedPackage "$remove_saved_version") # NOTE: sREMOVE_VERSION is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
     elif [[ $remove_saved_package -eq 1 ]] && [[ $remove_install_path -eq 1 ]]; then
         echo "Skipping remove version/package because remove install path was also requested"
@@ -3043,7 +3044,7 @@ Main() {
 
     # Download a package
     [[ $download -eq 1 ]] && {
-        if (! DownloadGEPackage "$download_version"); then # NOTE download_version is set in getops
+        if (! DownloadGEPackage "$download_version"); then # NOTE: download_version is set in getops
             echo "Download failed"
         fi
     }
@@ -3088,7 +3089,7 @@ Main() {
 
     # Install a package
     if [[ $install -eq 1 ]] && [[ $update -eq 0 ]]; then
-        (InstallGEVersion "$install_version") # NOTE install_version is set in getops
+        (InstallGEVersion "$install_version") # NOTE: install_version is set in getops
     fi
 
     # List installed versions
