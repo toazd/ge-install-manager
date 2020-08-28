@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap et sta shiftwidth=4 ts=8 sts=0
-###############################################################################
+# misc-bash/script-sloc ge-install-manager:
+# 2064/3132 SLOC (65%) [SLOC/Comment:2.85], 725 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.35], 380 empty (12%)
+
 ###############################################################################
 #                                                                             #
 #      Toazd 2020 Unlicense https://unlicense.org/                            #
@@ -33,7 +35,6 @@ unalias -a
 # TODO Replace getopts with a custom parser
 # TODO support for using jq in addition to sed
 #
-###############################################################################
 ###############################################################################
 
 # Set the minimum global variables required to show help and/or usage
@@ -1095,7 +1096,16 @@ VerifyGEInstall() {
 
                 printf "\033[u\033[0K%s\n" ". Finished in $((end_time_seconds-start_time_seconds)) seconds."
 
+                # Report
                 echo "$match_counter files match. $missing_counter files are missing. $mismatch_counter do not match."
+
+                if [[ $match_counter -gt 0 && $missing_counter -eq 0 && $mismatch_counter -eq 0 ]]; then
+                    echo "Version \"$version\" appears ok"
+                elif [[ $missing_counter -gt 0 || $mismatch_counter -gt 0 ]]; then
+                    printf '%s\n%s\n' \
+                           "WARNING: Version \"$version\" has missing or potentially corrupt files." \
+                           "If you did not manually modify your installation you may want to reinstall version \"$version\""
+                fi
             fi
         }
     done
