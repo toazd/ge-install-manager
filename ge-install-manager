@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap et sta shiftwidth=4 ts=8 sts=0
 # misc-bash/script-sloc ge-install-manager:
-# 2064/3132 SLOC (65%) [SLOC/Comment:2.85], 725 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.35], 380 empty (12%)
+# 2061/3128 SLOC (65%) [SLOC/Comment:2.84], 725 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.35], 379 empty (12%)
 
 ###############################################################################
 #                                                                             #
@@ -14,7 +14,7 @@
 ###############################################################################
 
 # -e  Exit immediately if a command exits with a non-zero status.
-set +e # WARNING DO NOT set -e
+set +e # WARNING: DO NOT set -e
 
 # -h  Remember the location of commands as they are looked up. Default is on.
 # -u  Treat unset variables as an error when substituting. Default is off.
@@ -24,16 +24,16 @@ set +e # WARNING DO NOT set -e
 set -huo pipefail
 
 # -a Remove all alias definitions.
-# NOTE If the shebang is changed, this may have undesired behavior
+# NOTE: If the shebang is changed, this may have undesired behavior
 unalias -a
 
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
 #
-# TODO Find a way to not download releases more often than is necessary
+# TODO: Find a way to not download releases more often than is necessary
 #      (updates to download_count update the mtime of the remote file)
-# TODO Replace getopts with a custom parser
-# TODO support for using jq in addition to sed
+# TODO: Replace getopts with a custom parser
+# TODO: support for using jq in addition to sed
 #
 ###############################################################################
 
@@ -219,7 +219,7 @@ USAGE_HEREDOC
 #          1 = UpdateSavedGELatestRelease returned 1, or a match was not found
 #              in file_latest_json
 #
-# TODO *might* want to check releases if latest fails
+# TODO: *might* want to check releases if latest fails
 GetLatestGEVersion() {
 
     latest_version=''
@@ -255,7 +255,7 @@ GetLatestGEVersion() {
 # Return:  0 = Success
 #          1 = RequestURL returned 1 or an unknown error occured
 #
-# TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
+# TODO: consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGELatestRelease() {
 
     ((debug)) && DebugMessage "latest_version_url: \"$latest_version_url\" file_latest_json: \"$file_latest_json\""
@@ -279,11 +279,11 @@ UpdateSavedGELatestRelease() {
 # Return:  0 = Success
 #          1 = RequestURL returned 1 or an unknown error occured
 #
-# TODO consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
+# TODO: consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGEReleases() {
 
-    # BUG updates to download_count in the remote file cause curl -z to download a new version much more often than is needed
-    #     Until a workaround is found, latest and releases are kept seperate and not checked at the same time
+    # BUG: updates to download_count in the remote file cause curl -z to download a new version much more often than is needed
+    #      Until a workaround is found, latest and releases are kept seperate and not checked at the same time
     ((debug)) && DebugMessage "releases_url: \"$releases_url\" file_releases_json: \"$file_releases_json\""
 
     if (RequestURL "$releases_url" "$file_releases_json"); then
@@ -343,7 +343,7 @@ DownloadGEPackage() {
     fi
 
     # If there is not enough free space remaining on the temp_path file system
-    # TODO Use a different path as a fallback?
+    # TODO: Use a different path as a fallback?
     if [[ $temp_base_path_remaining_bytes -lt $expected_size_bytes ]]; then
         ((debug)) && DebugMessage "Free space on \"$temp_base_path\" is $temp_base_path_remaining_bytes bytes"
         printf '%s\n%s\n%s\n' \
@@ -375,7 +375,7 @@ DownloadGEPackage() {
         ((debug)) && DebugMessage "Downloaded package size in bytes: \"$downloaded_package_size_bytes\""
 
         # A file size of 9 bytes indicates the response was "Not Found"
-        # TODO Also check for rate limit exceeded - need a sample file first
+        # TODO: Also check for rate limit exceeded - need a sample file first
         if [[ $downloaded_package_size_bytes -eq 9 ]]; then
             echo "Server responded \"Not Found\" for version \"$version\""
             CleanUp
@@ -447,7 +447,7 @@ UpdateGEVersion() {
 # Return:  0 = Success
 #          1 = Failure
 #
-# TODO Seperate Install and Update
+# TODO: Seperate Install and Update
 InstallGEVersion() {
 
     local version
@@ -605,7 +605,7 @@ ExtractGEPackage() {
                 echo "Removed failed extraction path at \"$extract_path/Proton-${version}\""
             else
                 echo "Failed to remove path of failed extraction: \"$extract_path/Proton-${version}\""
-                # TODO update/remove message when install verification is updated
+                # TODO: update/remove message when install verification is updated
                 echo "This script may interpret it as a valid install until it is removed"
             fi
         }
@@ -996,9 +996,9 @@ VerifyGEInstall() {
                 fi
 
                 # If an alias exists for cmp (much faster than executing cmp in a subshell)
-                # NOTE This isn't necessary by default. It is included in the event that
-                #      the shebang is changed and a custom alias exists for cmp.
-                # TODO do other shells subshells inherent aliases like bash?
+                # NOTE: This isn't necessary by default. It is included in the event that
+                #       the shebang is changed and a custom alias exists for cmp.
+                # TODO: do other shells' subshells inherent aliases like bash?
                 if alias cmp &>/dev/null; then
                     echo "Saving existing alias for command cmp"
                     saved_cmp_alias=$(alias cmp)
@@ -1086,7 +1086,7 @@ VerifyGEInstall() {
                 fi
 
                 # Restore saved cmp alias
-                # TODO do other shells alias command output in a reusable format?
+                # TODO: do other shells alias command output in a reusable format?
                 [[ -n $saved_cmp_alias ]] && {
                     echo "Restoring saved alias for command cmp"
                     if ! $saved_cmp_alias; then
@@ -1153,7 +1153,7 @@ QueryGEAttribute() {
         printf '%s' "$value"
         return 0
     else
-        printf '' # TODO is it really necessary to return NULL?
+        printf '' # TODO: is it really necessary to return NULL?
         return 1
     fi
 
@@ -1208,12 +1208,12 @@ QueryJSONAttribute() {
 
     key=${3,,}
 
-    # WARNING Do not output to stdout or stderr inside the following loop
+    # WARNING: Do not output to stdout or stderr inside the following loop
     while IFS= read -r --; do
         ((counter_lines++))
         # version match
         # version example: 5.9-GE-5-ST
-        # NOTE must be compatible with all 3 of the following potential formats
+        # NOTE: must be compatible with all 3 of the following potential formats
         # "name":"Proton-5.9-GE-5-ST.tar.gz"
         #         "name": "Proton-5.9-GE-5-ST.tar.gz",
         # "name":"Proton-5.9-GE-5-ST.tar.gz"
@@ -1222,7 +1222,7 @@ QueryJSONAttribute() {
             line_version_found=$counter_lines
         }
 
-        # NOTE must be compatible with all 3 of the following potential formats
+        # NOTE: must be compatible with all 3 of the following potential formats
         # "size":406721946,"download_count":6780,"created_at":"2020-07-29T05:00:40Z"
         #         "size": 406721946,
         # "size":406721946
@@ -1237,7 +1237,7 @@ QueryJSONAttribute() {
             }
         }
 
-        # NOTE must be compatible with all 3 of the following potential formats
+        # NOTE: must be compatible with all 3 of the following potential formats
         # "browser_download_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
         #         "browser_download_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
         # "browser_download_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"}],"tarball_url":"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/tarball/5.9-GE-5-ST"
@@ -1284,8 +1284,8 @@ QueryJSONAttribute() {
                 printf '%s' "$value_browser_url"
             ;;
             (*)
-                # NOTE NULL response indicates error OR not found
-                #      this is NOT ideal
+                # NOTE: NULL response indicates error OR not found
+                #       this is NOT ideal
                 printf '' # TODO is it really necessary to return NULL?
                 return 1
             ;;
@@ -1436,8 +1436,8 @@ END_OF_SED_SCRIPT
 # Output:  None
 # Return:  0 Yes/True
 #          1 No/False
-# NOTE Currently only checks if a path for the version exists
-# TODO Find a better way that is reliable
+# NOTE: Currently only checks if a path for the version exists
+# TODO: Find a better way that is reliable
 IsInstalled() {
 
     local version
@@ -1486,7 +1486,7 @@ IsSteamRunning() {
         return 0
     elif [[ $found_steam -eq 0 && $found_steamwebhelper -eq 1 ]]; then
         echo "Warning: at least one steamwebhelper process is still running but Steam is not"
-        # TODO report their PIDs
+        # TODO: report their PIDs
         return 1
     elif [[ $found_steam -eq 0 && $found_steamwebhelper -eq 0 ]]; then
         return 1
@@ -1525,7 +1525,7 @@ RequestURL() {
         ((debug)) && DebugMessage "'curl' returned success"
         if [[ $(stat -c '%s' -- "$file_temp") -gt 0 ]]; then
             if [[ -f $file_temp && -r $file_temp ]]; then
-                # TODO replace pattern matching tests with size comparisons using stat (need a sample for rate limit exceeded)
+                # TODO: replace pattern matching tests with size comparisons using stat (need a sample for rate limit exceeded)
                 while IFS= read -r --; do
                     [[ $REPLY == *"rate limit exceeded"* ]] && {
                         echo "($LINENO) RequestURL: Github API request rate limit exceeded. Try again later." 1>&2
@@ -1697,8 +1697,8 @@ CreateBackup() {
 #                   the precision afforded by bc/etc.
 # Return:  0 Success
 #          1 Failure
-# NOTE bash arithmatic supports upto 1024^6/1024**6 (exbibyte)
-# TODO Add a third, optional parameter to request calculations using bc
+# NOTE: bash arithmatic supports upto 1024^6/1024**6 (exbibyte)
+# TODO: Add a third, optional parameter to request calculations using bc
 SpaceRemaining() {
 
     local file_system=${1-}
@@ -1737,8 +1737,8 @@ SpaceRemaining() {
 # Output:  None
 # Return:  0 = Success
 #          1 = Failure
-# NOTE https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0a
-# NOTE https://github.com/torvalds/linux/blob/6aa303defb7454a2520c4ddcdf6b081f62a15890/mm/page_alloc.c#L4025
+# NOTE: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0a
+# NOTE: https://github.com/torvalds/linux/blob/6aa303defb7454a2520c4ddcdf6b081f62a15890/mm/page_alloc.c#L4025
 MemFree() {
 
     # MemAvailable
@@ -1787,7 +1787,7 @@ MemFree() {
             sunreclaimable=$REPLY
         }
     done </proc/zoneinfo
-    # TODO 0 could indicate a serious problem or a customization?
+    # TODO: 0 could indicate a serious problem or a customization?
     #[[ $low_watermarks_total -le 0 ]] && return 1
 
     # Parse /proc/meminfo
@@ -1828,7 +1828,7 @@ MemFree() {
     fi
 
     # Add both to memory_available_kb for the grand total
-    # NOTE nr_slab_unreclaimable may not be available on [uname -r] < 4.8
+    # NOTE: nr_slab_unreclaimable may not be available on [uname -r] < 4.8
     if [[ $sunreclaimable -gt 0 ]]; then
         ((debug)) && DebugMessage "Using kernel v4.8+ calculation"
         memory_available_kb=$(( (memory_available_kb + page_cache_total + sreclaimable) - sunreclaimable ))
@@ -1922,7 +1922,7 @@ ParseConfigFile() {
     local config_key
     local config_value
 
-    existing_config_file_lines=$(wc -l 2>/dev/null < "$file_script_config") # NOTE do not || return 1 here
+    existing_config_file_lines=$(wc -l 2>/dev/null < "$file_script_config") # NOTE: do not || return 1 here
 
     # If existing_config_file_lines is empty, create a default config file
     [[ -z $existing_config_file_lines ]] && {
@@ -1978,8 +1978,8 @@ ParseConfigFile() {
         if [[ $REPLY =~ ^.*#.*$ ]]; then
             ((debug)) && DebugMessage "Partially commented line $counter_config_line: \"$REPLY\""
             # remove the ' #' and everything to the right of it
-            # NOTE valid comments are preceded by at least one [[:blank:]]
-            # BUG this will mangle herestrings that contain comments
+            # NOTE: valid comments are preceded by at least one [[:blank:]]
+            # BUG: this will mangle herestrings that contain comments
             REPLY=${REPLY%%[[:blank:]]#*}
         fi
 
@@ -2199,7 +2199,7 @@ ParseConfigFile() {
     ((debug)) && DebugMessage "Install path set to: \"$install_path\""
     ((debug)) && DebugMessage "Temp path set to: \"$temp_base_path\""
     ((debug)) && DebugMessage "Config path set to: \"$script_config_path\""
-    # NOTE config_path is currently not configurable
+    # NOTE: config_path is currently not configurable
     # update global variables that depend on this one
     #file_script_config=$script_config_path/$SCRIPT_FULL_NAME.conf
     #((debug)) && DebugMessage "file_script_config set to: \"$file_script_config\""
@@ -2313,12 +2313,12 @@ MkTempPath() {
 # Output:  A string containing the generated alphanumeric sequence (stdout)
 # Return:  0 (Success)
 #          1 (Failure)
-# NOTE Valid input length range 1-32767 (default: 10)
+# NOTE: Valid input length range 1-32767 (default: 10)
 GenerateRandomAlphaNumericString() {
 
     local list
     local -i length=${1:-10}
-    local result='' # NOTE must be set to NULL
+    local result='' # NOTE: must be set to NULL
     local character
     local -i i
 
@@ -2360,15 +2360,15 @@ GenerateRandomAlphaNumericString() {
 # Input:   None
 # Output:  None
 # Return:  Always 0
-# NOTE ~/.steam/root/compatibilitytools.d                                   # proton-ge-custom install notes
-#      /usr/share/steam/compatibilitytools.d
-#      /usr/local/share/steam/compatibilitytools.d
+# NOTE: ~/.steam/root/compatibilitytools.d                                   # proton-ge-custom install notes
+#       /usr/share/steam/compatibilitytools.d
+#       /usr/local/share/steam/compatibilitytools.d
 # flatpak
-#      ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/  # proton-ge-custom install notes
-#      ~/.var/app/com.valvesoftware.Steam/.local/share/Steam
-#      ~/.var/app/com.valvesoftware.Steam/.steam
-# TODO Colon-separated global paths in $STEAM_EXTRA_COMPAT_TOOLS_PATHS
-#      ~/.steam/root/compatibilitytools.d (steam install folder symlink) || ~/.local/share/Steam/compatibilitytools.d
+#       ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/  # proton-ge-custom install notes
+#       ~/.var/app/com.valvesoftware.Steam/.local/share/Steam
+#       ~/.var/app/com.valvesoftware.Steam/.steam
+# TODO: Colon-separated global paths in $STEAM_EXTRA_COMPAT_TOOLS_PATHS
+#       ~/.steam/root/compatibilitytools.d (steam install folder symlink) || ~/.local/share/Steam/compatibilitytools.d
 DetectSteamInstallPath () {
 
     local -i i=0
@@ -2737,7 +2737,7 @@ DebugMessage() {
 # Input:   None
 # Output:  None
 # Return:  Always 0
-# NOTE Exactly -fzZ invokes this function
+# NOTE: Exactly -fzZ invokes this function
 ReportEnvironmentInfo() {
 
     echo "###############################################################################"
@@ -2785,15 +2785,11 @@ ReportEnvironmentInfo() {
 # Input:   None
 # Output:  None
 # Return:  Always 0
-# NOTE Exactly -fzT invokes this function
-# # All hope abandon, ye who enter here!
+# NOTE: Exactly -fzT invokes this function
+# All hope abandon, ye who enter here!
 ProvingGrounds() {
 
     [[ $integration_testing -eq 1 ]] || return 1
-
-    echo $$
-    ps -p $$
-    ps -s $$
 
     exit
 }
@@ -3026,7 +3022,7 @@ Main() {
 
     # remove saved packages
     if [[ $remove_all_saved_packages -eq 1 ]] && [[ $remove_install_path -eq 0 ]]; then
-        (RemoveAllSavedPackages) # TODO -f required?
+        (RemoveAllSavedPackages) # TODO: -f required?
     fi
 
     # Remove an installed version
@@ -3058,7 +3054,7 @@ Main() {
             if GetLatestGEVersion; then # set global variable latest_version
                 if (IsInstalled "$latest_version") && [[ $force -eq 1 ]]; then # Latest version is installed and -f is supplied
                     if (RemoveGEVersion "$latest_version"); then
-                        # TODO Replace InstallGEVersion with UpdateGEVersion
+                        # TODO: Replace InstallGEVersion with UpdateGEVersion
                         if (InstallGEVersion); then # InstallGEVersion checks $update then $install_version and/or $latest_version
                             echo "Update succeeded"
                         else
@@ -3105,9 +3101,9 @@ Main() {
     [[ $report_version_usage -eq 1 ]] && (ReportGEDiskUsage "$report_version")
 
     # Run verify if remove install path and remove saved packages wasn't requested
-    # TODO add support to verify even if remove saved packages and/or remove install path was invoked
-    # so long as some sort of install was also requested. Additionally, maybe support installing a version
-    # that is not installed when verify is called and force mode is active.
+    # TODO: add support to verify even if remove saved packages and/or remove install path was invoked
+    #       so long as some sort of install was also requested. Additionally, maybe support installing a version
+    #       that is not installed when verify is called and force mode is active.
     if [[ $verify -eq 1 ]] && [[ $remove_install_path -ne 1 && $remove_all_saved_packages -ne 1 ]]; then
         (VerifyGEInstall "${verify_version-}")
     fi
