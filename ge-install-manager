@@ -310,7 +310,7 @@ DownloadGEPackage() {
     local version
     local temp_path
     local temp_package
-    local temp_path_remaining_bytes
+    local temp_base_path_remaining_bytes
     local install_path_remaining_bytes
     local expected_size_bytes
     local package_download_url
@@ -321,7 +321,7 @@ DownloadGEPackage() {
     [[ -z $version ]] && { ((debug)) && DebugMessage "Parameter error (NULL)"; return 1; }
     temp_path=$(MkTempPath) || { ((debug)) && DebugMessage "MkTempPath returned failure"; return 1; }
     temp_package=$temp_path/Proton-${version}.tar.gz
-    temp_path_remaining_bytes=$(SpaceRemaining "$temp_path" "b") || { ((debug)) && DebugMessage "SpaceRemaining returned failure checking $temp_path"; return 1; }
+    temp_base_path_remaining_bytes=$(SpaceRemaining "$temp_base_path" "b") || { ((debug)) && DebugMessage "SpaceRemaining returned failure checking $temp_path"; return 1; }
     install_path_remaining_bytes=$(SpaceRemaining "$install_path" "b") || { ((debug)) && DebugMessage "SpaceRemaining returned failure checking $install_path"; return 1; }
     package_download_url=$(QueryGEAttribute "$version" "browser_download_url") || { ((debug)) && DebugMessage "QueryGEAttribute browser_download_url returned failure"; return 1; }
     expected_size_bytes=$(QueryGEAttribute "$version" "size") || { ((debug)) && DebugMessage "QueryGEAttribute size returned failure"; return 1; }
@@ -336,18 +336,18 @@ DownloadGEPackage() {
     else
         ((debug)) && {
             DebugMessage "install_path ($install_path) remaining bytes: $install_path_remaining_bytes"
-            DebugMessage "temp_path ($temp_path) remaining bytes: $temp_path_remaining_bytes"
+            DebugMessage "temp_path ($temp_path) remaining bytes: $temp_base_path_remaining_bytes"
             DebugMessage "Expected package size (bytes): $expected_size_bytes"
         }
     fi
 
     # If there is not enough free space remaining on the temp_path file system
     # TODO Use a different path as a fallback?
-    if [[ $temp_path_remaining_bytes -lt $expected_size_bytes ]]; then
-        ((debug)) && DebugMessage "Free space on \"$temp_path\" is $temp_path_remaining_bytes bytes"
+    if [[ $temp_base_path_remaining_bytes -lt $expected_size_bytes ]]; then
+        ((debug)) && DebugMessage "Free space on \"$temp_base_path\" is $temp_base_path_remaining_bytes bytes"
         printf '%s\n%s\n%s\n' \
-               "WARNING: Not enough free space at \"$temp_path\"" \
-               "Need at least $expected_size_bytes bytes but there is only $temp_path_remaining_bytes bytes free" \
+               "WARNING: Not enough free space at \"$temp_base_path\"" \
+               "Need at least $expected_size_bytes bytes but there is only $temp_base_path_remaining_bytes bytes free" \
                "Free up space or change tmp_path in the configuration file"
         exit 1
     else
@@ -632,12 +632,12 @@ ListInstalledGEVersions() {
 
     echo "Installed version(s):"
     for node in "$install_path"/Proton-*; do
-        if [[ -d $node ]]; then
+        [[ -d $node ]] && {
             ((i++))
             # Get the disk usage of the package in human readable format
             IFS=$'\t' read -r -- installed_version_disk_usage path < <(du -sh -- "$node")
             echo "  ${node##*/} ($installed_version_disk_usage)"
-        fi
+        }
     done
     [[ $i -eq 0 ]] && echo "  None found"
 
@@ -873,6 +873,7 @@ RemoveGEInstallPath() {
 VerifyGEInstall() {
 
     local node
+    local path
     local temp_path
     local version
     local file_extracted
@@ -880,6 +881,8 @@ VerifyGEInstall() {
     local saved_cmp_alias=''
     local -a files_extracted
     local -a files_installed
+    local -i expected_size_bytes=0
+    local -i temp_base_path_remaining_bytes=0
     local -i match_counter=0
     local -i missing_counter=0
     local -i mismatch_counter=0
@@ -892,7 +895,6 @@ VerifyGEInstall() {
     local -i progress_percent=0
     local -i prev_progress=1
 
-    temp_path=$(MkTempPath) || { ((debug)) && DebugMessage "MkTempPath returned failure"; return 1; }
     version=$(CleanUpVersion "${1-}")
 
     # Required external commands
@@ -938,15 +940,34 @@ VerifyGEInstall() {
             else
                 echo "Version \"$version\" is installed"
 
+                # Check for enough free space to extract the package to tmp_path
+                IFS=$'\t' read -r -- expected_size_bytes path < <(du -bs -- "$install_path/Proton-${version}")
+                temp_base_path_remaining_bytes=$(SpaceRemaining "$temp_base_path" "b")
+
+                ((debug)) && {
+                    DebugMessage "$version extracted size: $expected_size_bytes bytes"
+                    DebugMessage "$temp_base_path_remaining_bytes remaining bytes: $temp_base_path_remaining_bytes"
+                }
+
+                [[ $expected_size_bytes -gt $temp_base_path_remaining_bytes ]] && {
+                    echo "WARNING: Not enough free space at \"$temp_base_path\" to continue"
+                    CleanUp
+                    return 1
+                }
+
+                # Reset for each package to check
+                CleanUp
+                temp_path=$(MkTempPath) || { ((debug)) && DebugMessage "MkTempPath returned failure"; return 1; }
+                match_counter=0
+                mismatch_counter=0
+                missing_counter=0
+                progress_percent=0
+                prev_progress=1
+
                 # Extract the package to a temporary path
                 if (! ExtractGEPackage "$version" "$temp_path"); then
                     return 1
                 fi
-
-                # Reset counters (for comparing more than one version)
-                match_counter=0
-                mismatch_counter=0
-                missing_counter=0
 
                 # Create two indexed arrays, each containing a seperate list of files,
                 # one from the extracted path and the other from the installed path respectively
@@ -2760,6 +2781,10 @@ ProvingGrounds() {
 
     [[ $integration_testing -eq 1 ]] || return 1
 
+    echo $$
+    ps -p $$
+    ps -s $$
+
     exit
 }
 
@@ -2809,7 +2834,7 @@ CleanUp() {
     # Handle the received SIGINT properly by terminating the script/process group with SIGINT
     [[ $flag_sigint_caught -eq 1 ]] && {
         # If the kill fails
-        if ! kill -s SIGINT %1; then
+        if ! kill -s SIGINT $$; then
             # Try the external command
             if ! $(which --skip-alias --skip-functions -- kill) -2 0; then
                 kill -2 0
