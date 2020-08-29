@@ -29,6 +29,7 @@ Help:
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable debug mode
                       Enable extra output messages and preserve any temporary files created
+                      Debug message format: (calling line)[function trace]: message
 
 Usage:
 
@@ -84,8 +85,6 @@ Usage:
       Report install path usage,
       Report specific version usage
       Verify
-
-  - Debug message format: (calling line)[function trace]: message
 
 Version history:
   v0.6.3 of ge-install-manager.sh is the initial upload (prior versions not tracked by any VCS)

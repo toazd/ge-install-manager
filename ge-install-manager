@@ -137,6 +137,7 @@ ShowHelp() {
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable debug mode
                       Enable extra output messages and preserve any temporary files created
+                      Debug message format: (calling line)[function trace]: message
 HELP_HEREDOC
 
     return 0
@@ -203,7 +204,6 @@ Usage:
       Report specific version usage
       Verify
 
-  - Debug message format: (calling line)[function trace]: message
 USAGE_HEREDOC
 
     return 0
