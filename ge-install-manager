@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap et sta shiftwidth=4 ts=8 sts=0
 # misc-bash/script-sloc ge-install-manager:
-# 2061/3129 SLOC (65%) [SLOC/Comment:2.84], 726 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.35], 379 empty (12%)
+# 2071/3148 SLOC (65%) [SLOC/Comment:2.84], 730 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.35], 384 empty (12%)
 
 ###############################################################################
 #                                                                             #
@@ -16,8 +16,8 @@
 # -e  Exit immediately if a command exits with a non-zero status.
 set +e # WARNING: DO NOT set -e
 
-# -h  Remember the location of commands as they are looked up. Default is on.
-# -u  Treat unset variables as an error when substituting. Default is off.
+# -h Remember the location of commands as they are looked up. Default is on.
+# -u Treat unset variables as an error when substituting. Default is off.
 # -o pipefail The return value of a pipeline is the status of the last command
 #             to exit with a non-zero status, or zero if no command exited with
 #             a non-zero status. Default is off.
@@ -31,7 +31,7 @@ unalias -a
 # "Things that would be nice, but aren't required for main features" list
 #
 # TODO: Find a way to not download releases more often than is necessary
-#      (updates to download_count update the mtime of the remote file)
+#       (updates to download_count update the mtime of the remote file)
 # TODO: Replace getopts with a custom parser
 # TODO: support for using jq in addition to sed
 #
@@ -77,7 +77,7 @@ InitializeGlobalVars() {
     declare -gi size_bytes_sed_unminify_script=824
     declare -gi real_exit_status=0
     declare -g install_path  # Configuration file: install_path
-    declare -g script_config_path=${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME
+    declare -g script_config_path=${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME
     declare -g file_sed_unminify_script=$script_config_path/unminify-JSON.sed
     declare -g script_cache_path # Configuration file: cache_path
     declare -g latest_version_url # Configuration file: latest_version_url
@@ -219,7 +219,8 @@ USAGE_HEREDOC
 #          1 = UpdateSavedGELatestRelease returned 1, or a match was not found
 #              in file_latest_json
 #
-# TODO: *might* want to check releases if latest fails
+# TODO: Might want to check releases if latest fails. But, will the first entry
+#       always be the latest?
 GetLatestGEVersion() {
 
     latest_version=''
@@ -227,13 +228,13 @@ GetLatestGEVersion() {
     if (UpdateSavedGELatestRelease); then
         while IFS= read -r --; do
             # WARNING: Do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST"
-            #          for matching. The versione extracted from them (eg. 5.9-GE-5-ST) is not
+            #          for matching. The version extracted from them (eg. 5.9-GE-5-ST) is not
             #          always the same as the version extracted from browser_download_url
             # NOTE: The regex must match all 3 of the following potential formats:
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name": "Proton-5.9-GE-5-ST.tar.gz"
-            [[ $REPLY =~ ^[[:blank:]]*\"name\":.*\"Proton-.*\.tar\.gz\".*$ ]] && {
+            [[ $REPLY =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
                 latest_version=${REPLY#*\"name\":}
                 latest_version=${latest_version#*\"}
                 latest_version=${latest_version%.tar.gz\"*}
@@ -256,10 +257,13 @@ GetLatestGEVersion() {
 # Return:  0 = Success
 #          1 = RequestURL returned 1 or an unknown error occured
 #
-# TODO: consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
+# TODO: Consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGELatestRelease() {
 
-    ((debug)) && DebugMessage "latest_version_url: \"$latest_version_url\" file_latest_json: \"$file_latest_json\""
+    ((debug)) && {
+        DebugMessage "latest_version_url: \"$latest_version_url\""
+        DebugMessage "file_latest_json: \"$file_latest_json\""
+    }
 
     if (RequestURL "$latest_version_url" "$file_latest_json"); then
         ((debug)) && DebugMessage "RequestURL returned success"
@@ -280,12 +284,15 @@ UpdateSavedGELatestRelease() {
 # Return:  0 = Success
 #          1 = RequestURL returned 1 or an unknown error occured
 #
-# TODO: consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
+# TODO: Consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGEReleases() {
 
     # BUG: updates to download_count in the remote file cause curl -z to download a new version much more often than is needed
     #      Until a workaround is found, latest and releases are kept seperate and not checked at the same time
-    ((debug)) && DebugMessage "releases_url: \"$releases_url\" file_releases_json: \"$file_releases_json\""
+    ((debug)) && {
+        DebugMessage "releases_url: \"$releases_url\""
+        DebugMessage "file_releases_json: \"$file_releases_json\""
+    }
 
     if (RequestURL "$releases_url" "$file_releases_json"); then
         ((debug)) && DebugMessage "RequestURL returned success"
@@ -684,7 +691,7 @@ ReportGEDiskUsage() {
     local version
     local file_counter
     local disk_usage="0"
-    local -i missing_command=0
+    local -i flag_missing_command=0
     local path
 
     version=$(CleanUpVersion "${1-}")
@@ -693,16 +700,16 @@ ReportGEDiskUsage() {
     # Optional commands that are required for this function
     if ! command -v du &>/dev/null; then
         echo "Command 'du' not found"
-        missing_command=1
+        flag_missing_command=1
     fi
 
     if ! command -v find &>/dev/null; then
         echo "Command 'find' not found"
-        missing_command=1
+        flag_missing_command=1
     fi
 
     # If all command checks succeeded
-    if [[ $missing_command -eq 0 ]]; then
+    if [[ $flag_missing_command -eq 0 ]]; then
         # Set the path to be reported based on whether a version was provided or not
         if [[ -z $version ]]; then
             # Report the file count and disk usage for the entire install path
@@ -738,7 +745,7 @@ ReportGEDiskUsage() {
             fi
         fi
     # If any command check failed
-    elif [[ $missing_command -eq 1 ]]; then
+    elif [[ $flag_missing_command -eq 1 ]]; then
         echo "Report not available."
         return 1
     fi
@@ -896,22 +903,26 @@ VerifyGEInstall() {
     local -i end_time_seconds=0   # NOTE: bash 4.2+ is required for printf $()T
     local -i progress_percent=0
     local -i prev_progress=1
+    local -i flag_missing_command=0
 
     version=$(CleanUpVersion "${1-}")
 
     # Required external commands
     if ! command -v cmp &>/dev/null; then
         echo "Command 'cmp' is required to use this function"
-        return 1
+        flag_missing_command=1
     fi
     if ! command -v sort &>/dev/null; then
         echo "Command 'sort' is required to use this function"
-        return 1
+        flag_missing_command=1
     fi
     if ! command -v date &>/dev/null; then
         echo "Command 'date' is required to use this function"
-        return 1
+        flag_missing_command=1
     fi
+
+    # If any one required command is missing
+    [[ $flag_missing_command -eq 1 ]] && return 1
 
     # Check for install paths that don't have a saved package, download if missing
     for node in "$install_path/Proton-"*; do
@@ -974,9 +985,13 @@ VerifyGEInstall() {
                 # Create two indexed arrays, each containing a seperate list of files,
                 # one from the extracted path and the other from the installed path respectively
                 echo "Indexing files to compare"
+
+                # Array of extracted files
                 while IFS= read -r -- file_extracted; do
                     files_extracted+=("$file_extracted")
                 done < <(find "$temp_path/Proton-${version}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
+
+                # Array of installed files
                 while IFS= read -r -- file_installed; do
                     files_installed+=("$file_installed")
                 done < <(find "$install_path/Proton-${version}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
@@ -2272,7 +2287,9 @@ MkTempFile() {
 
     [[ -d $temp_base_path && -w $temp_base_path ]] || { ((debug)) && DebugMessage "temp_base_path is not a valid path or no write access: \"$temp_base_path\""; return 1; }
 
-    temp_file="$temp_base_path/${TEMP_PREFIX}$(GenerateRandomAlphaNumericString 10)"
+    temp_file=$temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16)
+
+    ((debug)) && DebugMessage "Created temp file at: \"$temp_file\""
 
     # Create the empty temp file
     printf '' > "$temp_file" || return 1
@@ -2296,7 +2313,9 @@ MkTempPath() {
 
     [[ -d $temp_base_path && -w $temp_base_path ]] || { ((debug)) && DebugMessage "temp_base_path is not a valid path or no write access: \"$temp_base_path\""; return 1; }
 
-    temp_path="$temp_base_path/${TEMP_PREFIX}$(GenerateRandomAlphaNumericString 10)" || return 1
+    temp_path=$temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
+
+    ((debug)) && DebugMessage "Created temp path at: \"$temp_path\""
 
     # Create the path
     mkdir -p "$temp_path" &>/dev/null || return 1
