@@ -23,11 +23,10 @@ Help:
     -d <version>  - Download and save the package for <version>
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
-                      -f is also required to confirm that you are sure
                       NOTE: Saved packages are currently stored in the installation path
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
-    -z            - Enable debug mode
+    -z            - Enable debug mode (verbose script activity output to stderr)
                       Enable extra output messages and preserve any temporary files created
                       Debug message format: (calling line)[function trace]: message
 
