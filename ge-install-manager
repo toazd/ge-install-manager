@@ -106,7 +106,7 @@ InitializeGlobalVars() {
 # Return:  Always 0
 ShowHelp() {
 
-    (cat) <<HELP_HEREDOC
+    cat <<HELP_HEREDOC
 
     $(basename "$0")  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
@@ -131,11 +131,10 @@ ShowHelp() {
     -d <version>  - Download and save the package for <version>
     -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
     -X            - Remove the entire install path
-                      -f is also required to confirm that you are sure
                       NOTE: Saved packages are currently stored in the installation path
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
-    -z            - Enable debug mode
+    -z            - Enable debug mode (verbose script activity output to stderr)
                       Enable extra output messages and preserve any temporary files created
                       Debug message format: (calling line)[function trace]: message
 HELP_HEREDOC
@@ -150,7 +149,7 @@ HELP_HEREDOC
 # Return: Always 0
 ShowUsage() {
 
-     (cat) <<USAGE_HEREDOC
+     cat <<USAGE_HEREDOC
 Usage:
 
   - Acceptable formats for <version>:
@@ -907,6 +906,15 @@ VerifyGEInstall() {
 
     version=$(CleanUpVersion "${1-}")
 
+    # If tmp_path = install_path
+    # WARNING: Setting tmp_path and install_path to the same path would cause
+    #          this function to overwrite installed versions and then attempt
+    #          to compare those extracted files to themselves.
+    [[ $temp_path -ef $install_path ]] && {
+        echo "($LINENO) VerifyGEInstall: Setting tmp_path and install_path to the same path is not supported"
+        return 1
+    }
+
     # Required external commands
     if ! command -v cmp &>/dev/null; then
         echo "Command 'cmp' is required to use this function"
@@ -953,7 +961,7 @@ VerifyGEInstall() {
             else
                 echo "Version \"$version\" is installed"
 
-                # Check for enough free space to extract the package to tmp_path
+                # Check for enough free space on the filesystem that contains tmp_path
                 IFS=$'\t' read -r -- expected_size_bytes path < <(du -bs -- "$install_path/Proton-${version}")
                 temp_base_path_remaining_bytes=$(SpaceRemaining "$temp_base_path" "b")
 
@@ -2085,7 +2093,12 @@ ParseConfigFile() {
                     fi
                 fi
             ;;
+            # Changing the config_path is currently not supported
             #(config_path)
+            #    ## If config_path would = install_path
+            #    if [[ $config_value -ef $install_path ]]; then
+            #        DebugMessage "config_path is the same as install_path"
+            #    fi
             #    if [[ -d $config_value && -w $config_value ]]; then
             #        ((debug)) && DebugMessage "$config_value is a directory and the script has write permission to it"
             #        script_config_path=$config_value
@@ -2106,8 +2119,15 @@ ParseConfigFile() {
             #    fi
             #;;
             (cache_path)
+                # If cache_path would = install_path
                 if [[ -d $config_value && -w $config_value ]]; then
-                    ((debug)) && DebugMessage "$config_value is a directory and the script has write permission to it"
+                    ((debug)) && {
+                        if [[ $config_value -ef $install_path ]]; then
+                            DebugMessage "cache_path is the same as install_path"
+                        else
+                            DebugMessage "$config_value is a directory and the script has write permission to it"
+                        fi
+                    }
                     script_cache_path=$config_value
                 else
                     ((debug)) && DebugMessage "$config_value is not a valid path, attempting to create it"
@@ -2126,7 +2146,12 @@ ParseConfigFile() {
                 fi
             ;;
             (tmp_path) # temp_base_path
-               if [[ -d $config_value && -w $config_value ]]; then
+                # If tmp_path would = install_path (would cause issues with VerifyGEInstall)
+                [[ $config_value -ef $install_path ]] && {
+                    echo "($LINENO) ParseConfigFile: Setting tmp_path and install_path to the same path is not supported"
+                    flag_failed=1
+                }
+                if [[ -d $config_value && -w $config_value ]]; then
                     ((debug)) && DebugMessage "$config_value is a directory and the script has write permission to it"
                     temp_base_path=$config_value
                 else
