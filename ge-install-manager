@@ -1072,13 +1072,7 @@ VerifyGEInstall() {
                     unalias cmp
                 fi
 
-                # NOTE: save_cursor and restore_cursor using the kitty terminal does
-                #       not behave like other terminals so the following progress output
-                #       will be mangled on that terminal.
-                #       This is intentional according to the author:
-                #       https://github.com/kovidgoyal/kitty/issues/2945
-                #       https://github.com/kovidgoyal/kitty/issues/1264
-                printf '%s\033[s' "Comparing files" #printf '%s\E7' "Comparing files"
+                printf '%s\033[s' "Comparing files"
 
                 # Begin comparing, using the faster method
                 # If the number of elements match
@@ -1106,8 +1100,8 @@ VerifyGEInstall() {
 
                         # Progress report
                         progress_percent=$(( (counter_extracted * 100) / total_files ))
-                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
-                        #[[ $progress_percent -ne $prev_progress ]] && printf '\E8%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
+                        # NOTE: save_cursor must come after restore_cursor or the progress will be mangled on at least the terminal kitty.
+                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u\033[s%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
                         prev_progress=$progress_percent
                     done
                     end_time_seconds=$(date +%s)
@@ -1153,7 +1147,7 @@ VerifyGEInstall() {
 
                         # Progress report
                         progress_percent=$(( (counter_extracted * 100) / total_files ))
-                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
+                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u\033[s%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
                         prev_progress=$progress_percent
                     done
                     end_time_seconds=$(date +%s)
