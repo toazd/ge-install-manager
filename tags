@@ -6,7 +6,6 @@
 !_TAG_PROGRAM_VERSION	0.0.0	/a3c87ab5/
 !_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
 !_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
-InitializeGlobalVars	ge-install-manager	/^InitializeGlobalVars() {$/;"	f
 ShowHelp	ge-install-manager	/^ShowHelp() {$/;"	f
 ShowUsage	ge-install-manager	/^ShowUsage() {$/;"	f
 GetLatestGEVersion	ge-install-manager	/^GetLatestGEVersion() {$/;"	f
@@ -33,7 +32,6 @@ IsSteamRunning	ge-install-manager	/^IsSteamRunning() {$/;"	f
 RequestURL	ge-install-manager	/^RequestURL() {$/;"	f
 CreateBackup	ge-install-manager	/^CreateBackup() {$/;"	f
 SpaceRemaining	ge-install-manager	/^SpaceRemaining() {$/;"	f
-MemFree	ge-install-manager	/^MemFree() {$/;"	f
 CreateDefaultConfigFile	ge-install-manager	/^CreateDefaultConfigFile() {$/;"	f
 ParseConfigFile	ge-install-manager	/^ParseConfigFile() {$/;"	f
 CleanUpVersion	ge-install-manager	/^CleanUpVersion() {$/;"	f
@@ -43,8 +41,7 @@ GenerateRandomAlphaNumericString	ge-install-manager	/^GenerateRandomAlphaNumeric
 DetectSteamInstallPath	ge-install-manager	/^DetectSteamInstallPath () {$/;"	f
 SetupEnvironment	ge-install-manager	/^SetupEnvironment() {$/;"	f
 CheckRequirements	ge-install-manager	/^CheckRequirements() {$/;"	f
-ShowConsoleDiff	ge-install-manager	/^ShowConsoleDiff() {$/;"	f
-DebugMessage	ge-install-manager	/^DebugMessage() {$/;"	f
+vMsg	ge-install-manager	/^vMsg() {$/;"	f
 ReportEnvironmentInfo	ge-install-manager	/^ReportEnvironmentInfo() {$/;"	f
 ProvingGrounds	ge-install-manager	/^ProvingGrounds() {$/;"	f
 CleanUp	ge-install-manager	/^CleanUp() {$/;"	f

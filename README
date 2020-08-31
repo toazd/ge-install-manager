@@ -26,9 +26,9 @@ Help:
                       NOTE: Saved packages are currently stored in the installation path
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
-    -z            - Enable debug mode (verbose script activity output to stderr)
-                      Enable extra output messages and preserve any temporary files created
-                      Debug message format: (calling line)[function trace]: message
+    -z            - Enable verbose output mode (to stderr)
+                      Also preserves any temporary files created
+                      Format: (calling line)[function trace]: message
 
 Usage:
 
