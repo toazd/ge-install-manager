@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vim: set ft=shell nowrap et sta shiftwidth=4 ts=8 sts=0
+# vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
 # 2037/3118 SLOC (65%) [SLOC/Comment:2.79], 729 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.36], 395 empty (12%)
 
@@ -1548,31 +1548,27 @@ IsInstalled() {
 IsSteamRunning() {
 
     local -i found_steam=0
-    local -i found_steamwebhelper=0
+    #local -i found_steamwebhelper=0
+    local pid
+    local tty
+    local time
+    local cmd
 
-    while IFS= read -r --; do
-        [[ ${REPLY,,} =~ ^.*steam$ ]] && {
+    #shellcheck disable=SC2034
+    while IFS=' ' read -r -- pid tty time cmd; do
+        [[ ${cmd,,} = 'steam' ]] && {
             found_steam=1
-            ((g_verbose)) && vMsg "'steam' match: \"$REPLY\""
+            ((g_verbose)) && vMsg "steam: $pid"
+            continue
         }
-        [[ ${REPLY,,} =~ ^.*steamwebhelper.*$ ]] && {
-            found_steamwebhelper=1
-            ((g_verbose)) && vMsg "'steamwebhelper' match: \"$REPLY\""
-        }
+        #[[ ${cmd,,} == 'steamwebhelper'* ]] && {
+        #    found_steamwebhelper=1
+        #    ((g_verbose)) && vMsg "steamwebhelper: $pid"
+        #    continue
+        #}
     done < <(ps -e 2>/dev/null)
-    #return $(( found_steam ? 1 : 0 ))
 
-    if [[ $found_steam -eq 1 ]]; then
-        return 0
-    elif [[ $found_steam -eq 0 && $found_steamwebhelper -eq 1 ]]; then
-        echo "Warning: at least one steamwebhelper process is still running but Steam is not"
-        # TODO: report their PIDs?
-        return 1
-    elif [[ $found_steam -eq 0 && $found_steamwebhelper -eq 0 ]]; then
-        return 1
-    fi
-
-    return 1
+    return $(( found_steam ? 0 : 1 ))
 }
 
 ###############################################################################
@@ -2912,7 +2908,7 @@ Main() {
     ParseParameters "$@" || exit 1
 
     # Report if debug mode is enabled
-    ((g_verbose)) && vMsg "Debug mode enabled"
+    ((g_verbose)) && vMsg "Verbose mode enabled"
 
     # If no parameters were supplied, show help
     # NOTE: Ignore g_force and g_verbose flags
