@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2037/3118 SLOC (65%) [SLOC/Comment:2.79], 729 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.36], 395 empty (12%)
+# 2465/3132 SLOC (78%) [SLOC/Comment:5.53], 446 comments (14%) [S:94%,I:5%] [Comment/SLOC:0.18], 244 empty (7%)
 
 ###############################################################################
 #                                                                             #
@@ -1816,10 +1816,23 @@ SpaceRemaining() {
 # Purpose: If g_file_script_config is not found, create a default
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Success)
+#          1 (Create path to g_file_script_config failed)
 CreateDefaultConfigFile() {
 
-    cat <<DEFAULT_CONFIG > "$g_file_script_config" # This section is subject to expansion, etc.
+    local rm_command
+    local path
+
+    # If the config path doesn't exist, create it
+    path=$(dirname "$g_file_script_config")
+    [[ ! -d $path ]] && {
+        if ! mkdir -p -- "$path"; then
+            vMsg "Failed to create path: $path"
+            return 1
+        fi
+    }
+
+    cat <<DEFAULT_CONFIG > "$g_file_script_config" # This section is subject to variable expansion
 #
 # $SCRIPT_FULL_NAME v$SCRIPT_VERSION Default configuration file
 #
@@ -1849,17 +1862,13 @@ CreateDefaultConfigFile() {
 #
 DEFAULT_CONFIG
 
-    cat <<"DEFAULT_CONFIG" >> "$g_file_script_config" # This section is not subject to expansion, etc.
+    cat <<"DEFAULT_CONFIG" >> "$g_file_script_config" # This section is not subject to c expansion
 
 # Default install path
 install_path=auto
 
 # Default cache path
 cache_path=${XDG_CACHE_HOME:-"$HOME"/.cache}/$SCRIPT_FULL_NAME
-
-# Default command used instead of rm (for removing all but temporary files)
-# NOTE: Any command and its parameters that support the last parameter being either a file or a path is supported
-rm_command=trash
 
 # Default URL used to retrieve 'latest' JSON
 latest_version_url=https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest
@@ -1869,6 +1878,20 @@ releases_url=https://api.github.com/repos/GloriousEggroll/proton-ge-custom/relea
 
 # Default temporary file path
 tmp_path=/tmp
+
+DEFAULT_CONFIG
+
+    # If trash is found, use it instead of rm
+    if command -v trash >/dev/null; then
+        rm_command="trash"
+    else
+        rm_command="rm"
+    fi
+
+    cat <<DEFAULT_CONFIG >> "$g_file_script_config" # This section is subject to variable expansion
+# Default command used instead of rm (for removing all but temporary files)
+# NOTE: Any command and its parameters that support the last parameter being either a file or a path is supported
+rm_command=$rm_command
 DEFAULT_CONFIG
 
     return 0
@@ -1894,8 +1917,10 @@ ParseConfigFile() {
 
     existing_config_file_lines=$(wc -l 2>/dev/null < "$g_file_script_config") # NOTE: do not || return 1 here
 
-    # If existing_config_file_lines is empty, create a default config file
-    [[ -z $existing_config_file_lines ]] && {
+    ((g_verbose)) && vMsg "existing_config_file_lines: $existing_config_file_lines"
+
+    # If existing_config_file_lines is empty or g_file_script_config doesn't exist, create a default config file
+    [[ -z $existing_config_file_lines || ! -f $g_file_script_config ]] && {
         ((g_verbose)) && vMsg "Generating a default config file at: \"$g_file_script_config\""
         if CreateDefaultConfigFile; then
             ((g_verbose)) && vMsg "CreateDefaultConfigFile returned success"
@@ -1915,13 +1940,12 @@ ParseConfigFile() {
             fi
             exit 0
         else
-            # NOTE: CreateDefaultConfigFile currently always returns 0
-            ((g_verbose)) && vMsg "CreateDefaultConfigFile returned failure status"
+            vMsg "Failed to create default config file at: $g_file_script_config"
             return 1
         fi
     }
 
-    ((g_verbose)) && vMsg "g_file_script_config \"$g_file_script_config\" contains $existing_config_file_lines newlines"
+    ((g_verbose)) && vMsg "existing_config_file_lines: $existing_config_file_lines"
 
     # Sanity checks
     [[ -z $g_file_script_config || ! -f $g_file_script_config || ! -w $g_file_script_config ]] && {
