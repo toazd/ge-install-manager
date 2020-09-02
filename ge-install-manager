@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2046/3132 SLOC (65%) [SLOC/Comment:2.80], 730 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.36], 399 empty (12%)
+# 1986/3073 SLOC (64%) [SLOC/Comment:2.74], 724 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.36], 403 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -294,10 +294,7 @@ UpdateSavedGEReleases() {
 DownloadGEPackage() {
 
     # Declare local variables
-    local version
-    local temp_path
-    local temp_package
-    local package_download_url
+    local version temp_path temp_package package_download_url
     local -i temp_base_path_remaining_bytes=0
     local -i install_path_remaining_bytes=0
     local -i expected_size_bytes=0
@@ -566,9 +563,7 @@ InstallGEVersion() {
 #          1 = Failure
 RemoveGEVersion() {
 
-    local version
-    local remove_path
-    local disk_usage
+    local version remove_path disk_usage
 
     version=${1-}
     CleanUpVersion
@@ -613,9 +608,7 @@ RemoveGEVersion() {
 #          1 = Failure
 ExtractGEPackage() {
 
-    local version
-    local extract_file
-    local extract_path
+    local version extract_file extract_path
 
     version=${1-}
     CleanUpVersion
@@ -666,11 +659,8 @@ ExtractGEPackage() {
 # Return:  Always 0
 ListInstalledGEVersions() {
 
+    local node installed_version_disk_usage saved_package_disk_usage saved_packages_total_disk_usage
     local -i i=0
-    local node
-    local installed_version_disk_usage
-    local saved_package_disk_usage
-    local saved_packages_total_disk_usage
 
     ((g_verbose)) && vMsg "Install path: \"$g_install_path\""
 
@@ -721,11 +711,8 @@ ListInstalledGEVersions() {
 #          1 A required external command was not found or the version requested was not found
 ReportGEDiskUsage() {
 
-    local version
-    local file_counter
-    local disk_usage="0"
+    local version file_counter path disk_usage="0"
     local -i flag_missing_command=0
-    local path
 
     version=${1-}
     CleanUpVersion
@@ -801,8 +788,7 @@ ReportGEDiskUsage() {
 #          1 Failure
 RemoveSavedPackage() {
 
-    local version
-    local package
+    local version package
 
     version=${1-}
     CleanUpVersion
@@ -841,9 +827,8 @@ RemoveSavedPackage() {
 #          1 Failure (any one package removal failed)
 RemoveAllSavedPackages() {
 
-    local -i success_counter=0
-    local -i failure_counter=0
     local package
+    local -i success_counter=0 failure_counter=0
 
     ((g_verbose)) && vMsg "Install path: \"$g_install_path\""
 
@@ -920,31 +905,16 @@ RemoveGEInstallPath() {
 #          1 Failure
 # NOTE: __pycache__ is created at runtime in an installed version path and will
 #       not be present in the saved packages.
+# NOTE: bash 5+ is required for EPOCHSECONDS
+# NOTE: bash 4.2+ is required for printf $()T
 VerifyGEInstall() {
 
-    local node
-    local path
-    local temp_path
-    local version
-    local file_extracted
-    local file_installed
-    local saved_cmp_alias='' # NOTE: Must be initialized to NULL
-    local -a files_extracted
-    local -a files_installed
-    local -i expected_size_bytes=0
-    local -i temp_base_path_remaining_bytes=0
-    local -i match_counter=0
-    local -i missing_counter=0
-    local -i mismatch_counter=0
-    local -i files_arrays_count_match=0
-    local -i total_files=0
-    local -i counter_extracted=0
-    local -i counter_installed=0
-    local -i start_time_seconds=0 # NOTE: bash 5+ is required for EPOCHSECONDS
-    local -i end_time_seconds=0   # NOTE: bash 4.2+ is required for printf $()T
-    local -i progress_percent=0
-    local -i prev_progress=1
-    local -i flag_missing_command=0
+    local version node path temp_path file_extracted file_installed saved_cmp_alias=''
+    local -i expected_size_bytes=0 temp_base_path_remaining_bytes=0 match_counter=0 \
+             missing_counter=0 mismatch_counter=0 files_arrays_count_match=0 total_files=0 \
+             counter_extracted=0 counter_installed=0 start_time_seconds=0 end_time_seconds=0 \
+             progress_percent=0 prev_progress=1 flag_missing_command=0
+    local -a files_extracted files_installed
 
     version=${1-}
     CleanUpVersion
@@ -1195,9 +1165,7 @@ QueryGEAttribute() {
 
     [[ -z $1 || -z $2 || $# -ne 2 ]] && { ((g_verbose)) && vMsg "Parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\""; return 1; }
 
-    local version
-    local value
-    local key=${2-}
+    local version value key=${2-}
 
     version=${1-}
     CleanUpVersion
@@ -1262,17 +1230,8 @@ QueryJSONAttribute() {
     # Check if the attribute requested is currently supported
     [[ ${3,,} != @(size|browser_download_url) ]] && { ((g_verbose)) && vMsg "Parameter error (unsupported attribute requested) \"$2\""; return 1; }
 
-    local version
-    local file_json=${1-}
-    local value_browser_url=''
-    local key
-    local value_size_bytes='' # NOTE: DO NOT set -i
-    local -i counter_lines=0
-    local -i line_version_found=0
-    local -i line_size_found=0
-    local -i line_browserurl_found=0
-    local -i flag_version_found=0
-    local -i flag_size_found=0
+    local version file_json=${1-} value_browser_url='' key value_size_bytes='' # NOTE: DO NOT set -i
+    local -i counter_lines=0 line_version_found=0 line_size_found=0 line_browserurl_found=0 flag_version_found=0 flag_size_found=0
     #local flag_browserurl_found=0
 
     version=$2
@@ -1540,33 +1499,28 @@ IsInstalled() {
 }
 
 ###############################################################################
-# Purpose: Check if Steam is running by checking the output of ps
+# Purpose: Check if Steam is running by checking the output of ps -eo cmd
 # Input:   None
 # Output:  None
-# Return:  0 Yes/True
-#          1 No/False (ps not found or Steam is not running but steamwebhelper is or unknown error)
+# Return:  0 Yes/True (Steam process was detected)
+#          1 No/False (Steam process was not detected)
 IsSteamRunning() {
 
+    local cmd remaining
     local -i found_steam=0
-    #local -i found_steamwebhelper=0
-    local pid
-    local tty
-    local time
-    local cmd
 
     #shellcheck disable=SC2034
-    while IFS=' ' read -r -- pid tty time cmd; do
-        [[ ${cmd,,} = 'steam' ]] && {
+    while IFS=' ' read -r -- cmd remaining; do
+
+        # Ignore the ps command itself
+        [[ $cmd = 'ps' ]] && continue
+
+        [[ ${cmd,,} = *'steam' ]] && {
             found_steam=1
-            ((g_verbose)) && vMsg "steam: $pid"
-            continue
+            ((g_verbose)) && vMsg "Steam process found: $cmd"
+            break
         }
-        #[[ ${cmd,,} == 'steamwebhelper'* ]] && {
-        #    found_steamwebhelper=1
-        #    ((g_verbose)) && vMsg "steamwebhelper: $pid"
-        #    continue
-        #}
-    done < <(ps -e 2>/dev/null)
+    done < <(ps -eo cmd 2>/dev/null)
 
     return $(( found_steam ? 0 : 1 ))
 }
@@ -1584,9 +1538,7 @@ IsSteamRunning() {
 #          1 Failure
 RequestURL() {
 
-    local requested_url=${1-}
-    local file_local=${2-}
-    local file_temp
+    local requested_url=${1-} file_local=${2-} file_temp
     local -i downloaded_package_size_bytes=0
 
     file_temp=$(MkTempFile)
@@ -1669,15 +1621,10 @@ RequestURL() {
 #          1 Failure
 CreateBackup() {
 
-    local backup_target=${1-}
-    local backup_target_basename
-    local backup_target_path
-    local file
-    local -i max_backups=3
-    local -i backups_counter=0
-    local backup_index
-    local -i flag_rename_backups=0
+    local backup_target=${1-} backup_target_basename backup_target_path file backup_index
+    local -i max_backups=3 backups_counter=0 flag_rename_backups=0
     local -a files_existing_backups
+
     shopt -s nullglob dotglob
 
     [[ -z $backup_target ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
@@ -1787,8 +1734,7 @@ CreateBackup() {
 # TODO: Add a third, optional parameter to request calculations using bc
 SpaceRemaining() {
 
-    local file_system=${1-}
-    local binary_prefix=${2-}
+    local file_system=${1-} binary_prefix=${2-}
     local -i power_of=0
 
     [[ -z $file_system || -z $binary_prefix ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
@@ -1820,8 +1766,7 @@ SpaceRemaining() {
 #          1 (Create path to g_file_script_config failed)
 CreateDefaultConfigFile() {
 
-    local rm_command
-    local path
+    local rm_command path
 
     # If the config path doesn't exist, create it
     path=$(dirname "$g_file_script_config")
@@ -1908,12 +1853,9 @@ DEFAULT_CONFIG
 # NOTE: Runs DetectSteamInstallPath if g_install_path is set to the special value "auto"
 ParseConfigFile() {
 
-    local -i existing_config_file_lines=0
-    local -i counter_config_line=0
-    local -i flag_failed=0
-    local -i flag_update_install_path=0
-    local config_key
-    local config_value
+
+    local config_key config_value
+    local -i existing_config_file_lines=0 counter_config_line=0 flag_failed=0 flag_update_install_path=0
 
     existing_config_file_lines=$(wc -l 2>/dev/null < "$g_file_script_config") # NOTE: do not || return 1 here
 
@@ -2324,11 +2266,8 @@ MkTempPath() {
 # NOTE: Valid input length range 1-32767 (default: 10)
 GenerateRandomAlphaNumericString() {
 
-    local list
-    local -i length=${1:-10}
-    local result='' # NOTE: Must be initialized as NULL
-    local character
-    local -i i
+    local list character result='' # NOTE: Must be initialized as NULL
+    local -i length=${1:-10} i
 
     list=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
 
@@ -2379,16 +2318,15 @@ GenerateRandomAlphaNumericString() {
 # TODO: Colon-separated global paths in $STEAM_EXTRA_COMPAT_TOOLS_PATHS
 DetectSteamInstallPath () {
 
-    local -i i=0
     local check_path
-    local -a valid_paths
-    local -a search_paths=("$HOME/.steam/root" \
-                           "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
-                           "/usr/share/steam" \
-                           "/usr/local/share/steam" \
-                           "$HOME/.var/app/com.valvesoftware.Steam/data/Steam" \
-                           "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
-                           "$HOME/.var/app/com.valvesoftware.Steam/.steam")
+    local -i i=0
+    local -a valid_paths search_paths=("$HOME/.steam/root" \
+                                       "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
+                                       "/usr/share/steam" \
+                                       "/usr/local/share/steam" \
+                                       "$HOME/.var/app/com.valvesoftware.Steam/data/Steam" \
+                                       "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
+                                       "$HOME/.var/app/com.valvesoftware.Steam/.steam")
 
     #sSTEAMSH=$(find / -xdev -type f -name "steam.sh" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
     #sSTEAMCOMPATTOOLSD=$(find / -xdev -type d -name "compatibilitytools.d" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
@@ -2516,9 +2454,7 @@ DetectSteamInstallPath () {
 #          1 (Failure) Any one check failed
 SetupEnvironment() {
 
-    local -i flag_failed=0
-    local -i count_success=0
-    local -i count_failed=0
+    local -i flag_failed=0 count_success=0 count_failed=0
     local -a check_alias_commands=(curl sed tar gzip stat wc date du ps sort cmp envsubst fallocate trash)
 
     # Check for and unset existing aliases for commands used in the script
@@ -2796,6 +2732,12 @@ ReportEnvironmentInfo() {
 ProvingGrounds() {
 
     [[ $g_integration_testing -eq 1 ]] || return 1
+
+    if IsSteamRunning; then
+        echo "Steam is running"
+    else
+        echo "Steam is not running"
+    fi
 
     exit
 }
@@ -3130,4 +3072,3 @@ trap 'g_flag_sigint_caught=1; CleanUp' INT
 # Wait...the end is just a new beginning? Always has been.
 
 Main "$@"
-
