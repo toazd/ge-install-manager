@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 1986/3073 SLOC (64%) [SLOC/Comment:2.74], 724 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.36], 403 empty (13%)
+# 1982/3069 SLOC (64%) [SLOC/Comment:2.74], 724 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.37], 403 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -1502,8 +1502,8 @@ IsInstalled() {
 # Purpose: Check if Steam is running by checking the output of ps -eo cmd
 # Input:   None
 # Output:  None
-# Return:  0 Yes/True (Steam process was detected)
-#          1 No/False (Steam process was not detected)
+# Return:  0 Yes/True (a Steam process was detected)
+#          1 No/False (a Steam process was not detected)
 IsSteamRunning() {
 
     local cmd remaining
@@ -1515,12 +1515,14 @@ IsSteamRunning() {
         # Ignore the ps command itself
         [[ $cmd = 'ps' ]] && continue
 
-        [[ ${cmd,,} = *'steam' ]] && {
+        [[ ${cmd##*/} = 'steam' ]] && {
             found_steam=1
             ((g_verbose)) && vMsg "Steam process found: $cmd"
             break
         }
     done < <(ps -eo cmd 2>/dev/null)
+
+    ((g_verbose)) && { [[ $found_steam -eq 0 ]] && vMsg "Steam process not found"; }
 
     return $(( found_steam ? 0 : 1 ))
 }
@@ -2732,12 +2734,6 @@ ReportEnvironmentInfo() {
 ProvingGrounds() {
 
     [[ $g_integration_testing -eq 1 ]] || return 1
-
-    if IsSteamRunning; then
-        echo "Steam is running"
-    else
-        echo "Steam is not running"
-    fi
 
     exit
 }
