@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 1982/3069 SLOC (64%) [SLOC/Comment:2.74], 724 comments (23%) [S:94%,I:5%] [Comment/SLOC:0.37], 403 empty (13%)
+# 1984/3070 SLOC (64%) [SLOC/Comment:2.83], 702 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 416 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -35,7 +35,7 @@ set -huo pipefail
 
 # Initialize global variables
 # NOTE: Script constants (read only variables) are all upper-case
-declare -gr SCRIPT_VERSION="0.7.4"
+declare -gr SCRIPT_VERSION="0.7.5"
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr SCRIPT_CODENAME="Cochrane Bonaventure"
 declare -gr CURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
@@ -82,6 +82,7 @@ declare -gi g_show_usage=0
 declare -gi g_size_bytes_sed_unminify_script=824
 declare -gi g_update=0
 declare -gi g_verify=0
+declare -gi g_checked_recently_seconds=3600 # NOTE: Minimum interval that checks for a new version of latest/releases will be allowed (60 minutes)
 
 ###############################################################################
 # Purpose: Print the help text to stdout
@@ -206,6 +207,7 @@ USAGE_HEREDOC
 #       always be the latest?
 GetLatestGEVersion() {
 
+    local version
     g_latest_version=''
 
     if UpdateSavedGELatestRelease; then
@@ -218,9 +220,12 @@ GetLatestGEVersion() {
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name": "Proton-5.9-GE-5-ST.tar.gz"
             [[ $REPLY =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
-                g_latest_version=${REPLY#*\"name\":}
-                g_latest_version=${g_latest_version#*\"}
-                g_latest_version=${g_latest_version%.tar.gz\"*}
+                REPLY=${REPLY%\"*}
+                version=${REPLY##*\"}
+                ((g_verbose)) && vMsg "version: $version"
+                CleanUpVersion
+                g_latest_version=$version
+                ((g_verbose)) && vMsg "g_latest_version: $g_latest_version"
                 break
             }
         done < "$g_file_latest_json"
@@ -246,9 +251,28 @@ GetLatestGEVersion() {
 # TODO: Consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGELatestRelease() {
 
+    local -i current_seconds last_check_seconds
+
     ((g_verbose)) && {
-        vMsg "g_latest_version_url: \"$g_latest_version_url\""
-        vMsg "g_file_latest_json: \"$g_file_latest_json\""
+        vMsg "g_latest_version_url: $g_latest_version_url"
+        vMsg "g_file_latest_json: $g_file_latest_json"
+    }
+
+    # Using the mtime of g_file_latest_json, restrict how often RequestURL is called to check for a newer
+    # version of g_file_latest_json. The allowed interval is defined in g_checked_recently_seconds (default: 3600 seconds/60 minutes)
+    # NOTE: This will not work as designed if the mount option 'noatime' is used for the file system
+    #       that g_file_latest_json resides on. Both 'relatime' and the default works fine.
+    [[ -r $g_file_latest_json ]] && {
+        current_seconds=$(date +%s)
+        last_check_seconds=$(stat -c '%X' "$g_file_latest_json")
+        (( (current_seconds - last_check_seconds) < g_checked_recently_seconds )) && {
+            ((g_verbose)) && {
+                vMsg "Skipping RequestURL, recent check limit not exceeded"
+                vMsg "$(( current_seconds - last_check_seconds )) seconds out of $g_checked_recently_seconds have elapsed since the last check"
+                vMsg "The next check will be allowed in $(( g_checked_recently_seconds - (current_seconds - last_check_seconds) )) seconds"
+            }
+            return 0
+        }
     }
 
     if RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
@@ -269,11 +293,30 @@ UpdateSavedGELatestRelease() {
 # TODO: Consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGEReleases() {
 
+    local -i current_seconds last_check_seconds
+
     # BUG: updates to download_count in the remote file cause curl -z to download a new version much more often than is needed
     #      Until a workaround is found, latest and releases are kept seperate and not checked at the same time
     ((g_verbose)) && {
-        vMsg "g_releases_url: \"$g_releases_url\""
-        vMsg "g_file_releases_json: \"$g_file_releases_json\""
+        vMsg "g_releases_url: $g_releases_url"
+        vMsg "g_file_releases_json: $g_file_releases_json"
+    }
+
+    # Using the mtime of g_file_releases_json, restrict how often RequestURL is called to check for a newer
+    # version of g_file_releases_json. The allowed interval is defined in g_checked_recently_seconds (default: 3600 seconds/60 minutes)
+    # Don't check for a new file more often than g_checked_recently_seconds
+    # NOTE: This will not work as designed if the mount option 'noatime' is used for the file system
+    #       that g_file_releases_json resides on. Both 'relatime' and the default works fine.
+    [[ -r $g_file_releases_json ]] && {
+        current_seconds=$(date +%s)
+        last_check_seconds=$(stat -c '%X' "$g_file_releases_json")
+        (( (current_seconds - last_check_seconds) < g_checked_recently_seconds )) && {
+            ((g_verbose)) && {
+                vMsg "Recent check limit not exceeded and $g_file_releases_json exists, skipping RequestURL"
+                vMsg "$(( current_seconds - last_check_seconds )) seconds out of $g_checked_recently_seconds have elapsed since the last check"
+            }
+            return 0
+        }
     }
 
     if RequestURL "$g_releases_url" "$g_file_releases_json"; then
@@ -317,8 +360,9 @@ DownloadGEPackage() {
 
     # Get the expected package size in bytes from the saved latest/releases JSON
     expected_size_bytes=$(QueryGEAttribute "$version" "size") || { ((g_verbose)) && vMsg "QueryGEAttribute size returned failure"; return 1; }
-    # If QueryGEAttribute returned success but size is not all digits, abort
-    [[ $expected_size_bytes =~ ^[[:digit:]]+$ ]] || { ((g_verbose)) && vMsg "size is not all digits: \"$expected_size_bytes\""; return 1; }
+
+    # If QueryGEAttribute returned success and size is not only one or more digits, abort
+    [[ $expected_size_bytes =~ ^[[:digit:]]+$ ]] || { ((g_verbose)) && vMsg "size is not all digits: $expected_size_bytes"; return 1; }
 
     # Create a temporary path for the package
     temp_path=$(MkTempPath)
@@ -327,21 +371,15 @@ DownloadGEPackage() {
     temp_package=$temp_path/Proton-${version}.tar.gz
 
     # Get the bytes remaining on the temp path
-    temp_base_path_remaining_bytes=$(SpaceRemaining "$g_temp_base_path" "b") || {
-        ((g_verbose)) && vMsg "SpaceRemaining returned failure checking $temp_path"
-        return 1
-    }
+    temp_base_path_remaining_bytes=$(SpaceRemaining "$g_temp_base_path" "b")
 
     # Get the bytes remaining on the install path
-    install_path_remaining_bytes=$(SpaceRemaining "$g_install_path" "b") || {
-        ((g_verbose)) && vMsg "SpaceRemaining returned failure checking $g_install_path"
-        return 1
-    }
+    install_path_remaining_bytes=$(SpaceRemaining "$g_install_path" "b")
 
     # Check if there is enough free space to copy the package to g_install_path
-    if [[ $expected_size_bytes -gt $install_path_remaining_bytes ]]; then
+    if ((expected_size_bytes > install_path_remaining_bytes)); then
         printf '%s\n%s\n' \
-               "WARNING: Not enough free space at \"$g_install_path\"" \
+               "WARNING: Not enough free space at $g_install_path" \
                "Need at least $expected_size_bytes bytes but there is only $install_path_remaining_bytes bytes free"
         return 1
     else
@@ -354,10 +392,10 @@ DownloadGEPackage() {
 
     # If there is not enough free space remaining on the temp_path file system
     # TODO: Use a different path as a fallback?
-    if [[ $temp_base_path_remaining_bytes -lt $expected_size_bytes ]]; then
-        ((g_verbose)) && vMsg "Free space on \"$g_temp_base_path\" is $temp_base_path_remaining_bytes bytes"
+    if ((temp_base_path_remaining_bytes < expected_size_bytes)); then
+        ((g_verbose)) && vMsg "Free space on $g_temp_base_path is $temp_base_path_remaining_bytes bytes"
         printf '%s\n%s\n%s\n' \
-               "WARNING: Not enough free space at \"$g_temp_base_path\"" \
+               "WARNING: Not enough free space at $g_temp_base_path" \
                "Need at least $expected_size_bytes bytes but there is only $temp_base_path_remaining_bytes bytes free" \
                "Free up space or change temp_path in the configuration file"
         return 1
@@ -367,8 +405,8 @@ DownloadGEPackage() {
             if fallocate -l "$expected_size_bytes" -- "$temp_package"; then
                 ((g_verbose)) && vMsg "fallocate succeeded"
             else
-                #echo "Failed to preallocate \"$sTMP_FILE\", download may fail"
-                ((g_verbose)) && vMsg "\"fallocate -l $expected_size_bytes -- $temp_package\" returned failure"
+                #echo "Failed to preallocate $sTMP_FILE, download may fail"
+                ((g_verbose)) && vMsg "fallocate -l $expected_size_bytes -- $temp_package returned failure"
                 [[ -f $temp_package ]] && rm -f -- "$temp_package"
             fi
         else
@@ -377,46 +415,47 @@ DownloadGEPackage() {
     fi
 
     # Attempt to retrieve the package with curl
-    echo "Downloading \"$package_download_url\""
+    echo "Downloading $package_download_url"
     if curl -# -L "$package_download_url" -o "$temp_package"; then
 
         # Get the downloaded file size in bytes
         downloaded_package_size_bytes=$(stat -c '%s' -- "$temp_package")
-        ((g_verbose)) && vMsg "Downloaded package size in bytes: \"$downloaded_package_size_bytes\""
+        ((g_verbose)) && vMsg "Downloaded package size in bytes: $downloaded_package_size_bytes"
 
         # Not found
-        if [[ $downloaded_package_size_bytes -eq 9 ]]; then
-            echo "Server responded \"Not Found\" for version \"$version\""
+        if ((downloaded_package_size_bytes == 9)); then
+            echo "Server responded Not Found for version $version"
             CleanUp
             return 1
         fi
 
         # Github API request rate limit exceeded
-        if [[ $downloaded_package_size_bytes -eq 248 ]]; then
+        if ((downloaded_package_size_bytes == 248)); then
             echo "Github API request rate limit exceeded. Try again later."
             CleanUp
             return 1
         fi
 
         # Check if the the package size and expected size are equal
-        if [[ $downloaded_package_size_bytes -eq $(QueryGEAttribute "$version" "size") ]]; then
+        if (( downloaded_package_size_bytes == $(QueryGEAttribute "$version" "size") )); then
             echo "Downloaded package is the expected size ($expected_size_bytes bytes)"
         else
-            printf '%s\n%s\n' \
+            printf '%s\n%s\n%s\n' \
                    "Downloaded file size and expected size do not match" \
-                   "(\"$downloaded_package_size_bytes\" vs \"$expected_size_bytes\")"
+                   "Downloaded file: $downloaded_package_size_bytes bytes" \
+                   "Expected size  : $expected_size_bytes bytes"
            CleanUp
            return 1
         fi
 
         # Copy the package from the temporary path to g_install path
-        ((g_verbose)) && vMsg "Copying package \"$temp_package\" to \"$g_install_path\""
+        ((g_verbose)) && vMsg "Copying package $temp_package to $g_install_path"
         if cp -- "$temp_package" "$g_install_path"; then
             ((g_verbose)) && vMsg "Package copied successfully"
             echo "Download succeeded"
             CleanUp
         else
-            ((g_verbose)) && vMsg "Copy package from \"$temp_package\" to \"$g_install_path\" failed"
+            ((g_verbose)) && vMsg "Copy package from $temp_package to $g_install_path failed"
             echo "Download failed"
             CleanUp
             return 1
@@ -432,23 +471,59 @@ DownloadGEPackage() {
 }
 
 ###############################################################################
-# Purpose: TODO
-# Input:   TODO
-# Output:  TODO
+# Purpose: Check for the latest version and if it is not installed install it
+#          If force mode is active and the latest version is already installed,
+#          it will first be removed and then re-installed.
+# Input:   None
+# Output:  None
 # Return:  0 = Success
 #          1 = Failure
 UpdateGEVersion() {
 
-    g_update=1
+    # Get the latest g_file_latest_json if the remote file is newer
+    if UpdateSavedGELatestRelease; then
 
-    if InstallGEVersion; then
-        g_update=0
-        return 0
+        # Get the latest version and set the global variable g_latest_version to it
+        if GetLatestGEVersion; then
+
+            # Latest version is installed and force mode is not active
+            if IsInstalled "$g_latest_version" && ((! g_force)); then
+                echo "Latest version is already installed ($g_latest_version)"
+            # Latest version is not installed
+            elif ! IsInstalled "$g_latest_version"; then
+                echo "Latest version ($g_latest_version) is not installed"
+                if InstallGEVersion "$g_latest_version"; then
+                    echo "Update succeeded"
+                    IsSteamRunning && echo "Restart Steam to use the new version"
+                else
+                    echo "Update failed"
+                    return 1
+                fi
+            # Latest version is installed and force mode is active
+            elif ((g_force)); then
+                # NOTE: InstallGEVersion also verifys that force mode is active
+                if InstallGEVersion "$g_latest_version"; then
+                    echo "Update succeeded"
+                else
+                    echo "Update failed"
+                    return 1
+                fi
+            else
+                ((g_verbose)) && vMsg "Error determining install status and force mode"
+                return 1
+            fi
+        else
+            ((g_verbose)) && vMsg "Update: GetLatestGEVersion returned failure status"
+            return 1
+        fi
     else
+        # GetLatestGEVersionInfo failed
+        ((g_verbose)) && vMsg "Update: GetLatestGEVersionInfo returned failure status"
+        echo "Update failed"
         return 1
     fi
 
-    return 1
+    return 0
 }
 
 
@@ -457,98 +532,97 @@ UpdateGEVersion() {
 #          latest version. If g_force=1 and a saved package exists for the
 #          requested version the package will be removed and a new one will be
 #          downloaded.
-# Input:   1 (optional) Proton-ge-custom version (in one of the acceptable formats described in usage)
-#          When called with no parameter/a NULL parameter and $g_update=1, the latest version will be installed.
+# Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
 # Return:  0 = Success
 #          1 = Failure
-#
-# TODO: Seperate Install and Update
 InstallGEVersion() {
 
-    local version
+    local version=${1-}
 
-    # Determine the "mode" (install or update)
-    ((g_verbose)) && vMsg "Determining mode"
+    [[ -z $version ]] && ((g_verbose)) && { vMsg "Parameter error (NULL)"; return 1; }
 
-    # Update to the latest version
-    if [[ $g_update -eq 1 && $g_install -eq 0 ]]; then
-        ((g_verbose)) && vMsg "Update mode active"
-        if GetLatestGEVersion; then
-            version=$g_latest_version
-            CleanUpVersion
-        else
-            return 1
-        fi
-    # Install a specific version
-    elif [[ $g_install -eq 1 && $g_update -eq 0 ]]; then
-        ((g_verbose)) && vMsg "Install mode active"
-        version=${1-}
-        CleanUpVersion
-    else
-        ((g_verbose)) && {
-            vMsg "Unable to detect install mode"
-            vMsg "g_update: \"$g_update\""
-            vMsg "g_install: \"$g_install\""
-            vMsg "\$1: \"$1\""
-            vMsg "version: \"$version\""
-            vMsg "g_latest_version: \"$g_latest_version\""
-        }
-        return 1
-    fi
+    CleanUpVersion
 
-    if [[ -n $version ]]; then
-        ((g_verbose)) && vMsg "Requested version is \"$version\""
-    else
-        ((g_verbose)) && vMsg "version is NULL"
-        return 1
-    fi
+    [[ -n $version ]] && ((g_verbose)) && vMsg "Requested version is $version"
 
-    # Re-install a version that is already installed
+    # If the requested version is already installed
     if IsInstalled "$version"; then
-        if [[ $g_force -eq 0 ]]; then
-            echo "Version \"$version\" is already installed"
-            return 0
-        elif [[ $g_force -eq 1 ]]; then
+
+        # If force mode is on
+        if ((g_force)); then
+
+            # If Steam is running, avoid undefined behavior
             if IsSteamRunning; then
                 echo "Please close Steam before re-installing a version"
                 return 1
+            # If Steam is not running, remove the install
+            # NOTE: The re-install is handled below
             else
-                echo "Forcing re-install of version \"$version\""
+                echo "Forcing re-install of version $version"
+                echo "Removing install at $g_install_path/Proton-${version}"
+                if ($g_command_rm -- "$g_install_path/Proton-${version}"); then
+                    echo "Install removed"
+                else
+                    echo "Remove failed"
+                    return 1
+                fi
+            fi
+        # If force mode is off, nothing else to do
+        else
+            echo "Version $version is already installed"
+            return 0
+        fi
+    fi
+
+    # If a saved package exists for the requested version
+    if [[ -f $g_install_path/Proton-${version}.tar.gz ]]; then
+
+        # If force mode is on, remove the package
+        if ((g_force)); then
+            echo "Removing saved package $g_install_path/Proton-${version}.tar.gz"
+            if ($g_command_rm -- "$g_install_path/Proton-${version}.tar.gz"); then
+                echo "Package removed"
+            else
+                echo "Removing package failed"
+                return 1
+            fi
+        # If force mode is off, use the saved package
+        else
+            echo "Using saved package: $g_install_path/Proton-${version}.tar.gz"
+
+            # Check that the size of the package is the expected size
+            if (( $(stat -c '%s' -- "$g_install_path/Proton-${version}.tar.gz") != $(QueryGEAttribute "$version" "size") )); then
+                echo "Saved package is not the expected size, a new one will be downloaded"
+                if RemoveSavedPackage "$version"; then
+                    echo "Removed package"
+                else
+                    echo "WARNING: Remove package failed"
+                    return 1
+                fi
+            else
+                if ExtractGEPackage "$version"; then
+                    echo "Install succeeded"
+                    return 0
+                else
+                    echo "Install failed"
+                    return 1
+                fi
             fi
         fi
     fi
 
-    # If a saved package exists and force mode is not active
-    if [[ -f $g_install_path/Proton-${version}.tar.gz ]] && [[ $g_force -eq 0 ]]; then
-        echo "Using saved package: \"$g_install_path/Proton-${version}.tar.gz\""
-        if ExtractGEPackage "$version"; then
-            return 0
-        else
-            return 1
-        fi
-    # If a saved package exists and force mode is active
-    elif [[ -f $g_install_path/Proton-${version}.tar.gz ]] && [[ $g_force -eq 1 ]]; then
-        echo "Removing saved package \"$g_install_path/Proton-${version}.tar.gz\""
-        if ($g_command_rm -- "$g_install_path/Proton-${version}.tar.gz"); then
-            echo "Package removed"
-        else
-            echo "Removing package failed"
-            return 1
-        fi
-    fi
-
-    # If a saved package for this version doesn't exist or it was removed, download it and install it
+    # Download a new package and extract it.
     if DownloadGEPackage "$version"; then
         if ExtractGEPackage "$version"; then
-            echo "Installation of version \"$version\" was successful"
+            echo "Installation of version $version was successful"
             return 0
         else
-            echo "Installation of version \"$version\" failed"
+            echo "Installation of version $version failed"
             return 1
         fi
     else
-        echo "Version \"$version\" not found"
+        echo "Version $version not found"
         return 1
     fi
 
@@ -573,7 +647,7 @@ RemoveGEVersion() {
     # Define the path that will be removed
     remove_path=$g_install_path/Proton-${version}
 
-    ((g_verbose)) && vMsg "Requested version: \"$version\" remove_path: \"$remove_path\""
+    ((g_verbose)) && { vMsg "Requested version: $version"; vMsg "remove_path: $remove_path"; }
 
     # Remove the path if it exists
     if [[ -d $remove_path ]]; then
@@ -582,9 +656,9 @@ RemoveGEVersion() {
             disk_usage=$(du -sh -- "$remove_path" 2>/dev/null)
             disk_usage=${disk_usage%[[:space:]]*}
             if ($g_command_rm -rf -- "$remove_path" &>/dev/null); then
-                echo "Removed path \"$remove_path\" (${disk_usage:-'error'})"
+                echo "Removed path $remove_path (${disk_usage:-'error'})"
             else
-                echo "Failed to remove \"$remove_path\""
+                echo "Failed to remove $remove_path"
                 return 1
             fi
         else
@@ -592,7 +666,7 @@ RemoveGEVersion() {
             return 1
         fi
     else
-        echo "Install path not found for version \"$version\""
+        echo "Install path not found for version $version"
     fi
 
     return 0
@@ -623,7 +697,7 @@ ExtractGEPackage() {
     [[ ! -d $extract_path && -w $extract_path ]] && { ((g_verbose)) && vMsg "Parameter error (not a valid path)"; return 1; }
 
     # Display "Extracting" with trailing dots indicating the extraction progress
-    printf '%s' "Extracting \"$extract_file\" to \"$extract_path\""
+    printf '%s' "Extracting $extract_file to $extract_path"
     if tar --checkpoint=.10000 -C "$extract_path" -xzf "$extract_file" 2>/dev/null; then
 
         # Return to the beginning of the line, erase from that position to the end of the line
@@ -637,9 +711,9 @@ ExtractGEPackage() {
         [[ -d $extract_path/Proton-${version} ]] && {
             if ($g_command_rm -- "$extract_path/Proton-${version}"); then
                 ((g_verbose)) && vMsg "Removal succeeded"
-                echo "Removed failed extraction path at \"$extract_path/Proton-${version}\""
+                echo "Removed failed extraction path at $extract_path/Proton-${version}"
             else
-                echo "Failed to remove partial extraction path: \"$extract_path/Proton-${version}\""
+                echo "Failed to remove partial extraction path: $extract_path/Proton-${version}"
 
                 # TODO: update/remove message when install verification is updated
                 echo "This script may interpret it as a valid g_install until it is removed"
@@ -659,10 +733,10 @@ ExtractGEPackage() {
 # Return:  Always 0
 ListInstalledGEVersions() {
 
-    local node installed_version_disk_usage saved_package_disk_usage saved_packages_total_disk_usage
+    local node installed_version_disk_usage saved_package_disk_usage saved_packages_total_disk_usage size_bytes expected_size_bytes
     local -i i=0
 
-    ((g_verbose)) && vMsg "Install path: \"$g_install_path\""
+    ((g_verbose)) && vMsg "Install path: $g_install_path"
 
     echo "Installed version(s):"
     for node in "$g_install_path"/Proton-*; do
@@ -673,29 +747,31 @@ ListInstalledGEVersions() {
             echo "  ${node##*/} ($installed_version_disk_usage)"
         }
     done
-    [[ $i -eq 0 ]] && echo "  None found"
+    ((i)) || echo "  None found"
 
     echo "Saved package(s):"
     i=0
     for node in "$g_install_path"/Proton-*.tar.gz; do
         if [[ -f $node ]]; then
             ((i++))
-            if [[ $g_verbose -eq 0 ]]; then
+            size_bytes=$(stat -c '%s' -- "$node")
+            expected_size_bytes=$(QueryGEAttribute "${node##*/}" "size")
+            if ((size_bytes != expected_size_bytes)); then
+                echo "  ${node##*/} (WARNING: Size [$size_bytes] is not the expected size [$expected_size_bytes])"
+            else
                 IFS=$'\t' read -r -- saved_package_disk_usage path < <(du -h -- "$node")
                 echo "  ${node##*/} ($saved_package_disk_usage)"
-            elif [[ $g_verbose -eq 1 ]]; then
-                vMsg "${node##*/} (size: $(stat -c '%s' -- "$node"), expected size: $(QueryGEAttribute "${node##*/}" "size"))"
             fi
         fi
     done
 
     # Report total disk usage for saved packages if one or more were found
-    if [[ $i -ge 1 ]]; then
+    if ((i >= 1)); then
         while IFS=$'\t' read -r -- size path; do
             [[ $path = "total" ]] && saved_packages_total_disk_usage=$size
         done < <(du -csh -- "$g_install_path/"*.tar.gz)
         echo "Saved packages total: $saved_packages_total_disk_usage"
-    elif [[ $i -eq 0 ]]; then
+    else
         echo "  None found"
     fi
 
@@ -731,7 +807,7 @@ ReportGEDiskUsage() {
     fi
 
     # If all command checks succeeded
-    if [[ $flag_missing_command -eq 0 ]]; then
+    if ((! flag_missing_command)); then
 
         # Set the path to be reported based on whether a version was provided or not
         if [[ -z $version ]]; then
@@ -747,7 +823,7 @@ ReportGEDiskUsage() {
                        "Disk usage: ${disk_usage%%[[:blank:]]*}"
             else
                 ((g_verbose)) && vMsg "Path: $g_install_path"
-                echo "Version \"$version\" not found"
+                echo "Version $version not found"
                 return 1
             fi
         fi
@@ -760,20 +836,20 @@ ReportGEDiskUsage() {
             if [[ -d $path ]]; then
                 disk_usage=$(du -sh -- "$path")
                 file_counter=$(find "$path" -type f | wc -l)
-                echo "Version \"$version\" report:"
+                echo "Version $version report:"
                 printf '  %s\n  %s\n  %s\n' \
                        "Path: $path" \
                        "Files: $file_counter" \
                        "Disk usage: ${disk_usage%%[[:blank:]]*}"
             else
                 ((g_verbose)) && vMsg "Path: $path"
-                echo "Version \"$version\" not found"
+                echo "Version $version not found"
                 return 1
             fi
         fi
 
     # If any command check failed
-    elif [[ $flag_missing_command -eq 1 ]]; then
+    else
         echo "Report not available"
     fi
 
@@ -801,18 +877,18 @@ RemoveSavedPackage() {
     if [[ -f $package ]]; then
         if [[ -w $package ]]; then
             if ($g_command_rm -- "$package"); then
-                echo "Removed \"$package\""
+                echo "Removed $package"
                 return 0
             else
-                echo "Failed to remove version \"$version\" ($g_command_rm returned >0)"
+                echo "Failed to remove version $version ($g_command_rm returned >0)"
                 return 1
             fi
         else
-            echo "Failed to remove version \"$version\" (no write permission)"
+            echo "Failed to remove version $version (no write permission)"
             return 1
         fi
     else
-        echo "Failed to remove version \"$version\" (file not found)"
+        echo "Failed to remove version $version (file not found)"
         return 1
     fi
 
@@ -830,27 +906,29 @@ RemoveAllSavedPackages() {
     local package
     local -i success_counter=0 failure_counter=0
 
-    ((g_verbose)) && vMsg "Install path: \"$g_install_path\""
+    ((g_verbose)) && vMsg "Install path: $g_install_path"
 
     for package in "$g_install_path"/Proton-*.tar.gz; do
         if [[ -f $package ]]; then
             if ($g_command_rm -- "$package"); then
-                echo "Removed \"$package\""
+                echo "Removed $package"
                 ((success_counter++))
             else
-                echo "Remove \"$package\" failed"
+                echo "Remove $package failed"
                 ((failure_counter++))
             fi
         fi
     done
 
-    if [[ $success_counter -eq 0 ]]; then
+    if ((success_counter == 0)); then
         echo "0 packages removed"
-    elif [[ $success_counter -gt 0 ]]; then
+    elif ((success_counter == 1)); then
+        echo "$success_counter package removed"
+    elif ((success_counter > 1)); then
         echo "$success_counter packages removed"
     fi
 
-    [[ $failure_counter -gt 0 ]] && echo "Failed to remove $failure_counter package(s)"
+    ((failure_counter)) && echo "Failed to remove $failure_counter package(s)"
 
     return $(( failure_counter ? 1 : 0 ))
 }
@@ -874,21 +952,21 @@ RemoveGEInstallPath() {
 
     if ($g_command_rm -- "$g_install_path"); then
         echo "Remove install path succeeded ( ${disk_usage%%[[:blank:]]*} removed )"
-        ((g_verbose)) && vMsg "Recreating install path at \"$g_install_path\""
+        ((g_verbose)) && vMsg "Recreating install path at $g_install_path"
 
         # Re-create the g_install_path in case a requested subsequent script function needs it
         if mkdir -p -- "$g_install_path" &>/dev/null; then
-            ((g_verbose)) && vMsg "mkdir -p \"$g_install_path\" succeeded"
+            ((g_verbose)) && vMsg "mkdir -p $g_install_path succeeded"
         else
-            if [[ $g_verbose -eq 1 ]]; then
-                vMsg "mkdir -p \"$g_install_path\" failed"
+            if ((g_verbose)); then
+                vMsg "mkdir -p $g_install_path failed"
             else
-                echo "Warning: failed to re-create install path at \"$g_install_path\""
+                echo "Warning: failed to re-create install path at $g_install_path"
                 return 1
             fi
         fi
     else
-        echo "Removal of install path \"$g_install_path\" failed"
+        echo "Removal of install path $g_install_path failed"
         return 1
     fi
 
@@ -943,7 +1021,7 @@ VerifyGEInstall() {
     fi
 
     # If any one required command is missing
-    [[ $flag_missing_command -eq 1 ]] && return 1
+    ((flag_missing_command)) && return 1
 
     # Check for install paths that don't have a saved package, download if missing
     for node in "$g_install_path/Proton-"*; do
@@ -954,7 +1032,7 @@ VerifyGEInstall() {
 
                 # If no saved package exists for this version
                 [[ ! -f $g_install_path/${node##*/}.tar.gz ]] && {
-                    echo "Package not found for installed version \"${node##*/}\""
+                    echo "Package not found for installed version ${node##*/}"
                     if ! DownloadGEPackage "${node##*/Proton-}"; then
                         return 1
                     fi
@@ -968,12 +1046,12 @@ VerifyGEInstall() {
         [[ -f $node ]] && {
             version=${node##*/}
             CleanUpVersion
-            echo "Found a package for version \"$version\""
+            echo "Found a package for version $version"
             if ! IsInstalled "$version"; then
-                echo "Version \"$version\" is not installed"
+                echo "Version $version is not installed"
                 continue
             else
-                echo "Version \"$version\" is installed"
+                echo "Version $version is installed"
 
                 # Check for enough free space on the filesystem that contains tmp_path
                 IFS=$'\t' read -r -- expected_size_bytes path < <(du -bs -- "$g_install_path/Proton-${version}")
@@ -984,8 +1062,8 @@ VerifyGEInstall() {
                     vMsg "$temp_base_path_remaining_bytes remaining bytes: $temp_base_path_remaining_bytes"
                 }
 
-                [[ $expected_size_bytes -gt $temp_base_path_remaining_bytes ]] && {
-                    echo "WARNING: Not enough free space at \"$g_temp_base_path\" to continue"
+                ((expected_size_bytes > temp_base_path_remaining_bytes)) && {
+                    echo "WARNING: Not enough free space at $g_temp_base_path to continue"
                     CleanUp
                     return 1
                 }
@@ -1025,7 +1103,7 @@ VerifyGEInstall() {
                 # The faster method is a one-to-one comparison of each array element.
                 # The slower method takes each element of the extracted array and then searches through
                 # the entire installed array until it finds a matching file name.
-                if [[ ${#files_extracted[@]} -ne ${#files_installed[@]} ]]; then
+                if (( ${#files_extracted[@]} != ${#files_installed[@]} )); then
                     echo "Using slower method for comparing"
                     files_arrays_count_match=0
                 else
@@ -1046,7 +1124,7 @@ VerifyGEInstall() {
 
                 # Begin comparing, using the faster method
                 # If the number of elements match
-                if [[ $files_arrays_count_match -eq 1 ]]; then
+                if (( files_arrays_count_match == 1 )); then
                     total_files=${#files_extracted[@]}
                     start_time_seconds=$(date +%s)
                     for counter_extracted in "${!files_extracted[@]}"; do
@@ -1070,14 +1148,15 @@ VerifyGEInstall() {
 
                         # Progress report
                         progress_percent=$(( (counter_extracted * 100) / total_files ))
-                        # NOTE: save_cursor must come after restore_cursor or the progress will be mangled on at least the terminal kitty.
-                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u\033[s%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
+
+                        # Only update the progress_percent when it actually changes
+                        ((progress_percent != prev_progress)) && printf '\033[u\033[s%s' "... ${progress_percent}%"
                         prev_progress=$progress_percent
                     done
                     end_time_seconds=$(date +%s)
 
                 # Begin comparing, using the slower method
-                elif [[ $files_arrays_count_match -eq 0 ]]; then
+                elif (( files_arrays_count_match == 0 )); then
                     total_files=${#files_extracted[@]}
                     start_time_seconds=$(date +%s)
                     for counter_extracted in "${!files_extracted[@]}"; do
@@ -1117,7 +1196,9 @@ VerifyGEInstall() {
 
                         # Progress report
                         progress_percent=$(( (counter_extracted * 100) / total_files ))
-                        [[ $progress_percent -ne $prev_progress ]] && printf '\033[u\033[s%s' "... ${progress_percent}%" # Only update the progress_percent when it actually changes
+
+                        # Only update the progress_percent when it actually changes
+                        ((progress_percent != prev_progress)) && printf '\033[u\033[s%s' "... ${progress_percent}%"
                         prev_progress=$progress_percent
                     done
                     end_time_seconds=$(date +%s)
@@ -1137,12 +1218,12 @@ VerifyGEInstall() {
                 # Report
                 echo "$match_counter files match. $missing_counter files are missing. $mismatch_counter do not match."
 
-                if [[ $match_counter -gt 0 && $missing_counter -eq 0 && $mismatch_counter -eq 0 ]]; then
-                    echo "Installation for version \"$version\" appears ok"
-                elif [[ $missing_counter -gt 0 || $mismatch_counter -gt 0 ]]; then
+                if ((match_counter > 0 && missing_counter == 0 && mismatch_counter == 0)); then
+                    echo "Installation for version $version appears ok"
+                elif ((missing_counter > 0 || mismatch_counter > 0)); then
                     printf '%s\n%s\n' \
-                           "WARNING: Version \"$version\" has missing or potentially corrupt files." \
-                           "If you did not manually modify your installation you may want to force reinstall it (-fi $version)"
+                           "WARNING: Version $version has missing or potentially corrupt files." \
+                           "If you did not manually modify your installation you may want to remove it and then reinstall it" # TODO:
                 fi
             fi
         }
@@ -1163,7 +1244,7 @@ VerifyGEInstall() {
 # TODO Seperate return values for not found and error
 QueryGEAttribute() {
 
-    [[ -z $1 || -z $2 || $# -ne 2 ]] && { ((g_verbose)) && vMsg "Parameter error 1: \"$1\" 2: \"$2\" \$#: \"$#\""; return 1; }
+    [[ -z $1 || -z $2 || $# -ne 2 ]] && { ((g_verbose)) && vMsg "Parameter error 1: $1 2: $2 \$#: $#"; return 1; }
 
     local version value key=${2-}
 
@@ -1186,7 +1267,7 @@ QueryGEAttribute() {
         if value=$(QueryJSONAttribute "$g_file_releases_json" "$version" "$key"); then
             ((g_verbose)) && vMsg "QueryJSONAttribute returned success"
         else
-            ((g_verbose)) && vMsg "QueryJSONAttribute returned failure. value: \"$value\""
+            ((g_verbose)) && vMsg "QueryJSONAttribute returned failure. value: $value"
         fi
     fi
 
@@ -1223,15 +1304,15 @@ QueryJSONAttribute() {
 
     # If the number of parameters is not exactly three, the second parameter is not a regular file, or any of the three parameters are empty
     if [[ $# -ne 3 ]] || [[ ! -f $1 ]] || [[ -z $1 || -z $2 || -z $3 ]]; then
-        ((g_verbose)) && vMsg "Parameter error 1: \"$1\" 2: \"$2\" 3: \"$3\" \$#: \"$#\""
+        ((g_verbose)) && vMsg "Parameter error 1: $1 2: $2 3: $3 \$#: $#"
         return 1
     fi
 
     # Check if the attribute requested is currently supported
-    [[ ${3,,} != @(size|browser_download_url) ]] && { ((g_verbose)) && vMsg "Parameter error (unsupported attribute requested) \"$2\""; return 1; }
+    [[ ${3,,} != @(size|browser_download_url) ]] && { ((g_verbose)) && vMsg "Parameter error (unsupported attribute requested)"; return 1; }
 
-    local version file_json=${1-} value_browser_url='' key value_size_bytes='' # NOTE: DO NOT set -i
-    local -i counter_lines=0 line_version_found=0 line_size_found=0 line_browserurl_found=0 flag_version_found=0 flag_size_found=0
+    local version file_json=${1-} value_browser_url='' key
+    local -i counter_lines=0 line_version_found=0 line_size_found=0 line_browserurl_found=0 flag_version_found=0 flag_size_found=0 value_size_bytes=0
     #local flag_browserurl_found=0
 
     version=$2
@@ -1241,7 +1322,7 @@ QueryJSONAttribute() {
 
     key=${3,,}
 
-    ((g_verbose)) && vMsg "Searching in \"$file_json\""
+    ((g_verbose)) && vMsg "Searching in $file_json"
 
     # WARNING: Do not output to stdout or stderr inside the following loop
     while IFS= read -r --; do
@@ -1252,23 +1333,24 @@ QueryJSONAttribute() {
         # "name":"Proton-5.9-GE-5-ST.tar.gz"
         #         "name": "Proton-5.9-GE-5-ST.tar.gz",
         # "name":"Proton-5.9-GE-5-ST.tar.gz"
-        [[ $REPLY =~ ^.*\"name\":.*\"Proton-${version}\.tar\.gz\".*$ ]] && {
-            flag_version_found=1
-            line_version_found=$counter_lines
-            continue
+        ((! flag_version_found)) && {
+            [[ $REPLY =~ ^.*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
+                flag_version_found=1
+                line_version_found=$counter_lines
+                continue
+            }
         }
 
         # NOTE: must be compatible with all 3 of the following potential formats
         # "size":406721946,"download_count":6780,"created_at":"2020-07-29T05:00:40Z"
         #         "size": 406721946,
         # "size":406721946
-        [[ $flag_version_found -eq 1 ]] && {
-            [[ ${REPLY,,} =~ ^.*\"size\":.*[[:digit:]]+.*$ ]] && {
+        ((flag_version_found && ! flag_size_found)) && {
+            [[ ${REPLY,,} =~ ^.*\"size\":[[:blank:]]*[[:digit:]]+.*$ ]] && {
                 flag_size_found=1
                 line_size_found=$counter_lines
-                value_size_bytes=${REPLY//[[:space:]]}
-                value_size_bytes=${value_size_bytes/#\"size\":}
-                value_size_bytes=${value_size_bytes%%[[:punct:]]*} # value_size_bytes=${value_size_bytes%,*}
+                # Remove all characters that are not digits
+                value_size_bytes=${REPLY//[!0-9]/}
                 continue
             }
         }
@@ -1277,35 +1359,34 @@ QueryJSONAttribute() {
         # "browser_download_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
         #         "browser_download_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
         # "browser_download_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"}],"tarball_url":"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/tarball/5.9-GE-5-ST"
-        [[ $flag_version_found -eq 1 && $flag_size_found -eq 1 ]] && {
-            [[ $REPLY =~ ^.*\"browser_download_url\":.*\".*Proton-${version}\.tar\.gz\".*$ ]] && {
+        ((flag_version_found && flag_size_found)) && {
+            [[ $REPLY =~ ^.*\"browser_download_url\":[[:blank:]]*\".*Proton-${version}\.tar\.gz\".*$ ]] && {
                 #flag_browserurl_found=1
                 line_browserurl_found=$counter_lines
-                value_browser_url=${REPLY/#*\"browser_download_url\":}
-                value_browser_url=${value_browser_url//[[:space:]]}
-                value_browser_url=${value_browser_url/#\"}
-                value_browser_url=${value_browser_url%%\"*}
+                REPLY=${REPLY//[[:space:]]}
+                REPLY=${REPLY/#*\"browser_download_url\":\"}
+                value_browser_url=${REPLY%%\"*}
                 break
             }
         }
     done < "$file_json"
 
     # Debug messages
-    [[ $g_verbose -eq 1 ]] && {
-        if [[ $flag_version_found -eq 0 ]]; then
-            vMsg "Version match not found"
-        elif [[ $flag_version_found -eq 1 ]]; then
+    ((g_verbose)) && {
+        if ((flag_version_found)); then
             vMsg "Version match found at line $line_version_found"
+        else
+            vMsg "Version match not found"
         fi
         if [[ -z $value_size_bytes ]]; then
             vMsg "value_size_bytes is NULL"
         else
-            vMsg "value_size_bytes: \"$value_size_bytes\""
+            vMsg "value_size_bytes: $value_size_bytes"
         fi
         if [[ -z $value_browser_url ]]; then
             vMsg "value_browser_url is NULL"
         else
-            vMsg "value_browser_url: \"$value_browser_url\""
+            vMsg "value_browser_url: $value_browser_url"
         fi
         vMsg "line_version_found: $line_version_found line_size_found: $line_size_found line_browserurl_found: $line_browserurl_found"
     }
@@ -1347,8 +1428,8 @@ ReformatJSONUsingSed() {
     [[ -z $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
     [[ -f $file_json ]] || { ((g_verbose)) && vMsg "Parameter error (not a file)"; return 1; }
 
-    ((g_verbose)) && vMsg "file_json: \"$file_json\""
-    ((g_verbose)) && vMsg "g_file_sed_unminify_script: \"$g_file_sed_unminify_script\""
+    ((g_verbose)) && vMsg "file_json: $file_json"
+    ((g_verbose)) && vMsg "g_file_sed_unminify_script: $g_file_sed_unminify_script"
 
     if [[ -w $file_json ]]; then
         if sed -i --file="$g_file_sed_unminify_script" "$file_json"; then
@@ -1359,7 +1440,7 @@ ReformatJSONUsingSed() {
             return 1
         fi
     else
-        ((g_verbose)) && vMsg "No write access: \"$file_json\""
+        ((g_verbose)) && vMsg "No write access to: $file_json"
         return 1
     fi
 
@@ -1384,13 +1465,13 @@ IsJSONminified() {
 
     # Get the number of newlines in the file
     counter_lines=$(wc -l -- < "$file_json")
-    ((g_verbose)) && vMsg "counter_lines: \"$counter_lines\""
+    ((g_verbose)) && vMsg "counter_lines: $counter_lines"
 
     # 0 is the actual value of a minified JSON response, 1 is used in case a mistake is
     # made handling the string and a trailing newline is added or if in the future
     # minified JSON is returned that has 1 newline.
     ((g_verbose)) && {
-        if [[ $counter_lines -le 1 ]]; then
+        if ((counter_lines <= 1)); then
             vMsg "JSON is minified"
         else
             vMsg "JSON is not minified"
@@ -1408,8 +1489,8 @@ IsJSONminified() {
 # Return:  Always 0
 CreateSedUnminifyJSONscript() {
 
-    if [[ ! -f $g_file_sed_unminify_script ]] || [[ $(stat -c '%s' -- "$g_file_sed_unminify_script") -ne $g_size_bytes_sed_unminify_script ]]; then
-        ((g_verbose)) && vMsg "'sed' script at \"$g_file_sed_unminify_script\" does not exist or is not the expected size ($g_size_bytes_sed_unminify_script)"
+    if [[ ! -f $g_file_sed_unminify_script ]] || (($(stat -c '%s' -- "$g_file_sed_unminify_script") != g_size_bytes_sed_unminify_script)); then
+        ((g_verbose)) && vMsg "sed script at $g_file_sed_unminify_script does not exist or is not the expected size ($g_size_bytes_sed_unminify_script)"
         cat <<"END_OF_SED_SCRIPT" > "$g_file_sed_unminify_script"
 #### begin minimum required for ge-install-manager
 # replace: ","
@@ -1462,7 +1543,7 @@ s|"}|"|g
 s|\["|"|g
 END_OF_SED_SCRIPT
     else
-        ((g_verbose)) && vMsg "'sed' script already exists at g_file_sed_unminify_script and is the expected size ($g_size_bytes_sed_unminify_script)"
+        ((g_verbose)) && vMsg "sed script already exists at g_file_sed_unminify_script and is the expected size ($g_size_bytes_sed_unminify_script bytes)"
     fi
 
     return 0
@@ -1485,13 +1566,13 @@ IsInstalled() {
     version=${1-}
     CleanUpVersion
 
-    ((g_verbose)) && vMsg "Checking for version \"$version\" at \"$g_install_path/Proton-${version}\""
+    ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
 
     if [[ -d $g_install_path/Proton-${version} ]]; then
-        ((g_verbose)) && vMsg "Version \"$version\" found"
+        ((g_verbose)) && vMsg "Version $version found"
         return 0
     else
-        ((g_verbose)) && vMsg "Version \"$version\" not found"
+        ((g_verbose)) && vMsg "Version $version not found"
         return 1
     fi
 
@@ -1507,7 +1588,7 @@ IsInstalled() {
 IsSteamRunning() {
 
     local cmd remaining
-    local -i found_steam=0
+    local -i flag_found_steam=0
 
     #shellcheck disable=SC2034
     while IFS=' ' read -r -- cmd remaining; do
@@ -1516,15 +1597,15 @@ IsSteamRunning() {
         [[ $cmd = 'ps' ]] && continue
 
         [[ ${cmd##*/} = 'steam' ]] && {
-            found_steam=1
+            flag_found_steam=1
             ((g_verbose)) && vMsg "Steam process found: $cmd"
             break
         }
     done < <(ps -eo cmd 2>/dev/null)
 
-    ((g_verbose)) && { [[ $found_steam -eq 0 ]] && vMsg "Steam process not found"; }
+    ((g_verbose)) && { ((flag_found_steam)) || vMsg "Steam process not found"; }
 
-    return $(( found_steam ? 0 : 1 ))
+    return $(( flag_found_steam ? 0 : 1 ))
 }
 
 ###############################################################################
@@ -1548,6 +1629,8 @@ RequestURL() {
     [[ -z $requested_url || -z $file_local || $# -ne 2 ]] && ((g_verbose)) && vMsg "Parameter error (NULL or not exactly two)"
     [[ ! -f $file_temp || ! -w $file_temp ]] && ((g_verbose)) && vMsg "Parameter error (temp file not a file or not writeable)"
 
+    ((g_verbose)) && vMsg "Checking remote file against $file_local"
+
     if curl -sz "$file_local" \
             -H "$CURL_HEADER_USER_AGENT" \
             -H "$CURL_HEADER_CONTENT_TYPE" \
@@ -1555,21 +1638,21 @@ RequestURL() {
             -L "$requested_url" \
             -o "$file_temp" 2>/dev/null; then
 
-        ((g_verbose)) && vMsg "'curl' returned success"
-        if [[ $(stat -c '%s' -- "$file_temp") -gt 0 ]]; then
+        ((g_verbose)) && vMsg "curl returned success"
+        if (($(stat -c '%s' -- "$file_temp"))); then
             if [[ -f $file_temp && -r $file_temp ]]; then
 
                 # Check the temporary file contents for some basic error responses
                 # Not found
                 downloaded_package_size_bytes=$(stat -c '%s' -- "$file_temp")
-                if [[ $downloaded_package_size_bytes -eq 9 ]]; then
-                    ((g_verbose)) && vMsg "RequestURL: Server responded \"Not Found\""
+                if ((downloaded_package_size_bytes == 9)); then
+                    ((g_verbose)) && vMsg "Server responded Not Found"
                     CleanUp
                     return 1
                 fi
 
                 # Github API request rate limit exceeded
-                if [[ $downloaded_package_size_bytes -eq 248 ]]; then
+                if ((downloaded_package_size_bytes == 248)); then
                     ((g_verbose)) && vMsg "Github API request rate limit exceeded. Unable to retrieve remote file."
                     CleanUp
                     return 1
@@ -1584,10 +1667,10 @@ RequestURL() {
                     # If the local file already exists, create a backup first
                     [[ -f $file_local ]] && CreateBackup "$file_local"
                     if cp -f -- "$file_temp" "$file_local"; then
-                        ((g_verbose)) && vMsg "Copied \"$file_temp\" to \"$file_local\""
+                        ((g_verbose)) && vMsg "Copied $file_temp to $file_local"
                         return 0
                     else
-                        ((g_verbose)) && vMsg "Failed to copy \"$file_temp\" to \"$file_local\""
+                        ((g_verbose)) && vMsg "Failed to copy $file_temp to $file_local"
                         return 1
                     fi
                 else
@@ -1595,16 +1678,16 @@ RequestURL() {
                     return 1
                 fi
             else
-                ((g_verbose)) && vMsg "file_temp not found or not readable: \"$file_temp\""
+                ((g_verbose)) && vMsg "file_temp not found or not readable: $file_temp"
                 return 1
             fi
         else
             # remote file is not newer if curl returns success and the response is NULL
-            ((g_verbose)) && vMsg "file_temp is size 0: \"$file_temp\""
+            ((g_verbose)) && vMsg "Remote file is not newer"
             return 0
         fi
     else
-        ((g_verbose)) && vMsg "'curl' returned failure"
+        ((g_verbose)) && vMsg "curl returned failure"
         return 1
     fi
 
@@ -1631,8 +1714,9 @@ CreateBackup() {
 
     [[ -z $backup_target ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
 
-    ((g_verbose)) && vMsg "Backup requested for: \"$backup_target\""
+    ((g_verbose)) && vMsg "Backup requested for: $backup_target"
 
+    # Check that backup_target is either an existing file or an existing path
     if [[ -f $backup_target ]]; then
         ((g_verbose)) && vMsg "backup_target is a file"
     else
@@ -1652,10 +1736,10 @@ CreateBackup() {
     }
 
     # If backup_target is a file, get the path to it
-    if [[ -f $backup_target && ! -d $backup_target ]]; then
+    if [[ ! -d $backup_target && -f $backup_target ]]; then
         backup_target_path=${backup_target%/*}
     else
-        # Get the parent path of the backup_target
+        # If its a path, get the parent path of backup_target
         backup_target_path=$(realpath -- "$(dirname -- "$backup_target" 2>/dev/null)" 2>/dev/null)
     fi
 
@@ -1670,9 +1754,9 @@ CreateBackup() {
             [[ $backup_index =~ ^[[:digit:]]+$ ]] && {
                 ((backups_counter++))
                 files_existing_backups+=("$file")
-                ((g_verbose)) && vMsg "Valid backup file found at \"$file\""
-                if [[ $backup_index = "1" ]]; then
-                    ((g_verbose)) && vMsg "backup_index 1 found, existing backups will be renamed"
+                ((g_verbose)) && vMsg "Valid backup file found at $file"
+                if ((backup_index == 1 )); then
+                    ((g_verbose)) && vMsg "Index 1 found, existing backups will be renamed"
                     flag_rename_backups=1
                 fi
             }
@@ -1680,15 +1764,15 @@ CreateBackup() {
     done
     ((g_verbose)) && vMsg "Found $backups_counter backups"
 
-    if [[ $flag_rename_backups -eq 1 ]]; then
+    if ((flag_rename_backups)); then
         backup_index=$backups_counter
-        if [[ $backup_index -ge $max_backups ]]; then
+        if ((backup_index >= max_backups)); then
 
             # Remove the oldest (highest index) backup until max_backups is reached
-            while [[ $backup_index -ge $max_backups ]]; do
+            while ((backup_index >= max_backups)); do
                 if ($g_command_rm -- "${files_existing_backups[backup_index-1]}"); then
-                    ((g_verbose)) && vMsg "Removed highest index greater than $max_backups: \"${files_existing_backups[backup_index-1]}\""
-                    backup_index=$((backup_index-1))
+                    ((g_verbose)) && vMsg "Removed highest index greater than $max_backups: ${files_existing_backups[backup_index-1]}"
+                    backup_index=$((backup_index - 1))
                 else
                     vMsg "Failed to remove backup file ${files_existing_backups[backup_index-1]}"
                     return 1
@@ -1701,19 +1785,19 @@ CreateBackup() {
             if mv -- "${files_existing_backups[backup_index-1]}" "${files_existing_backups[backup_index-1]/${backup_index}/$((backup_index+1))}"; then
                 ((g_verbose)) && vMsg "${files_existing_backups[backup_index-1]} renamed to ${files_existing_backups[backup_index-1]/${backup_index}/$((backup_index+1))}"
             else
-                vMsg "Failed to rename backup file: \"${files_existing_backups[backup_index-1]}\""
+                vMsg "Failed to rename backup file: ${files_existing_backups[backup_index-1]}"
                 return 1
             fi
         done
     else
-        ((g_verbose)) && vMsg "backup_index not found, not renaming backups"
+        ((g_verbose)) && vMsg "Index 1 not found, no need to rename existing backups"
     fi
 
     if tar -C "$backup_target_path" -cf "$backup_target_path/${backup_target_basename}_1.tar.gz" -z "$backup_target_basename"; then
-        ((g_verbose)) && vMsg "Created new backup at: \"$backup_target_path/${backup_target_basename}_1.tar.gz\""
+        ((g_verbose)) && vMsg "Created new backup at: $backup_target_path/${backup_target_basename}_1.tar.gz"
         return 0
     else
-        ((g_verbose)) && vMsg "Backup failed: \"$backup_target_path/${backup_target_basename}_1.tar.gz\""
+        ((g_verbose)) && vMsg "Backup failed: $backup_target_path/${backup_target_basename}_1.tar.gz"
         return 1
     fi
 
@@ -1730,8 +1814,7 @@ CreateBackup() {
 # Output:  Integer value representing the space remaining in the unit requested
 #          NOTE: Bash arithmatic is used because this script does not require
 #                   the precision afforded by bc/etc.
-# Return:  0 Success
-#          1 Failure
+# Return:  Return value of printf
 # NOTE: bash arithmatic supports upto 1024^6/1024**6 (exbibyte)
 # TODO: Add a third, optional parameter to request calculations using bc
 SpaceRemaining() {
@@ -1753,11 +1836,11 @@ SpaceRemaining() {
         (e|exbi|exbibyte) power_of=6 ;;
     esac
 
-    ((g_verbose)) && vMsg "Checking \"$file_system\""
+    ((g_verbose)) && vMsg "Checking $file_system"
 
     printf '%s' "$(( ($(stat -L --cached=never -c '%s' -f -- "$file_system") * $(stat -L --cached=never -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"
 
-    return $(( $? ? 1 : 0 )) # TODO: Does builtin printf have return values other than 0 or 1?
+    return
 }
 
 ###############################################################################
@@ -1809,7 +1892,7 @@ CreateDefaultConfigFile() {
 #
 DEFAULT_CONFIG
 
-    cat <<"DEFAULT_CONFIG" >> "$g_file_script_config" # This section is not subject to c expansion
+    cat <<"DEFAULT_CONFIG" >> "$g_file_script_config" # This section is not subject to expansion
 
 # Default install path
 install_path=auto
@@ -1865,12 +1948,12 @@ ParseConfigFile() {
 
     # If existing_config_file_lines is empty or g_file_script_config doesn't exist, create a default config file
     [[ -z $existing_config_file_lines || ! -f $g_file_script_config ]] && {
-        ((g_verbose)) && vMsg "Generating a default config file at: \"$g_file_script_config\""
+        ((g_verbose)) && vMsg "Generating a default config file at: $g_file_script_config"
         if CreateDefaultConfigFile; then
             ((g_verbose)) && vMsg "CreateDefaultConfigFile returned success"
-            echo "Default configuration created at \"$g_file_script_config\""
+            echo "Default configuration created at $g_file_script_config"
             if [[ -n ${EDITOR-} ]]; then
-                ((g_verbose)) && vMsg "EDITOR is set to: \"$EDITOR\""
+                ((g_verbose)) && vMsg "EDITOR is set to: $EDITOR"
                 while :; do
                     read -rp "Would you like to open it with ${EDITOR}? " </dev/tty
                     case ${REPLY,,} in
@@ -1880,7 +1963,7 @@ ParseConfigFile() {
                     esac
                 done
             else
-                echo "EDITOR not set, default configuration created at \"$g_file_script_config\""
+                echo "EDITOR not set, default configuration created at $g_file_script_config"
             fi
             exit 0
         else
@@ -1888,8 +1971,6 @@ ParseConfigFile() {
             return 1
         fi
     }
-
-    ((g_verbose)) && vMsg "existing_config_file_lines: $existing_config_file_lines"
 
     # Sanity checks
     [[ -z $g_file_script_config || ! -f $g_file_script_config || ! -w $g_file_script_config ]] && {
@@ -1904,17 +1985,17 @@ ParseConfigFile() {
         ((counter_config_line++))
 
         # Ignore lines that begin with a # (comments)
-        [[ $REPLY =~ ^#.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (begins with a \"#\")"; continue; }
+        [[ $REPLY =~ ^#.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (#)"; continue; }
 
         # Ignore lines that contain one or more semi-colon ";". Anti-exploit measure.
-        [[ $REPLY =~ ^.*\;+.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (contains one or more \";\")"; continue; }
+        [[ $REPLY =~ ^.*\;+.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (;)"; continue; }
 
         # Ignore lines containing potential escape sequences. Anti-exploit measure.
-        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (contains potential escape code)"; continue; }
+        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (potential escape code)"; continue; }
 
         # Trim away inline comments
         if [[ $REPLY =~ ^.*#.*$ ]]; then
-            ((g_verbose)) && vMsg "Partially commented line $counter_config_line: \"$REPLY\""
+            ((g_verbose)) && vMsg "Partially commented line $counter_config_line: $REPLY"
             # remove the ' #' and everything to the right of it
             # NOTE: valid comments are preceded by at least one [[:blank:]]
             # BUG: this will mangle herestrings that contain comments
@@ -1924,11 +2005,11 @@ ParseConfigFile() {
         # Ignore lines that are empty
         [[ -z $REPLY ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (empty)"; continue; }
 
-        # Ignore lines that don't contain exactly one = and also don't have characters on either side of the = sign. If there are characters on either
-        # side of the = sign, they may not be spaces or tabs
+        # Ignore lines that don't contain exactly one = and also don't have characters on either side of the = sign.
+        # If there are characters on either side of the = sign, they may not be spaces or tabs
         [[ $REPLY =~ ^[^=[:blank:]]+=[^=[:blank:]]+$ ]] || { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (improperly formatted)"; continue; }
 
-        ((g_verbose)) && vMsg "Potentially valid config line ($counter_config_line): \"$REPLY\""
+        ((g_verbose)) && vMsg "Potentially valid config line ($counter_config_line): $REPLY"
 
         # Get the key (the characters to the left of the equals "=" sign)
         config_key=${REPLY%%=*}
@@ -1936,36 +2017,36 @@ ParseConfigFile() {
         # Get the value (the characters to the right of the equals "=" sign)
         config_value=${REPLY#*=}
 
-        ((g_verbose)) && vMsg "config line $counter_config_line - Key: \"$config_key\" Value: \"$config_value\""
+        ((g_verbose)) && vMsg "config line $counter_config_line - Key: $config_key Value: $config_value"
 
         # Expand any variables in the config using envsubst or eval
         # Skip expansion if the value doesn't contain one or more $
         if [[ $config_value =~ ^.+[$]+.+$ ]]; then
             if [[ $config_value =~ ^.+:[+-=?]{1}.+$ ]]; then
-                ((g_verbose)) && vMsg "Using 'eval' to expand config_value: \"$config_value\""
+                ((g_verbose)) && vMsg "Using 'eval' to expand config_value: $config_value"
                 config_value=$(eval printf '%s' "$config_value")
-                ((g_verbose)) && vMsg "config_value expanded to: \"$config_value\""
+                ((g_verbose)) && vMsg "config_value expanded to: $config_value"
             else
                 if command -v envsubst &>/dev/null; then
-                    ((g_verbose)) && vMsg "Using 'envsubst' to expand config_value: \"$config_value\""
+                    ((g_verbose)) && vMsg "Using 'envsubst' to expand config_value: $config_value"
                     config_value=$(envsubst <<< "$config_value")
 
                     # If there is still a $ in config_value it contained a variable envsubst couldn't expand
                     [[ $config_value =~ ^.*\$+.*$ ]] && {
                         ((g_verbose)) && vMsg "config_value still contains one or more $ after envsubst"
                         config_value=$(eval printf '%s' "$config_value")
-                        ((g_verbose)) && vMsg "config_value expanded again with 'eval' to: \"$config_value\""
+                        ((g_verbose)) && vMsg "config_value expanded again with 'eval' to: $config_value"
                     }
-                    ((g_verbose)) && vMsg "config_value expanded to: \"$config_value\""
+                    ((g_verbose)) && vMsg "config_value expanded to: $config_value"
                 else
-                    ((g_verbose)) && vMsg "Command 'envsubst' not available, using 'eval' to expand config_value: \"$config_value\""
+                    ((g_verbose)) && vMsg "Command 'envsubst' not available, using 'eval' to expand config_value: $config_value"
                     config_value=$(eval printf '%s' "$config_value")
-                    ((g_verbose)) && vMsg "config_value expanded to: \"$config_value\""
+                    ((g_verbose)) && vMsg "config_value expanded to: $config_value"
                 fi
             fi
         else
             # No $ were found, no expansion necessary
-            ((g_verbose)) && vMsg "Skipping expansion of config_value: \"$config_value\""
+            ((g_verbose)) && vMsg "Skipping expansion of config_value: $config_value"
         fi
 
         # Validate values for recognized keys and set global variables accordingly
@@ -1993,45 +2074,20 @@ ParseConfigFile() {
                     ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it"
                     if mkdir -p -- "$config_value" &>/dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "script has write permission to config_value"
+                            ((g_verbose)) && vMsg "Script has write permission to $config_value"
                             g_install_path=$config_value
                         else
-                            vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
                             flag_failed=1
                             flag_update_install_path=0
                         fi
                     else
-                        vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
                         flag_failed=1
                         flag_update_install_path=0
                     fi
                 fi
             ;;
-            # Changing the config_path is currently not supported
-            #(config_path)
-            #    ## If config_path would = g_install_path
-            #    if [[ $config_value -ef $g_install_path ]]; then
-            #        vMsg "config_path is the same as g_install_path"
-            #    fi
-            #    if [[ -d $config_value && -w $config_value ]]; then
-            #        ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it"
-            #        g_script_config_path=$config_value
-            #    else
-            #        ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it"
-            #        if mkdir -p -- "$config_value" &>/dev/null; then
-            #            if [[ -w $config_value ]]; then
-            #                ((g_verbose)) && vMsg "script has write permission to config_value"
-            #                g_script_config_path=$config_value
-            #            else
-            #                vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
-            #                flag_failed=1
-            #            fi
-            #        else
-            #            vMsg "ParseConfigFile: Invalid value for $config_key at line $counter_config_line: \"$config_value\""
-            #            flag_failed=1
-            #        fi
-            #    fi
-            #;;
             (cache_path)
                 if [[ -d $config_value && -w $config_value ]]; then
                     ((g_verbose)) && {
@@ -2047,14 +2103,14 @@ ParseConfigFile() {
                     ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it"
                     if mkdir -p -- "$config_value" &>/dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "script has write permission to config_value"
+                            ((g_verbose)) && vMsg "Script has write permission to $config_value"
                             g_script_cache_path=$config_value
                         else
-                            vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
                             flag_failed=1
                         fi
                     else
-                        vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
                         flag_failed=1
                     fi
                 fi
@@ -2072,14 +2128,14 @@ ParseConfigFile() {
                     ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it"
                     if mkdir -p -- "$config_value" &>/dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "script has write permission to config_value"
+                            ((g_verbose)) && vMsg "Script has write permission to $config_value"
                             g_temp_base_path=$config_value
                         else
-                            vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
                             flag_failed=1
                         fi
                     else
-                        vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
                         flag_failed=1
                     fi
                 fi
@@ -2087,10 +2143,10 @@ ParseConfigFile() {
             (rm_command)
                 if (command -v -- "$config_value" &>/dev/null); then
                     g_command_rm=$config_value
-                    ((g_verbose)) && vMsg "g_command_rm set to: \"$g_command_rm\""
+                    ((g_verbose)) && vMsg "g_command_rm set to: $g_command_rm"
                 else
-                    ((g_verbose)) && vMsg "command -v \"$config_value\" failed"
-                    vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\"" \
+                    ((g_verbose)) && vMsg "command -v $config_value failed"
+                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" \
                     vMsg "If you don't want the script to use 'rm' then fix it"
                     g_command_rm='rm'
                 fi
@@ -2098,33 +2154,35 @@ ParseConfigFile() {
             (latest_version_url)
                 if curl -sLI -- "$config_value" &>/dev/null; then
                     g_latest_version_url=$config_value
-                    ((g_verbose)) && vMsg "g_latest_version_url set to: \"$g_latest_version_url\""
+                    ((g_verbose)) && vMsg "g_latest_version_url set to: $g_latest_version_url"
                 else
-                    vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
                     flag_failed=1
                 fi
             ;;
             (releases_url)
                 if curl -sLI -- "$config_value" &>/dev/null; then
                     g_releases_url=$config_value
-                    ((g_verbose)) && vMsg "g_releases_url set to: \"$g_releases_url\""
+                    ((g_verbose)) && vMsg "g_releases_url set to: $g_releases_url"
                 else
-                    vMsg "Invalid value for $config_key at line $counter_config_line: \"$config_value\""
+                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
                     flag_failed=1
                 fi
             ;;
             (*)
-                ((g_verbose)) && vMsg "No key match for valid config ($counter_config_line): \"$REPLY\""
+                ((g_verbose)) && vMsg "No key match for valid config ($counter_config_line): $REPLY"
             ;;
         esac
     done < "$g_file_script_config"
 
     # Update install_path in the configuration file if necessary
-    [[ $flag_update_install_path -eq 1 ]] && {
+    ((flag_update_install_path)) && {
         [[ -n ${g_override_default_install_path-} ]] && {
             g_install_path=$g_override_default_install_path/compatibilitytools.d
             [[ -f $g_file_script_config ]] && CreateBackup "$g_file_script_config"
-            sed -i "s|install_path=auto|install_path=$g_install_path|" -- "$g_file_script_config"
+            if ! sed -i "s|install_path=auto|install_path=$g_install_path|" -- "$g_file_script_config"; then
+                flag_failed=1
+            fi
         }
     }
 
@@ -2151,21 +2209,21 @@ ParseConfigFile() {
     }
 
     # Debug report
-    ((g_verbose)) && vMsg "Install path set to: \"$g_install_path\""
-    ((g_verbose)) && vMsg "Temp path set to: \"$g_temp_base_path\""
-    ((g_verbose)) && vMsg "Config path set to: \"$g_script_config_path\"" # NOTE: config_path is currently not configurable
+    ((g_verbose)) && vMsg "Install path set to: $g_install_path"
+    ((g_verbose)) && vMsg "Temp path set to: $g_temp_base_path"
+    ((g_verbose)) && vMsg "Config path set to: $g_script_config_path" # NOTE: config_path is currently not configurable
     # update global variables that depend on this one
     #g_file_script_config=$g_script_config_path/$SCRIPT_FULL_NAME.conf
-    #((g_verbose)) && vMsg "g_file_script_config set to: \"$g_file_script_config\""
-    #((g_verbose)) && vMsg "g_file_sed_unminify_script set to: \"$g_file_sed_unminify_script\""
+    #((g_verbose)) && vMsg "g_file_script_config set to: $g_file_script_config"
+    #((g_verbose)) && vMsg "g_file_sed_unminify_script set to: $g_file_sed_unminify_script"
 
-    ((g_verbose)) && vMsg "Cache path set to: \"$g_script_cache_path\""
+    ((g_verbose)) && vMsg "Cache path set to: $g_script_cache_path"
     # update global variables that depend on this one
     g_file_latest_json="$g_script_cache_path"/latest.json
-    ((g_verbose)) && vMsg "g_file_latest_json set to: \"$g_file_latest_json\""
+    ((g_verbose)) && vMsg "g_file_latest_json set to: $g_file_latest_json"
 
     g_file_releases_json="$g_script_cache_path"/releases.json
-    ((g_verbose)) && vMsg "g_file_releases_json set to: \"$g_file_releases_json\""
+    ((g_verbose)) && vMsg "g_file_releases_json set to: $g_file_releases_json"
 
     return $(( flag_failed ? 1 : 0 ))
 }
@@ -2181,9 +2239,9 @@ CleanUpVersion() {
 
     [[ -z $version ]] && { ((g_verbose)) && vMsg "version is NULL"; printf ''; return 1; }
 
-    [[ $g_verbose -eq 1 ]] && {
+    ((g_verbose)) && {
         length_characters=${#version}
-        vMsg "Before: \"$version\""
+        vMsg "Before: $version"
     }
 
     # global upper case
@@ -2195,9 +2253,9 @@ CleanUpVersion() {
     # anchored right, remove a single ".TAR.GZ" and anything to the right of it
     version=${version%'.TAR.GZ'*}
 
-    [[ $g_verbose -eq 1 ]] && {
-        vMsg "After: \"$version\""
-        [[ $length_characters -ne ${#version} ]] && vMsg "Removed $(( length_characters - ${#version} )) characters"
+    ((g_verbose)) && {
+        vMsg "After: $version"
+        ((length_characters != ${#version})) && vMsg "Removed $(( length_characters - ${#version} )) characters"
     }
 
     return 0
@@ -2214,16 +2272,16 @@ MkTempFile() {
     local create_temp_file
 
     [[ -d $g_temp_base_path && -w $g_temp_base_path ]] || {
-        ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: \"$g_temp_base_path\""
+        ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: $g_temp_base_path"
         return 1
     }
 
-    create_temp_file=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16)
+    create_temp_file=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
 
-    ((g_verbose)) && vMsg "Created temp file at: \"$create_temp_file\""
+    ((g_verbose)) && vMsg "Created temp file at: $create_temp_file"
 
     # Create the empty temp file
-    printf '' > "$create_temp_file" || return 1
+    : > "$create_temp_file"
 
     # "Return" the path and filename,
     printf '%s' "$create_temp_file"
@@ -2242,16 +2300,16 @@ MkTempPath() {
     local create_temp_path
 
     [[ -d $g_temp_base_path && -w $g_temp_base_path ]] || {
-        ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: \"$g_temp_base_path\""
+        ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: $g_temp_base_path"
         return 1
     }
 
     create_temp_path=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
 
-    ((g_verbose)) && vMsg "Created temp path at: \"$create_temp_path\""
+    ((g_verbose)) && vMsg "Created temp path at: $create_temp_path"
 
     # Create the path
-    mkdir -p "$create_temp_path" &>/dev/null || return 1
+    mkdir -p "$create_temp_path" &>/dev/null
 
     # "Return" the path and filename,
     printf '%s' "$create_temp_path"
@@ -2274,8 +2332,8 @@ GenerateRandomAlphaNumericString() {
     list=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
 
     # If the length requested is outside sane upper and lower bounds, reset it
-    [[ $length -lt 1 ]] && length=1
-    [[ $length -gt 32767 ]] && length=32767
+    (( length < 1 )) && length=1
+    (( length > 32767 )) && length=32767
 
     # Loop length times
     for (( i=1; i<=length; i++ )); do
@@ -2330,16 +2388,13 @@ DetectSteamInstallPath () {
                                        "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
                                        "$HOME/.var/app/com.valvesoftware.Steam/.steam")
 
-    #sSTEAMSH=$(find / -xdev -type f -name "steam.sh" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
-    #sSTEAMCOMPATTOOLSD=$(find / -xdev -type d -name "compatibilitytools.d" ! -path "/dev/*" ! -path "/proc/*" 2>/dev/null)
-
     # Report the set status of XDG vars
     # XDG_DATA_HOME
     if [[ ${XDG_DATA_HOME-unset} != 'unset' ]]; then
         if [[ ${XDG_DATA_HOME-} != "$HOME"/.local/share ]]; then
-            ((g_verbose)) && vMsg "XDG_DATA_HOME is not set to the default: \"$XDG_DATA_HOME\""
+            ((g_verbose)) && vMsg "XDG_DATA_HOME is not set to the default: $XDG_DATA_HOME"
         else
-            ((g_verbose)) && vMsg "XDG_DATA_HOME is set to: \"$XDG_DATA_HOME\""
+            ((g_verbose)) && vMsg "XDG_DATA_HOME is set to: $XDG_DATA_HOME"
         fi
     else
         ((g_verbose)) && vMsg "XDG_DATA_HOME is unset"
@@ -2348,9 +2403,9 @@ DetectSteamInstallPath () {
     # XDG_CONFIG_HOME
     if [[ ${XDG_CONFIG_HOME-unset} != 'unset' ]]; then
         if [[ ${XDG_CONFIG_HOME-} != "$HOME"/.config ]]; then
-            ((g_verbose)) && vMsg "XDG_CONFIG_HOME is not set to the default: \"$XDG_CONFIG_HOME\""
+            ((g_verbose)) && vMsg "XDG_CONFIG_HOME is not set to the default: $XDG_CONFIG_HOME"
         else
-            ((g_verbose)) && vMsg "XDG_CONFIG_HOME is set to: \"$XDG_CONFIG_HOME\""
+            ((g_verbose)) && vMsg "XDG_CONFIG_HOME is set to: $XDG_CONFIG_HOME"
         fi
     else
         ((g_verbose)) && vMsg "XDG_CONFIG_HOME is unset"
@@ -2359,20 +2414,21 @@ DetectSteamInstallPath () {
     # XDG_CACHE_HOME
     if [[ ${XDG_CACHE_HOME-unset} != 'unset' ]]; then
         if [[ ${XDG_CACHE_HOME-} != "$HOME"/.cache ]]; then
-            ((g_verbose)) && vMsg "XDG_CACHE_HOME is not set to the default: \"$XDG_CACHE_HOME\""
+            ((g_verbose)) && vMsg "XDG_CACHE_HOME is not set to the default: $XDG_CACHE_HOME"
         else
-            ((g_verbose)) && vMsg "XDG_CACHE_HOME is set to: \"$XDG_CACHE_HOME\""
+            ((g_verbose)) && vMsg "XDG_CACHE_HOME is set to: $XDG_CACHE_HOME"
         fi
     else
         ((g_verbose)) && vMsg "XDG_CACHE_HOME is unset"
     fi
 
-    # Search each known possible, existing Steam g_install path path for steam.sh
+    # Search each known possible Steam install path path for steam.sh
+    # NOTE: If steam.sh is found the path containing it is considered valid
     #
     # ~/.steam/root/compatibilitytools.d
     ((g_verbose)) && vMsg "search_paths: ${#search_paths[@]}"
     for check_path in "${search_paths[@]}"; do
-        ((g_verbose)) && vMsg "Checking \"$check_path\""
+        ((g_verbose)) && vMsg "Checking $check_path"
         if [[ -f $check_path/steam.sh ]]; then
             ((g_verbose)) && vMsg "steam.sh found in $check_path"
             valid_paths+=("$check_path")
@@ -2384,24 +2440,24 @@ DetectSteamInstallPath () {
     ((g_verbose)) && vMsg "#valid_paths: ${#valid_paths[@]}"
     ((g_verbose)) && vMsg "valid_paths[*]: ${valid_paths[*]}"
 
-    if [[ ${#valid_paths[@]} -eq 0 ]]; then
+    if ((${#valid_paths[@]} == 0)); then
         printf '%s\n%s\n%s\n' \
                "ERROR: Unable to detect Steam installation path" \
-               "You will need to configure g_install_path manually in the configuration file" \
+               "You will need to configure install_path manually in the configuration file" \
                "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
         g_override_default_install_path=''
 
     # Prefer to use the symlink if two paths were found and one is a link to the other
-    elif [[ ${#valid_paths[@]} -eq 1 ]] || [[ ${#valid_paths[@]} -eq 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]; then
+    elif ((${#valid_paths[@]} == 1)) || [[ ${#valid_paths[@]} -eq 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]; then
         printf '%s\n%s\n%s\n' \
-               "Steam g_install path detected as \"${valid_paths[0]}\"" \
-               "If that path is incorrect, manually adjust g_install_path in the configuration file" \
+               "Steam install path detected as ${valid_paths[0]}" \
+               "If that path is incorrect, then change install_path in the configuration file" \
                "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
         g_override_default_install_path=${valid_paths[0]}
 
     # Multiple paths detected with or without the Steam home link pointing to one of them
     elif [[ ${#valid_paths[@]} -gt 1 && ! ${valid_paths[0]} -ef ${valid_paths[1]} ]] || [[ ${#valid_paths[@]} -gt 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]; then
-        echo "Multiple Steam g_install paths detected:"
+        echo "Multiple Steam install paths detected:"
         for (( i=0; i < ${#valid_paths[@]}; i++ )); do
             echo "($(( i + 1 ))) ${valid_paths[i]}"
         done
@@ -2413,19 +2469,19 @@ DetectSteamInstallPath () {
                 g_override_default_install_path=''
                 break
             }
-            REPLY=${REPLY//[!0-9]/} # Remove characters that are not {0..9}
+            REPLY=${REPLY//[!0-9]/} # Remove characters that are not a digit
             case $REPLY in
                 (*[[:digit:]]*) # TODO: Make this case test more precise
-                    if [[ $REPLY -lt 1 || $REPLY -ge $(( ${#valid_paths[@]} + 1 )) ]]; then
+                    if ((REPLY < 1 || REPLY >= $(( ${#valid_paths[@]} + 1 )))); then
                         echo "Invalid choice"
                     else
-                        ((g_verbose)) && vMsg "Setting g_override_default_install_path to \"${valid_paths[$((REPLY-1))]}\""
+                        ((g_verbose)) && vMsg "Setting g_override_default_install_path to ${valid_paths[$((REPLY-1))]}"
                         g_override_default_install_path=${valid_paths[$((REPLY-1))]}
                         printf '%s\n%s\n%s\n' \
-                               "You have chosen the path \"$g_override_default_install_path\"" \
-                               "If that is not correct adjust g_install_path in the configuration file accordingly" \
+                               "You have chosen the path $g_override_default_install_path" \
+                               "If that is not correct then change install_path in the configuration file" \
                                "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
-                        ((g_verbose)) && vMsg "g_override_default_install_path set to \"$g_override_default_install_path\""
+                        ((g_verbose)) && vMsg "g_override_default_install_path set to $g_override_default_install_path"
                         break
                     fi
                 ;;
@@ -2435,7 +2491,7 @@ DetectSteamInstallPath () {
 
         [[ -z $g_override_default_install_path ]] && {
             printf '%s\n%s\n' \
-                   "You will need to manually set g_install_path in the configuration file" \
+                   "You will need to manually set install_path in the configuration file" \
                    "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
             g_override_default_install_path="auto"
         }
@@ -2465,135 +2521,124 @@ SetupEnvironment() {
     for check_alias in "${check_alias_commands[@]}"; do
         result=$(alias "$check_alias" 2>&1)
         [[ $result == *"${check_alias}="* && $result != *'not found'* ]] && {
-            ((g_verbose)) && vMsg "Found alias for $check_alias: \"$result\""
+            ((g_verbose)) && vMsg "Found alias for $check_alias: $result"
             echo "WARNING: Alias detected for $check_alias (it will be unset to avoid undefined behavior)"
             if ! unalias "$check_alias"; then
-                ((g_verbose)) && vMsg "unalias \"$check_alias\" failed"
+                ((g_verbose)) && vMsg "unalias $check_alias failed"
                 flag_failed=1
             fi
             count_failed=$(( count_failed + 1 ))
             continue
         }
-        ((g_verbose)) && vMsg "No alias found for \"$check_alias\""
+        ((g_verbose)) && vMsg "No alias found for $check_alias"
         count_success=$(( count_success + 1 ))
     done
-    ((g_verbose)) && vMsg "$(( count_success + count_failed )) aliases checked"
+    ((g_verbose)) && vMsg "Checked for $(( count_success + count_failed )) aliases"
 
     # g_install_path
     if [[ -d $g_install_path ]]; then
-        ((g_verbose)) && vMsg "Found existing install path at \"$g_install_path\""
+        ((g_verbose)) && vMsg "Found existing install path at $g_install_path"
         if [[ -w $g_install_path ]]; then
-            ((g_verbose)) && vMsg "Script has write access to g_install_path"
+            ((g_verbose)) && vMsg "Script has write access"
         else
-            ((g_verbose)) && vMsg "Script does not have write access to g_install_path"
-            echo "Invalid install path: \"$g_install_path\""
+            vMsg "No write access to: $g_install_path"
             flag_failed=1
         fi
     elif [[ ! -d $g_install_path ]]; then
-        ((g_verbose)) && vMsg "g_install_path not found. Creating at \"$g_install_path\""
+        ((g_verbose)) && vMsg "g_install_path not found. Creating at $g_install_path"
         if mkdir -p -- "$g_install_path" &>/dev/null; then
             ((g_verbose)) && vMsg "Create install path succeeded"
         else
-            ((g_verbose)) && vMsg "Create install path failed"
-            echo "Invalid g_install path: \"$g_install_path\""
+            vMsg "Failed to create: $g_install_path"
             flag_failed=1
         fi
     fi
 
     # g_script_config_path
     if [[ -d $g_script_config_path ]]; then
-        ((g_verbose)) && vMsg "Found existing g_script_config_path at \"$g_script_config_path\""
+        ((g_verbose)) && vMsg "Found existing config path at $g_script_config_path"
         if [[ -w $g_script_config_path ]]; then
-            ((g_verbose)) && vMsg "Script has write access to g_script_config_path"
+            ((g_verbose)) && vMsg "Script has write access"
         else
-            ((g_verbose)) && vMsg "Script does not have write access to g_script_config_path"
-            echo "Invalid config path: \"$g_script_config_path\""
+            vMsg "No write access to: $g_script_config_path"
             flag_failed=1
         fi
     elif [[ ! -d $g_script_config_path ]]; then
-        ((g_verbose)) && vMsg "g_script_config_path not found. Creating at \"$g_script_config_path\""
+        ((g_verbose)) && vMsg "Config path not found, creating at $g_script_config_path"
         if mkdir -p -- "$g_script_config_path" &>/dev/null; then
             ((g_verbose)) && vMsg "Create config path succeeded"
         else
-            ((g_verbose)) && vMsg "Create config path failed"
-            echo "Invalid config path: \"$g_script_config_path\""
+            vMsg "Failed to create: $g_script_config_path"
             flag_failed=1
         fi
     fi
 
     # g_script_cache_path
     if [[ -d $g_script_cache_path ]]; then
-        ((g_verbose)) && vMsg "Found existing g_script_cache_path at \"$g_script_cache_path\""
+        ((g_verbose)) && vMsg "Found existing cache path at $g_script_cache_path"
         if [[ -w $g_script_cache_path ]]; then
-            ((g_verbose)) && vMsg "Script has write access to g_script_cache_path"
+            ((g_verbose)) && vMsg "Script has write access"
         else
-            ((g_verbose)) && vMsg "Script does not have write access to g_script_cache_path"
-            echo "Invalid cache path: \"$g_script_cache_path\""
+            vMsg "No write access to: $g_script_cache_path"
             flag_failed=1
         fi
     elif [[ ! -d $g_script_cache_path ]]; then
-        ((g_verbose)) && vMsg "g_script_cache_path not found. Creating at \"$g_script_cache_path\""
+        ((g_verbose)) && vMsg "Cache path not found, creating at $g_script_cache_path"
         if mkdir -p -- "$g_script_cache_path" &>/dev/null; then
             ((g_verbose)) && vMsg "Create cache path succeeded"
         else
-            ((g_verbose)) && vMsg "Create cache path failed"
-            echo "Invalid cache path: \"$g_script_cache_path\""
+            vMsg "Failed to create: $g_script_cache_path"
             flag_failed=1
         fi
     fi
 
     # g_file_script_config
     if [[ -f $g_file_script_config ]]; then
-        ((g_verbose)) && vMsg "Found existing g_file_script_config at \"$g_file_script_config\""
+        ((g_verbose)) && vMsg "Found existing script config file at $g_file_script_config"
         if [[ -w $g_file_script_config ]]; then
-            ((g_verbose)) && vMsg "Script has write access to g_file_script_config"
+            ((g_verbose)) && vMsg "Script has write access"
         else
-            ((g_verbose)) && vMsg "Script does not have write access to g_file_script_config"
-            echo "No write access to config file: \"$g_file_script_config\""
+            vMsg "No write access to: $g_file_script_config"
             flag_failed=1
         fi
         if [[ -r $g_file_script_config ]]; then
-            ((g_verbose)) && vMsg "Script has read access to g_file_script_config"
+            ((g_verbose)) && vMsg "Script has read access"
         else
-            ((g_verbose)) && vMsg "Script does not have read access to g_file_script_config"
-            echo "No read access to config file: \"$g_file_script_config\""
+            vMsg "No read access to: $g_file_script_config"
             flag_failed=1
         fi
     elif [[ ! -f $g_file_script_config ]]; then
-        ((g_verbose)) && vMsg "g_file_script_config not found. Creating at \"$g_file_script_config\""
+        ((g_verbose)) && vMsg "g_file_script_config not found, creating at $g_file_script_config"
         if printf '' > "$g_file_script_config"; then
             ((g_verbose)) && vMsg "Create script config file succeeded"
         else
-            ((g_verbose)) && vMsg "Create script config file failed"
-            echo "Failed to create config file: \"$g_file_script_config\""
+            vMsg "Failed to create: $g_file_script_config"
             flag_failed=1
         fi
     fi
 
     # g_temp_base_path
     if [[ -d $g_temp_base_path ]]; then
-        ((g_verbose)) && vMsg "Found existing g_temp_base_path at \"$g_temp_base_path\""
+        ((g_verbose)) && vMsg "Found existing temp base path at $g_temp_base_path"
         if [[ -w $g_temp_base_path ]]; then
-            ((g_verbose)) && vMsg "Script has write access to g_temp_base_path"
+            ((g_verbose)) && vMsg "Script has write access"
         else
-            ((g_verbose)) && vMsg "Script does not have write access to g_temp_base_path"
-            echo "Invalid tmp_path path: \"$g_temp_base_path\""
+            vMsg "Invalid tmp_path path: $g_temp_base_path"
             flag_failed=1
         fi
     elif [[ ! -d $g_temp_base_path ]]; then
-        ((g_verbose)) && vMsg "g_temp_base_path not found. Creating at \"$g_temp_base_path\""
+        ((g_verbose)) && vMsg "Temp base path not found, creating at $g_temp_base_path"
         if mkdir -p -- "$g_temp_base_path" &>/dev/null; then
             ((g_verbose)) && vMsg "Create cache path succeeded"
         else
-            ((g_verbose)) && vMsg "Create cache path failed"
-            echo "Invalid tmp_path path: \"$g_temp_base_path\""
+            vMsg "Failed to create: $g_temp_base_path"
             flag_failed=1
         fi
     fi
 
     # Remove 0 size g_file_latest_json
     [[ -f $g_file_latest_json ]] && {
-        [[ $(stat -c '%s' -- "$g_file_latest_json" 2>/dev/null) -eq 0 ]] && {
+        (( $(stat -c '%s' -- "$g_file_latest_json" 2>/dev/null) == 0 )) && {
             ((g_verbose)) && vMsg "g_file_latest_json is size 0, removing"
             if ! rm -f -- "$g_file_latest_json"; then
                 flag_failed=1
@@ -2603,13 +2648,16 @@ SetupEnvironment() {
 
     # Remove 0 size g_file_releases_json
     [[ -f $g_file_releases_json ]] && {
-        [[ $(stat -c '%s' -- "$g_file_releases_json" 2>/dev/null) -eq 0 ]] && {
+        (( $(stat -c '%s' -- "$g_file_releases_json" 2>/dev/null) == 0 )) && {
             ((g_verbose)) && vMsg "g_file_releases_json is size 0, removing"
             if ! rm -f -- "$g_file_releases_json"; then
                 flag_failed=1
             fi
         }
     }
+
+    # Create the sed script used to unminify JSON responses if it is not present
+    CreateSedUnminifyJSONscript
 
     return $(( flag_failed ? 1 : 0 ))
 }
@@ -2638,11 +2686,13 @@ CheckRequirements() {
         }
     done < <(command -V -- "${required_commands[@]}" 2>&1)
 
-    if [[ $flag_failed -eq 0 ]]; then
-        ((g_verbose)) && vMsg "All required commands found"
-    elif [[ $flag_failed -eq 1 ]]; then
-        ((g_verbose)) && vMsg "One or more required commands not found"
-    fi
+    ((g_verbose)) && {
+        if ((flag_failed)); then
+            vMsg "One or more required commands not found"
+        else
+            vMsg "All required commands found"
+        fi
+    }
 
     return $(( flag_failed ? 1 : 0 ))
 }
@@ -2657,7 +2707,7 @@ CheckRequirements() {
 vMsg() {
 
     # If g_verbose != 1, do nothing
-    [[ $g_verbose -eq 1 ]] || { echo "($LINENO) vMsg: Error: g_verbose is not 1 but vMsg was called from line ${BASH_LINENO[0]}"; return 0; }
+    ((g_verbose)) || { echo "($LINENO) vMsg: Error: g_verbose is not 1 but vMsg was called from line ${BASH_LINENO[0]}"; return 0; }
     [[ -z ${1-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" 1>&2; return 1; }
 
     local -i i
@@ -2703,19 +2753,19 @@ ReportEnvironmentInfo() {
 
     echo "###############################################################################"
 
-    echo "PWD: \"$PWD\""
-    echo "SHELL: \"$SHELL\""
-    echo "SHELLOPTS: \"$SHELLOPTS\""
-    echo "SHLVL: \"$SHLVL\""
-    echo "BASH_VERSINFO: \"${BASH_VERSINFO[*]}\""
-    echo "BASH_VERSION: \"$BASH_VERSION\""
-    echo "MACHTYPE: \"$MACHTYPE\""
-    echo "OSTYPE: \"$OSTYPE\""
-    echo "PROMPT_COMMAND: \"$PROMPT_COMMAND\""
-    echo "LANG: \"$LANG\""
-    echo "LC_MESSAGES: \"$LC_MESSAGES\""
-    echo "LC_ALL: \"$LC_ALL\""
-    echo "EUID: \"$EUID\""
+    echo "PWD: $PWD"
+    echo "SHELL: $SHELL"
+    echo "SHELLOPTS: $SHELLOPTS"
+    echo "SHLVL: $SHLVL"
+    echo "BASH_VERSINFO: ${BASH_VERSINFO[*]}"
+    echo "BASH_VERSION: $BASH_VERSION"
+    echo "MACHTYPE: $MACHTYPE"
+    echo "OSTYPE: $OSTYPE"
+    echo "PROMPT_COMMAND: $PROMPT_COMMAND"
+    echo "LANG: $LANG"
+    echo "LC_MESSAGES: $LC_MESSAGES"
+    echo "LC_ALL: $LC_ALL"
+    echo "EUID: $EUID"
     echo "GROUPS: ${GROUPS[*]}"
 
     echo "###############################################################################"
@@ -2733,7 +2783,7 @@ ReportEnvironmentInfo() {
 # All hope abandon, ye who enter here!
 ProvingGrounds() {
 
-    [[ $g_integration_testing -eq 1 ]] || return 1
+    ((g_integration_testing)) || return 1
 
     exit
 }
@@ -2749,40 +2799,40 @@ CleanUp() {
     local node
 
     # If SIGINT was caught, attempt to prevent the cleanup from being interupted
-    [[ $g_flag_sigint_caught -eq 1 ]] && trap '' ABRT CHLD FPE INT QUIT TERM TSTP USR1 USR2 TRAP CONT HUP
+    ((g_flag_sigint_caught)) && trap '' ABRT CHLD FPE INT QUIT TERM TSTP USR1 USR2 TRAP CONT HUP
 
     for node in "$g_temp_base_path/$TEMP_PREFIX"*; do
         # Paths
         [[ -d $node ]] && {
-            ((g_verbose)) && vMsg "Temporary path found at \"$node\""
-            if [[ $g_verbose -eq 1 ]]; then
-                ((g_verbose)) && vMsg "Debug enabled. Temporary path not removed."
+            ((g_verbose)) && vMsg "Temporary path found at $node"
+            if ((g_verbose)); then
+                vMsg "Debug enabled, temporary path not removed"
             else
                 if rm -fr -- "$node" &>/dev/null; then
                     ((g_verbose)) && vMsg "Temporary path removed"
                 else
-                    vMsg "Failed to remove temporary path: \"$node\""
+                    vMsg "Failed to remove temporary path: $node"
                 fi
             fi
         }
 
         # Files
         [[ -f $node ]] && {
-            ((g_verbose)) && vMsg "Temp file found at \"$node\""
-            if [[ $g_verbose -eq 1 ]]; then
-                ((g_verbose)) && vMsg "Debug enabled. Temporary file not removed."
+            ((g_verbose)) && vMsg "Temp file found at $node"
+            if ((g_verbose)); then
+                vMsg "Debug enabled, temporary file not removed"
             else
                 if rm -f -- "$node" &>/dev/null; then
                     ((g_verbose)) && vMsg "Temporary file removed"
                 else
-                    vMsg "Failed to remove temporary file: \"$node\""
+                    vMsg "Failed to remove temporary file: $node"
                 fi
             fi
         }
     done
 
     # Handle the received SIGINT properly by terminating the script/process group with SIGINT
-    [[ $g_flag_sigint_caught -eq 1 ]] && {
+    ((g_flag_sigint_caught)) && {
         # If the kill fails
         if ! kill -s SIGINT $$; then
             # Try the external command
@@ -2874,22 +2924,23 @@ Main() {
 
     # If no parameters were supplied, show help
     # NOTE: Ignore g_force and g_verbose flags
-    if [[ $g_remove_install_path -eq 0 ]] && \
-       [[ $g_remove_all_saved_packages -eq 0 ]] && \
-       [[ $g_remove_installed_version -eq 0 ]] && \
-       [[ $g_remove_saved_package -eq 0 ]] && \
-       [[ $g_list_installed_versions -eq 0 ]] && \
-       [[ $g_report_version_usage -eq 0 ]] && \
-       [[ $g_report_install_path_usage -eq 0 ]] && \
-       [[ $g_download -eq 0 ]] && \
-       [[ $g_install -eq 0 ]] && \
-       [[ $g_check_update -eq 0 ]] && \
-       [[ $g_verify -eq 0 ]] && \
-       [[ $g_show_help -eq 0 ]] && \
-       [[ $g_show_usage -eq 0 ]] && \
-       [[ $g_update -eq 0 ]]; then
+    # TODO: This is not ideal
+    if ((! g_remove_install_path)) && \
+       ((! g_remove_all_saved_packages)) && \
+       ((! g_remove_installed_version)) && \
+       ((! g_remove_saved_package)) && \
+       ((! g_list_installed_versions)) && \
+       ((! g_report_version_usage)) && \
+       ((! g_report_install_path_usage)) && \
+       ((! g_download)) && \
+       ((! g_install)) && \
+       ((! g_check_update)) && \
+       ((! g_verify)) && \
+       ((! g_show_help)) && \
+       ((! g_show_usage)) && \
+       ((! g_update)); then
 
-        [[ $g_verbose -eq 1 ]] && {
+        ((g_verbose)) && {
             if IsSteamRunning; then
                 vMsg "Steam is running"
             else
@@ -2898,32 +2949,18 @@ Main() {
             vMsg "Nothing to do, showing help"
         }
 
-        # Report latest version installed status
-        #if GetLatestGEVersion; then
-        #    if IsInstalled "$g_latest_version"; then
-        #        echo "The latest version \"$g_latest_version\" is installed"
-        #    else
-        #        echo "The latest version \"$g_latest_version\" is not installed"
-        #    fi
-        #else
-        #    echo "An error occured while checking for the latest release"
-        #fi
         ShowHelp
         exit 0
     fi
 
-    # show help and/or usage
-    if [[ $g_show_help -eq 1 ]] && [[ $g_show_usage -eq 0 ]]; then
-        ShowHelp
-        exit 0
-    elif [[ $g_show_help -eq 1 ]] && [[ $g_show_usage -eq 1 ]]; then
-        ShowHelp
-        ShowUsage
-        exit 0
-    elif [[ $g_show_help -eq 0 ]] && [[ $g_show_usage -eq 1 ]]; then
-        ShowUsage
-        exit 0
-    fi
+    # Print help
+    ((g_show_help)) && ShowHelp
+
+    # Print usage
+    ((g_show_usage)) && ShowUsage
+
+    # If either ShowHelp or ShowUsage was invoked, exit
+    ((g_show_help || g_show_usage)) && exit 0
 
     if CheckRequirements; then
         if ParseConfigFile; then
@@ -2937,115 +2974,79 @@ Main() {
         exit 1
     fi
 
-    CreateSedUnminifyJSONscript
-
-    # checkupdate
-    if [[ $g_check_update -eq 1 && $g_update -eq 0 ]]; then
+    # Check if the latest release is installed
+    if (( g_check_update && ! g_update )); then
         if GetLatestGEVersion; then
             if IsInstalled "$g_latest_version"; then
-                echo "The latest version \"$g_latest_version\" is installed"
+                echo "The latest version $g_latest_version is installed"
             else
-                echo "The latest version \"$g_latest_version\" is not installed"
+                echo "The latest version $g_latest_version is not installed"
             fi
         fi
     fi
 
-    # remove install path
-    if [[ $g_remove_install_path -eq 1 ]] && [[ $g_force -eq 1 ]]; then
+    # Remove install path if force mode is active
+    if (( g_remove_install_path && g_force )); then
         if IsSteamRunning; then
             echo "Please close Steam before removing the install path"
         else
             RemoveGEInstallPath
         fi
-    elif [[ $g_remove_install_path -eq 1 ]] && [[ $g_force -eq 0 ]]; then
+    # If remove install path was requested but force mode is not active
+    elif ((g_remove_install_path)); then
         echo "-X must be combined with -f to confirm that you are sure"
+        exit 0 # Exit in case other operations were requested
     fi
 
-    # remove saved packages
-    if [[ $g_remove_all_saved_packages -eq 1 ]] && [[ $g_remove_install_path -eq 0 ]]; then
+    # Remove all saved packages if remove install path was not requested
+    if (( g_remove_all_saved_packages && ! g_remove_install_path )); then
         RemoveAllSavedPackages # TODO: -f required?
     fi
 
-    # Remove an installed version
-    if [[ $g_remove_installed_version -eq 1 ]] && [[ $g_remove_install_path -eq 0 ]] && [[ $g_remove_all_saved_packages -eq 0 ]]; then
+    # Remove an installed version if remove install path was not requested
+    if (( g_remove_installed_version && ! g_remove_install_path )); then
         RemoveGEVersion "$g_remove_version" # NOTE: g_remove_version is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
-    elif [[ $g_remove_installed_version -eq 1 ]] && [[ $g_remove_install_path -eq 1 ]]; then
-        echo "Skipping remove version/package because remove install path was also requested"
+    elif ((g_remove_installed_version)); then
+        echo "Remove installed version skipped (remove install path was requested)"
     fi
 
-    # Remove a saved package
-    if [[ $g_remove_saved_package -eq 1 ]] && [[ $g_remove_install_path -eq 0 ]] && [[ $g_remove_all_saved_packages -eq 0 ]]; then
+    # Remove a saved package if both remove install path and remove all saved packages was not requested
+    if (( g_remove_saved_package && ! g_remove_install_path && ! g_remove_all_saved_packages )); then
         RemoveSavedPackage "$g_remove_saved_version" # NOTE: g_remove_version is set in getops
-    # If remove g_install path was requested in the same invocation, skip removing version/package
-    elif [[ $g_remove_saved_package -eq 1 ]] && [[ $g_remove_install_path -eq 1 ]]; then
-        echo "Skipping remove version/package because remove install path was also requested"
+    elif ((g_remove_saved_package)); then
+        echo "Remove saved package skipped (remove install path or remove all saved packages was requested)"
     fi
 
     # Download a package
-    [[ $g_download -eq 1 ]] && {
+    ((g_download)) && {
         if ! DownloadGEPackage "$g_download_version"; then # NOTE: g_download_version is set in getops
             echo "Download failed"
         fi
     }
 
-    # Check for new version and if it is not installed install it
-    if [[ $g_update -eq 1 ]]; then
-        if UpdateSavedGELatestRelease; then
-            if GetLatestGEVersion; then # set global variable g_latest_version
-                if IsInstalled "$g_latest_version" && [[ $g_force -eq 1 ]]; then # Latest version is installed and -f is supplied
-                    if RemoveGEVersion "$g_latest_version"; then
-                        # TODO: Replace InstallGEVersion with UpdateGEVersion
-                        if InstallGEVersion; then # InstallGEVersion checks $g_update then $g_install_version and/or $g_latest_version
-                            echo "Update succeeded"
-                        else
-                            echo "Update failed"
-                        fi
-                    fi
-                elif IsInstalled "$g_latest_version" && [[ $g_force -eq 0 ]]; then # Latest version is installed and -f was not supplied
-                    echo "Latest version is already installed ($g_latest_version)"
-                elif ! IsInstalled "$g_latest_version"; then # Latest version is not installed
-                    echo "Latest version is not installed"
-                    if InstallGEVersion; then
-                        echo "Update succeeded"
-                        if IsSteamRunning; then
-                            echo "Restart Steam to use the new version"
-                        fi
-                    else
-                        echo "Update failed"
-                    fi
-                fi
-            else
-                ((g_verbose)) && vMsg "Update: GetLatestGEVersion returned failure status"
-            fi
-        else
-            # GetLatestGEVersionInfo failed
-            ((g_verbose)) && vMsg "Update: GetLatestGEVersionInfo returned failure status"
-            echo "Update failed"
-        fi
-        # Like purchasing a tribble, this is probably a bad idea
-        [[ $g_install -eq 1 ]] && g_update=0 # Reset g_update to 0 so g_update and g_install can run in the same invocation
-    fi
+    # Update to the latest release
+    ((g_update)) && UpdateGEVersion
 
     # Install a package
-    if [[ $g_install -eq 1 ]] && [[ $g_update -eq 0 ]]; then
+    if (( g_install && ! g_update )); then
         InstallGEVersion "$g_install_version" # NOTE: g_install_version is set in getops
     fi
 
     # List installed versions
-    [[ $g_list_installed_versions -eq 1 ]] && ListInstalledGEVersions
+    ((g_list_installed_versions)) && ListInstalledGEVersions
 
     # Report entire g_install path disk usage and file count
-    [[ $g_report_install_path_usage -eq 1 ]] && ReportGEDiskUsage
+    ((g_report_install_path_usage)) && ReportGEDiskUsage
 
     # Report disk usage and file count for a specific version
-    [[ $g_report_version_usage -eq 1 ]] && ReportGEDiskUsage "$g_report_version"
+    ((g_report_version_usage)) && ReportGEDiskUsage "$g_report_version"
 
     # Run verify if remove install path and remove saved packages wasn't requested
     # TODO: add support to verify even if remove saved packages and/or remove install path was invoked
     #       so long as some sort of install was also requested. Additionally, maybe support installing a version
     #       that is not installed when verify is called and force mode is active.
-    if [[ $g_verify -eq 1 ]] && [[ $g_remove_install_path -ne 1 && $g_remove_all_saved_packages -ne 1 ]]; then
+    if (( g_verify && ! g_remove_install_path && ! g_remove_all_saved_packages )); then
         VerifyGEInstall "${g_verify_version-}"
     fi
 
