@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 1984/3070 SLOC (64%) [SLOC/Comment:2.83], 702 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 416 empty (13%)
+# 1985/3071 SLOC (64%) [SLOC/Comment:2.83], 702 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 416 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -312,8 +312,9 @@ UpdateSavedGEReleases() {
         last_check_seconds=$(stat -c '%X' "$g_file_releases_json")
         (( (current_seconds - last_check_seconds) < g_checked_recently_seconds )) && {
             ((g_verbose)) && {
-                vMsg "Recent check limit not exceeded and $g_file_releases_json exists, skipping RequestURL"
+                vMsg "Skipping RequestURL, recent check limit not exceeded"
                 vMsg "$(( current_seconds - last_check_seconds )) seconds out of $g_checked_recently_seconds have elapsed since the last check"
+                vMsg "The next check will be allowed in $(( g_checked_recently_seconds - (current_seconds - last_check_seconds) )) seconds"
             }
             return 0
         }
