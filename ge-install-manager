@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 1985/3071 SLOC (64%) [SLOC/Comment:2.83], 702 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 416 empty (13%)
+# 1993/3081 SLOC (64%) [SLOC/Comment:2.84], 702 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 418 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -26,8 +26,11 @@ set -huo pipefail
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
 #
-# TODO: Find a way to not download releases more often than is necessary
-#       (updates to download_count update the mtime of the remote file)
+# TODO: Install parameter (-I?) / -f erases cache and config?
+#       Currently, using any function that requires cache/config will run the
+#       "first time setup" if those files are missing so an explicit parameter
+#       isn't exactly required. Install can be as simple as: ge-install-manager -U
+#       or ge-install-manager -i <version>
 # TODO: Replace getopts with a custom parser
 # TODO: support for using jq in addition to sed
 #
@@ -94,6 +97,8 @@ ShowHelp() {
     cat <<HELP_HEREDOC
 
     $(basename "$0")  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
+
+    Configuration path: $g_script_config_path
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
     Optional:       date, du, ps, sort, cmp, envsubst, fallocate, trash
@@ -258,13 +263,11 @@ UpdateSavedGELatestRelease() {
         vMsg "g_file_latest_json: $g_file_latest_json"
     }
 
-    # Using the mtime of g_file_latest_json, restrict how often RequestURL is called to check for a newer
+    # Using the access time of g_file_latest_json, restrict how often RequestURL is called to check for a newer
     # version of g_file_latest_json. The allowed interval is defined in g_checked_recently_seconds (default: 3600 seconds/60 minutes)
-    # NOTE: This will not work as designed if the mount option 'noatime' is used for the file system
-    #       that g_file_latest_json resides on. Both 'relatime' and the default works fine.
     [[ -r $g_file_latest_json ]] && {
         current_seconds=$(date +%s)
-        last_check_seconds=$(stat -c '%X' "$g_file_latest_json")
+        last_check_seconds=$(stat --cached=never -c '%X' -- "$g_file_latest_json")
         (( (current_seconds - last_check_seconds) < g_checked_recently_seconds )) && {
             ((g_verbose)) && {
                 vMsg "Skipping RequestURL, recent check limit not exceeded"
@@ -302,14 +305,12 @@ UpdateSavedGEReleases() {
         vMsg "g_file_releases_json: $g_file_releases_json"
     }
 
-    # Using the mtime of g_file_releases_json, restrict how often RequestURL is called to check for a newer
+    # Using the access time of g_file_releases_json, restrict how often RequestURL is called to check for a newer
     # version of g_file_releases_json. The allowed interval is defined in g_checked_recently_seconds (default: 3600 seconds/60 minutes)
     # Don't check for a new file more often than g_checked_recently_seconds
-    # NOTE: This will not work as designed if the mount option 'noatime' is used for the file system
-    #       that g_file_releases_json resides on. Both 'relatime' and the default works fine.
     [[ -r $g_file_releases_json ]] && {
         current_seconds=$(date +%s)
-        last_check_seconds=$(stat -c '%X' "$g_file_releases_json")
+        last_check_seconds=$(stat --cached=never -c '%X' -- "$g_file_releases_json")
         (( (current_seconds - last_check_seconds) < g_checked_recently_seconds )) && {
             ((g_verbose)) && {
                 vMsg "Skipping RequestURL, recent check limit not exceeded"
@@ -1639,6 +1640,13 @@ RequestURL() {
             -L "$requested_url" \
             -o "$file_temp" 2>/dev/null; then
 
+        # Force an update to the access time of file_local
+        if touch -ac -- "$file_local"; then
+            ((g_verbose)) && vMsg "Updated access time for $file_local"
+        else
+            ((g_verbose)) && vMsg "Failed to update access time for $file_local"
+        fi
+
         ((g_verbose)) && vMsg "curl returned success"
         if (($(stat -c '%s' -- "$file_temp"))); then
             if [[ -f $file_temp && -r $file_temp ]]; then
@@ -2916,6 +2924,8 @@ ParseParameters() {
 # Return:  0 (Success)
 #          1 (An error occured)
 Main() {
+
+    (( $(id -u) )) || { echo "This script requires non-root effective permissions"; exit 1; }
 
     # Parse script parameters and arguments, set global variables
     ParseParameters "$@" || exit 1
