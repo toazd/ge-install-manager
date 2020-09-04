@@ -100,7 +100,7 @@ ShowHelp() {
 
     Configuration path: $g_script_config_path
 
-    Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc
+    Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc, touch
     Optional:       date, du, ps, sort, cmp, envsubst, fallocate, trash
 
     -h            - Show this help
@@ -2681,7 +2681,7 @@ SetupEnvironment() {
 CheckRequirements() {
 
     local -i flag_failed=0
-    local -a required_commands=(curl sed tar gzip stat wc)
+    local -a required_commands=(curl sed tar gzip stat wc touch)
 
     while IFS= read -r --; do
         [[ ${REPLY,,} == *'is'* ]] && { ((g_verbose)) && vMsg "$REPLY"; continue; }
@@ -2957,18 +2957,18 @@ Main() {
             else
                 vMsg "Steam is not running"
             fi
-            vMsg "Nothing to do, showing help"
         }
 
+        CheckRequirements # Print any required commands that are not found
         ShowHelp
         exit 0
     fi
 
     # Print help
-    ((g_show_help)) && ShowHelp
+    ((g_show_help)) && { CheckRequirements; ShowHelp; }
 
     # Print usage
-    ((g_show_usage)) && ShowUsage
+    ((g_show_usage)) && { CheckRequirements; ShowUsage; }
 
     # If either ShowHelp or ShowUsage was invoked, exit
     ((g_show_help || g_show_usage)) && exit 0
