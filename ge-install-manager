@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 1993/3081 SLOC (64%) [SLOC/Comment:2.84], 702 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 418 empty (13%)
+# 1992/3080 SLOC (64%) [SLOC/Comment:2.84], 702 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 418 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -256,7 +256,7 @@ GetLatestGEVersion() {
 # TODO: Consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGELatestRelease() {
 
-    local -i current_seconds last_check_seconds
+    local -i current_seconds=0 last_check_seconds=0
 
     ((g_verbose)) && {
         vMsg "g_latest_version_url: $g_latest_version_url"
@@ -296,7 +296,7 @@ UpdateSavedGELatestRelease() {
 # TODO: Consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
 UpdateSavedGEReleases() {
 
-    local -i current_seconds last_check_seconds
+    local -i current_seconds=0 last_check_seconds=0
 
     # BUG: updates to download_count in the remote file cause curl -z to download a new version much more often than is needed
     #      Until a workaround is found, latest and releases are kept seperate and not checked at the same time
@@ -943,7 +943,7 @@ RemoveAllSavedPackages() {
 #          1 Failure (Remove failed or re-creating g_install_path failed)
 RemoveGEInstallPath() {
 
-    local disk_usage="0"
+    local disk_usage="?"
 
     if command -v du &>/dev/null; then
         disk_usage=$(du -sh -- "$g_install_path")
