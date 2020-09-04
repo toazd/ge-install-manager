@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 1992/3080 SLOC (64%) [SLOC/Comment:2.84], 702 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 418 empty (13%)
+# 1984/3068 SLOC (64%) [SLOC/Comment:2.83], 700 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 416 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -101,7 +101,7 @@ ShowHelp() {
     Configuration path: $g_script_config_path
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc, touch
-    Optional:       date, du, ps, sort, cmp, envsubst, fallocate, trash
+    Optional:       date, du, pgrep, sort, cmp, envsubst, fallocate, trash
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
@@ -1582,28 +1582,16 @@ IsInstalled() {
 }
 
 ###############################################################################
-# Purpose: Check if Steam is running by checking the output of ps -eo cmd
+# Purpose: Check if Steam is running
 # Input:   None
 # Output:  None
-# Return:  0 Yes/True (a Steam process was detected)
+# Return:  0 Yes/True (a Steam process was detected, or an error occured)
 #          1 No/False (a Steam process was not detected)
 IsSteamRunning() {
 
-    local cmd remaining
     local -i flag_found_steam=0
 
-    #shellcheck disable=SC2034
-    while IFS=' ' read -r -- cmd remaining; do
-
-        # Ignore the ps command itself
-        [[ $cmd = 'ps' ]] && continue
-
-        [[ ${cmd##*/} = 'steam' ]] && {
-            flag_found_steam=1
-            ((g_verbose)) && vMsg "Steam process found: $cmd"
-            break
-        }
-    done < <(ps -eo cmd 2>/dev/null)
+    (( $(pgrep steam | wc -l) > 0 )) && flag_found_steam=1
 
     ((g_verbose)) && { ((flag_found_steam)) || vMsg "Steam process not found"; }
 
@@ -2522,7 +2510,7 @@ DetectSteamInstallPath () {
 SetupEnvironment() {
 
     local -i flag_failed=0 count_success=0 count_failed=0
-    local -a check_alias_commands=(curl sed tar gzip stat wc date du ps sort cmp envsubst fallocate trash)
+    local -a check_alias_commands=(curl sed tar gzip stat wc date du pgrep sort cmp envsubst fallocate trash)
 
     # Check for and unset existing aliases for commands used in the script
     # that could cause undefined behavior
@@ -2681,7 +2669,7 @@ SetupEnvironment() {
 CheckRequirements() {
 
     local -i flag_failed=0
-    local -a required_commands=(curl sed tar gzip stat wc touch)
+    local -a required_commands=(curl sed tar gzip stat wc touch pgrep)
 
     while IFS= read -r --; do
         [[ ${REPLY,,} == *'is'* ]] && { ((g_verbose)) && vMsg "$REPLY"; continue; }
@@ -2754,7 +2742,7 @@ ReportEnvironmentInfo() {
     echo "###############################################################################"
 
     # report found/not found status of commands used
-    command -V du find wc curl tar gzip ps stat sed cmp sort envsubst printf
+    command -V du find wc curl tar gzip pgrep stat sed cmp sort envsubst printf
 
     echo "###############################################################################"
 

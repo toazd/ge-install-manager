@@ -3,7 +3,7 @@ Version 0.7.5
 Help:
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc, touch
-    Optional:       date, du, ps, sort, cmp, envsubst, fallocate, trash
+    Optional:       date, du, pgrep, sort, cmp, envsubst, fallocate, trash
 
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
