@@ -2669,7 +2669,7 @@ SetupEnvironment() {
 CheckRequirements() {
 
     local -i flag_failed=0
-    local -a required_commands=(curl sed tar gzip stat wc touch pgrep)
+    local -a required_commands=(curl sed tar gzip stat wc touch)
 
     while IFS= read -r --; do
         [[ ${REPLY,,} == *'is'* ]] && { ((g_verbose)) && vMsg "$REPLY"; continue; }
