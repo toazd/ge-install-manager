@@ -3006,7 +3006,6 @@ Main() {
     # If remove install path was requested but force mode is not active
     elif ((g_remove_install_path)); then
         echo "-X must be combined with -f to confirm that you are sure"
-        exit 0 # Exit in case other operations were requested
     fi
 
     # Remove all saved packages if remove install path was not requested
