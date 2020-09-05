@@ -247,8 +247,8 @@ GetLatestGEVersion() {
 
 ###############################################################################
 # Purpose: Call the RequestURL function to update both g_file_latest_json and
-#          g_file_releases_json (RequestURL: if the remote versions are newer)
-#          and a configurable interval has passed.
+#          g_file_releases_json if the remote versions are newer and a
+#          configurable interval has passed.
 # Input:   None
 # Output:  None
 # Return:  0 = Success (both files were successfully updated or the access
@@ -261,8 +261,8 @@ UpdateCachedGEReleases() {
         vMsg "g_file_latest_json: $g_file_latest_json"
     }
 
-    # Check the access time of the local file and if the interval hasn't passed use
-    # the local file instead of checking for a newer remote version.
+    # Check the access time of the local file and if the interval has passed
+    # call RequestURL to update the file (if the remote version is newer).
     if CheckAccessTime "$g_file_latest_json" "$g_checked_recently_seconds"; then
         if RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
             return 0
@@ -278,8 +278,8 @@ UpdateCachedGEReleases() {
         vMsg "g_file_releases_json: $g_file_releases_json"
     }
 
-    # Check the access time of the local file and if the interval hasn't passed use
-    # the local file instead of checking for a newer version remotely.
+    # Check the access time of the local file and if the interval has passed
+    # call RequestURL to update the file (if the remote version is newer).
     if CheckAccessTime "$g_file_releases_json" "$g_checked_recently_seconds"; then
         if RequestURL "$g_releases_url" "$g_file_releases_json"; then
             return 0
@@ -1401,8 +1401,8 @@ CheckAccessTime() {
 
     ((g_verbose)) && vMsg "Checking access time for $file (interval: $interval)"
 
-    # Using the access time of g_file_latest_json, restrict how often RequestURL is called to check for a newer
-    # version of g_file_latest_json. The allowed interval is defined in g_checked_recently_seconds (default: 3600 seconds/60 minutes)
+    # Using the access time of file, determine if the specified interval has elapsed or not
+    # NOTE: RequestURL forcibly updates access times using touch
     current_seconds=$(date +%s)
     last_check_seconds=$(stat --cached=never -c '%X' -- "$file")
     if (( (current_seconds - last_check_seconds) < interval )); then
