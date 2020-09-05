@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 1984/3068 SLOC (64%) [SLOC/Comment:2.83], 700 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 416 empty (13%)
+# 2002/3081 SLOC (64%) [SLOC/Comment:2.90], 690 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.34], 418 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -205,7 +205,7 @@ USAGE_HEREDOC
 # Input:   None
 # Output:  None
 # Return:  0 = Success
-#          1 = UpdateSavedGELatestRelease returned 1, or a match was not found
+#          1 = UpdateCachedGEReleases returned 1, or a match was not found
 #              in g_file_latest_json
 #
 # TODO: Might want to check releases if latest fails. But, will the first entry
@@ -215,7 +215,7 @@ GetLatestGEVersion() {
     local version
     g_latest_version=''
 
-    if UpdateSavedGELatestRelease; then
+    if UpdateCachedGEReleases; then
         while IFS= read -r --; do
             # WARNING: Do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST"
             #          for matching. The version extracted from them (eg. 5.9-GE-5-ST) is not
@@ -246,86 +246,53 @@ GetLatestGEVersion() {
 }
 
 ###############################################################################
-# Purpose: Call the RequestURL function to save the (JSON) from the URL
-#          g_latest_version_url to the local file g_file_latest_json
+# Purpose: Call the RequestURL function to update both g_file_latest_json and
+#          g_file_releases_json (RequestURL: if the remote versions are newer)
+#          and a configurable interval has passed.
 # Input:   None
 # Output:  None
-# Return:  0 = Success
-#          1 = RequestURL returned 1 or an unknown error occured
-#
-# TODO: Consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
-UpdateSavedGELatestRelease() {
-
-    local -i current_seconds=0 last_check_seconds=0
+# Return:  0 = Success (both files were successfully updated or the access
+#                       interval has not passed for both files)
+#          1 = Failure (RequestURL returned 1 for either file)
+UpdateCachedGEReleases() {
 
     ((g_verbose)) && {
         vMsg "g_latest_version_url: $g_latest_version_url"
         vMsg "g_file_latest_json: $g_file_latest_json"
     }
 
-    # Using the access time of g_file_latest_json, restrict how often RequestURL is called to check for a newer
-    # version of g_file_latest_json. The allowed interval is defined in g_checked_recently_seconds (default: 3600 seconds/60 minutes)
-    [[ -r $g_file_latest_json ]] && {
-        current_seconds=$(date +%s)
-        last_check_seconds=$(stat --cached=never -c '%X' -- "$g_file_latest_json")
-        (( (current_seconds - last_check_seconds) < g_checked_recently_seconds )) && {
-            ((g_verbose)) && {
-                vMsg "Skipping RequestURL, recent check limit not exceeded"
-                vMsg "$(( current_seconds - last_check_seconds )) seconds out of $g_checked_recently_seconds have elapsed since the last check"
-                vMsg "The next check will be allowed in $(( g_checked_recently_seconds - (current_seconds - last_check_seconds) )) seconds"
-            }
+    # Check the access time of the local file and if the interval hasn't passed use
+    # the local file instead of checking for a newer remote version.
+    if CheckAccessTime "$g_file_latest_json" "$g_checked_recently_seconds"; then
+        if RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
             return 0
-        }
-    }
-
-    if RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
-        return 0
+        else
+            return 1
+        fi
     else
-        return 1
+        return 0
     fi
-}
 
-###############################################################################
-# Purpose: Call the RequestURL function to save the (JSON) from the URL
-#          g_releases_url to the local file g_file_releases_json
-# Input:   None
-# Output:  None
-# Return:  0 = Success
-#          1 = RequestURL returned 1 or an unknown error occured
-#
-# TODO: Consider merging UpdateSavedGEReleases and UpdateSavedGELatestRelease
-UpdateSavedGEReleases() {
-
-    local -i current_seconds=0 last_check_seconds=0
-
-    # BUG: updates to download_count in the remote file cause curl -z to download a new version much more often than is needed
-    #      Until a workaround is found, latest and releases are kept seperate and not checked at the same time
     ((g_verbose)) && {
         vMsg "g_releases_url: $g_releases_url"
         vMsg "g_file_releases_json: $g_file_releases_json"
     }
 
-    # Using the access time of g_file_releases_json, restrict how often RequestURL is called to check for a newer
-    # version of g_file_releases_json. The allowed interval is defined in g_checked_recently_seconds (default: 3600 seconds/60 minutes)
-    # Don't check for a new file more often than g_checked_recently_seconds
-    [[ -r $g_file_releases_json ]] && {
-        current_seconds=$(date +%s)
-        last_check_seconds=$(stat --cached=never -c '%X' -- "$g_file_releases_json")
-        (( (current_seconds - last_check_seconds) < g_checked_recently_seconds )) && {
-            ((g_verbose)) && {
-                vMsg "Skipping RequestURL, recent check limit not exceeded"
-                vMsg "$(( current_seconds - last_check_seconds )) seconds out of $g_checked_recently_seconds have elapsed since the last check"
-                vMsg "The next check will be allowed in $(( g_checked_recently_seconds - (current_seconds - last_check_seconds) )) seconds"
-            }
+    # Check the access time of the local file and if the interval hasn't passed use
+    # the local file instead of checking for a newer version remotely.
+    if CheckAccessTime "$g_file_releases_json" "$g_checked_recently_seconds"; then
+        if RequestURL "$g_releases_url" "$g_file_releases_json"; then
             return 0
-        }
-    }
-
-    if RequestURL "$g_releases_url" "$g_file_releases_json"; then
-        return 0
+        else
+            return 1
+        fi
     else
-        return 1
+        return 0
     fi
+
+    ((g_verbose)) && vMsg "Warning, returning default value of 1"
+
+    return 1
 }
 
 ###############################################################################
@@ -454,11 +421,11 @@ DownloadGEPackage() {
         ((g_verbose)) && vMsg "Copying package $temp_package to $g_install_path"
         if cp -- "$temp_package" "$g_install_path"; then
             ((g_verbose)) && vMsg "Package copied successfully"
-            echo "Download succeeded"
+            echo "Copy package to install path succeeded"
             CleanUp
         else
             ((g_verbose)) && vMsg "Copy package from $temp_package to $g_install_path failed"
-            echo "Download failed"
+            echo "Copy package to install path failed"
             CleanUp
             return 1
         fi
@@ -483,44 +450,37 @@ DownloadGEPackage() {
 UpdateGEVersion() {
 
     # Get the latest g_file_latest_json if the remote file is newer
-    if UpdateSavedGELatestRelease; then
+    if UpdateCachedGEReleases; then
 
-        # Get the latest version and set the global variable g_latest_version to it
-        if GetLatestGEVersion; then
-
-            # Latest version is installed and force mode is not active
-            if IsInstalled "$g_latest_version" && ((! g_force)); then
-                echo "Latest version is already installed ($g_latest_version)"
-            # Latest version is not installed
-            elif ! IsInstalled "$g_latest_version"; then
-                echo "Latest version ($g_latest_version) is not installed"
-                if InstallGEVersion "$g_latest_version"; then
-                    echo "Update succeeded"
-                    IsSteamRunning && echo "Restart Steam to use the new version"
-                else
-                    echo "Update failed"
-                    return 1
-                fi
-            # Latest version is installed and force mode is active
-            elif ((g_force)); then
-                # NOTE: InstallGEVersion also verifys that force mode is active
-                if InstallGEVersion "$g_latest_version"; then
-                    echo "Update succeeded"
-                else
-                    echo "Update failed"
-                    return 1
-                fi
+        # Latest version is installed and force mode is not active
+        if IsInstalled "$g_latest_version" && ((! g_force)); then
+            echo "Latest version is already installed ($g_latest_version)"
+        # Latest version is not installed
+        elif ! IsInstalled "$g_latest_version"; then
+            echo "Latest version ($g_latest_version) is not installed"
+            if InstallGEVersion "$g_latest_version"; then
+                echo "Update succeeded"
+                IsSteamRunning && echo "Restart Steam to use the new version"
             else
-                ((g_verbose)) && vMsg "Error determining install status and force mode"
+                echo "Update failed"
+                return 1
+            fi
+        # Latest version is installed and force mode is active
+        elif ((g_force)); then
+            # NOTE: InstallGEVersion also verifys that force mode is active
+            if InstallGEVersion "$g_latest_version"; then
+                echo "Update succeeded"
+            else
+                echo "Update failed"
                 return 1
             fi
         else
-            ((g_verbose)) && vMsg "Update: GetLatestGEVersion returned failure status"
+            ((g_verbose)) && vMsg "Error determining install status and force mode"
             return 1
         fi
     else
         # GetLatestGEVersionInfo failed
-        ((g_verbose)) && vMsg "Update: GetLatestGEVersionInfo returned failure status"
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status"
         echo "Update failed"
         return 1
     fi
@@ -604,10 +564,10 @@ InstallGEVersion() {
                 fi
             else
                 if ExtractGEPackage "$version"; then
-                    echo "Install succeeded"
+                    echo "Installation of version $version was successful"
                     return 0
                 else
-                    echo "Install failed"
+                    echo "Installation of version $version failed"
                     return 1
                 fi
             fi
@@ -618,6 +578,9 @@ InstallGEVersion() {
     if DownloadGEPackage "$version"; then
         if ExtractGEPackage "$version"; then
             echo "Installation of version $version was successful"
+            if IsSteamRunning; then
+                echo "You must restart Steam to use the new version"
+            fi
             return 0
         else
             echo "Installation of version $version failed"
@@ -1061,7 +1024,7 @@ VerifyGEInstall() {
 
                 ((g_verbose)) && {
                     vMsg "$version extracted size: $expected_size_bytes bytes"
-                    vMsg "$temp_base_path_remaining_bytes remaining bytes: $temp_base_path_remaining_bytes"
+                    vMsg "$g_temp_base_path remaining bytes: $temp_base_path_remaining_bytes"
                 }
 
                 ((expected_size_bytes > temp_base_path_remaining_bytes)) && {
@@ -1078,6 +1041,11 @@ VerifyGEInstall() {
                 missing_counter=0
                 progress_percent=0
                 prev_progress=1
+                total_files=0
+                counter_extracted=0
+                counter_installed=0
+                files_installed=()
+                files_extracted=()
 
                 # Extract the package to a temporary path
                 if ! ExtractGEPackage "$version" "$temp_path"; then
@@ -1089,14 +1057,14 @@ VerifyGEInstall() {
                 echo "Indexing files to compare"
 
                 # Array of extracted files
-                while IFS= read -r -- file_extracted; do
-                    files_extracted+=("$file_extracted")
-                done < <(find "$temp_path/Proton-${version}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
+                while IFS= read -r file_extracted; do
+                    [[ -n $file_extracted ]] && files_extracted+=("$file_extracted")
+                done < <(find "$temp_path/Proton-${version}/" -type f ! -iwholename '*__pycache__*' 2>/dev/null | LC_ALL=C sort)
 
                 # Array of installed files
-                while IFS= read -r -- file_installed; do
-                    files_installed+=("$file_installed")
-                done < <(find "$g_install_path/Proton-${version}" -type f ! -iwholename "*__pycache__*" 2>/dev/null | LC_ALL=C sort)
+                while IFS= read -r file_installed; do
+                    [[ -n $file_installed ]] && files_installed+=("$file_installed")
+                done < <(find "$g_install_path/Proton-${version}/" -type f ! -iwholename '*__pycache__*' 2>/dev/null | LC_ALL=C sort)
 
                 # Report the number of files found in each path
                 echo "Found ${#files_extracted[@]} (extracted) and ${#files_installed[@]} (installed) files"
@@ -1111,15 +1079,6 @@ VerifyGEInstall() {
                 else
                     echo "Using faster method for comparing"
                     files_arrays_count_match=1
-                fi
-
-                # If an alias exists for cmp (much faster than executing cmp in a subshell)
-                # NOTE: This isn't necessary by default. It is included in the event that
-                #       the shebang is changed and a custom alias exists for cmp.
-                if alias cmp &>/dev/null; then
-                    echo "Saving existing alias for command cmp"
-                    saved_cmp_alias=$(alias cmp)
-                    unalias cmp
                 fi
 
                 printf '%s\033[s' "Comparing files"
@@ -1225,7 +1184,7 @@ VerifyGEInstall() {
                 elif ((missing_counter > 0 || mismatch_counter > 0)); then
                     printf '%s\n%s\n' \
                            "WARNING: Version $version has missing or potentially corrupt files." \
-                           "If you did not manually modify your installation you may want to remove it and then reinstall it" # TODO:
+                           "${0##*/} -R $version -i $version to reinstall it (add -f to download a new package)"
                 fi
             fi
         }
@@ -1253,7 +1212,17 @@ QueryGEAttribute() {
     version=${1-}
     CleanUpVersion
 
-    UpdateSavedGELatestRelease # NOTE: Do not abort on failure
+    if ! UpdateCachedGEReleases; then
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status"
+        [[ ! -f $g_file_latest_json ]] && {
+            ((g_verbose)) && vMsg "g_file_latest_json: $g_file_latest_json"
+        }
+        [[ ! -f $g_file_releases_json ]] && {
+            ((g_verbose)) && {
+                vMsg "g_file_releases_json: $g_file_releases_json"
+            }
+        }
+    fi
 
     ((g_verbose)) && vMsg "Checking $g_file_latest_json"
 
@@ -1263,7 +1232,6 @@ QueryGEAttribute() {
     # If the returned value from QueryJSONAttribute was NULL and the return status
     # was 0 (success), try g_file_releases_json
     if [[ -z $value ]]; then
-        UpdateSavedGEReleases # NOTE: Do not abort on failure
         ((g_verbose)) && vMsg "Checking $g_file_releases_json"
         ((g_verbose)) && vMsg "For $key of version $version"
         if value=$(QueryJSONAttribute "$g_file_releases_json" "$version" "$key"); then
@@ -1412,6 +1380,53 @@ QueryJSONAttribute() {
         printf ''
         return 1
     fi
+
+    return 0
+}
+
+###############################################################################
+# Purpose: Check the access time of a specified file and determine whether the
+#          specified interval has elapsed.
+# Input:   1 (required) File to check
+#          2 (required) Interval in seconds
+# Output:  None
+# Return:  1 (The specified interval has not elapsed since the last access)
+#          0 (The specified interval has elapsed since the last access, or an error occured)
+CheckAccessTime() {
+
+    local -i current_seconds=0 last_check_seconds=0 interval=${2:-0}
+    local file=${1-}
+
+    [[ -z $file || ! -r $file || $interval -lt 1 ]] && { ((g_verbose)) && vMsg "Parameter error file"; exit 1; }
+
+    ((g_verbose)) && vMsg "Checking access time for $file (interval: $interval)"
+
+    # Using the access time of g_file_latest_json, restrict how often RequestURL is called to check for a newer
+    # version of g_file_latest_json. The allowed interval is defined in g_checked_recently_seconds (default: 3600 seconds/60 minutes)
+    current_seconds=$(date +%s)
+    last_check_seconds=$(stat --cached=never -c '%X' -- "$file")
+    if (( (current_seconds - last_check_seconds) < interval )); then
+        ((g_verbose)) && {
+            vMsg "Access denied, last access is less than the required interval"
+            vMsg "$(( current_seconds - last_check_seconds )) out of $interval seconds have elapsed since the last access"
+            vMsg "The next access will be allowed in $(( interval - (current_seconds - last_check_seconds) )) seconds"
+        }
+        return 1
+    else
+        ((g_verbose)) && {
+            vMsg "Interval has elapsed, allowing access to $file"
+            vMsg "Access was restored $(( (current_seconds - last_check_seconds) - interval )) seconds ago"
+        }
+        return 0
+    fi
+
+    ((g_verbose)) && {
+        vMsg "Warning, returning default value of 0"
+        vMsg "file: $file"
+        vMsg "current_seconds: $current_seconds"
+        vMsg "last_check_seconds: $last_check_seconds"
+        vMsg "interval: $interval"
+    }
 
     return 0
 }
@@ -2703,8 +2718,6 @@ CheckRequirements() {
 # Return:  Always 0
 vMsg() {
 
-    # If g_verbose != 1, do nothing
-    ((g_verbose)) || { echo "($LINENO) vMsg: Error: g_verbose is not 1 but vMsg was called from line ${BASH_LINENO[0]}"; return 0; }
     [[ -z ${1-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" 1>&2; return 1; }
 
     local -i i

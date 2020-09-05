@@ -9,8 +9,7 @@
 ShowHelp	ge-install-manager	/^ShowHelp() {$/;"	f
 ShowUsage	ge-install-manager	/^ShowUsage() {$/;"	f
 GetLatestGEVersion	ge-install-manager	/^GetLatestGEVersion() {$/;"	f
-UpdateSavedGELatestRelease	ge-install-manager	/^UpdateSavedGELatestRelease() {$/;"	f
-UpdateSavedGEReleases	ge-install-manager	/^UpdateSavedGEReleases() {$/;"	f
+UpdateCachedGEReleases	ge-install-manager	/^UpdateCachedGEReleases() {$/;"	f
 DownloadGEPackage	ge-install-manager	/^DownloadGEPackage() {$/;"	f
 UpdateGEVersion	ge-install-manager	/^UpdateGEVersion() {$/;"	f
 InstallGEVersion	ge-install-manager	/^InstallGEVersion() {$/;"	f
@@ -24,6 +23,7 @@ RemoveGEInstallPath	ge-install-manager	/^RemoveGEInstallPath() {$/;"	f
 VerifyGEInstall	ge-install-manager	/^VerifyGEInstall() {$/;"	f
 QueryGEAttribute	ge-install-manager	/^QueryGEAttribute() {$/;"	f
 QueryJSONAttribute	ge-install-manager	/^QueryJSONAttribute() {$/;"	f
+CheckAccessTime	ge-install-manager	/^CheckAccessTime() {$/;"	f
 ReformatJSONUsingSed	ge-install-manager	/^ReformatJSONUsingSed() {$/;"	f
 IsJSONminified	ge-install-manager	/^IsJSONminified() {$/;"	f
 CreateSedUnminifyJSONscript	ge-install-manager	/^CreateSedUnminifyJSONscript() {$/;"	f
