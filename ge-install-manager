@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2002/3081 SLOC (64%) [SLOC/Comment:2.90], 690 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.34], 418 empty (13%)
+# 2128/3291 SLOC (64%) [SLOC/Comment:2.81], 757 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.35], 440 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -38,7 +38,7 @@ set -huo pipefail
 
 # Initialize global variables
 # NOTE: Script constants (read only variables) are all upper-case
-declare -gr SCRIPT_VERSION="0.7.5"
+declare -gr SCRIPT_VERSION="0.7.6"
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr SCRIPT_CODENAME="Cochrane Bonaventure"
 declare -gr CURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
@@ -65,6 +65,7 @@ declare -g g_report_version
 declare -g g_script_cache_path # Configuration file: cache_path
 declare -g g_temp_base_path=/tmp # Configuration file: temp_path
 declare -g g_verify_version
+declare -g g_show_release_notes_version
 declare -gi g_check_update=0
 declare -gi g_verbose=0
 declare -gi g_download=0
@@ -86,6 +87,9 @@ declare -gi g_size_bytes_sed_unminify_script=824
 declare -gi g_update=0
 declare -gi g_verify=0
 declare -gi g_checked_recently_seconds=3600 # NOTE: Minimum interval that checks for a new version of latest/releases will be allowed (60 minutes)
+declare -gi g_list_available_versions=0
+declare -gi g_show_release_notes=0
+declare -gi g_show_all_release_notes=0
 
 ###############################################################################
 # Purpose: Print the help text to stdout
@@ -106,6 +110,10 @@ ShowHelp() {
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
     -l            - List installed versions and saved packages
+    -L            - List all releases available to install
+    -n <version>  - Show release notes for <version>
+                      Combined with -N, -n will be ignored
+    -N            - Show release notes for all versions
     -S            - Report file count and disk usage of install path
     -s <version>  - Report file count and disk usage of <version>
     -U            - Check for and install the latest release
@@ -119,9 +127,11 @@ ShowHelp() {
                       Saved packages will be downloaded as needed
     -v <version>  - Verify <version> using its saved package
     -d <version>  - Download and save the package for <version>
-    -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
+    -x            - Remove all saved packages
+                      Also requires -f
     -X            - Remove the entire install path
                       NOTE: Saved packages are currently stored in the installation path
+                      Also requires -f
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable verbose output mode (to stderr)
@@ -181,6 +191,9 @@ Usage:
       Show usage,
       Debug toggle,
       Check for latest release,
+      Show all releases available,
+      Show all release notes,
+      Show release notes for a version,
       Remove install path,
       Remove saved packages (if remove install path is not active),
       Remove installed version (if remove install path is not active),
@@ -205,18 +218,17 @@ USAGE_HEREDOC
 # Input:   None
 # Output:  None
 # Return:  0 = Success
-#          1 = UpdateCachedGEReleases returned 1, or a match was not found
-#              in g_file_latest_json
+#          1 = (Failure) UpdateCachedGEReleases returned 1, or a match was not
+#                        found in g_file_latest_json.
 #
-# TODO: Might want to check releases if latest fails. But, will the first entry
-#       always be the latest?
+# TODO: Might want to check releases if latest fails
 GetLatestGEVersion() {
 
     local version
     g_latest_version=''
 
     if UpdateCachedGEReleases; then
-        while IFS= read -r --; do
+        while IFS= read -r -- || [[ -n $REPLY ]]; do
             # WARNING: Do not use "tag_name": "5.9-GE-5-ST", or "name": "Proton-5.9-GE-5-ST"
             #          for matching. The version extracted from them (eg. 5.9-GE-5-ST) is not
             #          always the same as the version extracted from browser_download_url
@@ -251,9 +263,9 @@ GetLatestGEVersion() {
 #          configurable interval has passed.
 # Input:   None
 # Output:  None
-# Return:  0 = Success (both files were successfully updated or the access
-#                       interval has not passed for both files)
-#          1 = Failure (RequestURL returned 1 for either file)
+# Return:  0 = (Success) Both files were successfully updated or the access
+#                        interval has not passed for both files.
+#          1 = (Failure) RequestURL returned 1 for either file.
 UpdateCachedGEReleases() {
 
     ((g_verbose)) && {
@@ -264,13 +276,9 @@ UpdateCachedGEReleases() {
     # Check the access time of the local file and if the interval has passed
     # call RequestURL to update the file (if the remote version is newer).
     if CheckAccessTime "$g_file_latest_json" "$g_checked_recently_seconds"; then
-        if RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
-            return 0
-        else
+        if ! RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
             return 1
         fi
-    else
-        return 0
     fi
 
     ((g_verbose)) && {
@@ -281,18 +289,14 @@ UpdateCachedGEReleases() {
     # Check the access time of the local file and if the interval has passed
     # call RequestURL to update the file (if the remote version is newer).
     if CheckAccessTime "$g_file_releases_json" "$g_checked_recently_seconds"; then
-        if RequestURL "$g_releases_url" "$g_file_releases_json"; then
-            return 0
-        else
+        if ! RequestURL "$g_releases_url" "$g_file_releases_json"; then
             return 1
         fi
-    else
-        return 0
     fi
 
-    ((g_verbose)) && vMsg "Warning, returning default value of 1"
+    ((g_verbose)) && vMsg "Returning default value of 0"
 
-    return 1
+    return 0
 }
 
 ###############################################################################
@@ -301,8 +305,14 @@ UpdateCachedGEReleases() {
 #          copy it to g_install_path
 # Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
-# Return:  0 = Success
-#          1 = Failure
+# Return:  0 = (Success) The package was downloaded and extracted to the install
+#                        path successfully.
+#          1 = (Failure) QueryGEAttribute returned 1, the downloaded package size
+#                        did not match the expected size, there is not enough
+#                        free space on g_temp_base_path to download the package,
+#                        the server responded "Not Found" or "API limit exceeded",
+#                        copying the package from g_temp_base_path to the install
+#                        path failed, or curl returned failure.
 DownloadGEPackage() {
 
     # Declare local variables
@@ -450,7 +460,7 @@ DownloadGEPackage() {
 UpdateGEVersion() {
 
     # Get the latest g_file_latest_json if the remote file is newer
-    if UpdateCachedGEReleases; then
+    if GetLatestGEVersion; then
 
         # Latest version is installed and force mode is not active
         if IsInstalled "$g_latest_version" && ((! g_force)); then
@@ -497,7 +507,8 @@ UpdateGEVersion() {
 # Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
 # Return:  0 = Success
-#          1 = Failure
+#          1 = (Failure) The requested version failed to download or failed to
+#                        extract to the install path.
 InstallGEVersion() {
 
     local version=${1-}
@@ -691,11 +702,171 @@ ExtractGEPackage() {
 }
 
 ###############################################################################
+# Purpose: Parse g_file_releases_json and print all the versions that are
+#          are available to install.
+# Input:   None
+# Output:  None
+# Return:  0 (Success) UpdateCachedGEReleases returned success
+#          1 (Failure) UpdateCachedGEReleases returned failure, zero lines were
+#                      read from g_file_latest_json, or zero version matches
+#                      occurred.
+ListAvailableGEVersions() {
+
+    #local -i flag_url_found=0 flag_version_found=0
+    #local value_html_url
+    local -i line_counter=0 version_counter=0
+
+    if UpdateCachedGEReleases; then
+
+        while IFS= read -r -- || [[ -n $REPLY ]]; do # NOTE: g_file_releases_json does not always have a trailing blank line
+            ((line_counter++))
+            [[ -z $REPLY ]] && continue
+
+            # NOTE: The regex must match all 3 of the following potential formats:
+            # "name":"Proton-5.9-GE-5-ST.tar.gz"
+            #         "name": "Proton-5.9-GE-5-ST.tar.gz",
+            # "name": "Proton-5.9-GE-5-ST.tar.gz"
+            [[ $REPLY =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
+                REPLY=${REPLY%.tar.gz*}
+                REPLY=${REPLY#*Proton-}
+                printf '%s\n' "$REPLY"
+                ((version_counter++))
+                continue
+            }
+        done < "$g_file_releases_json"
+
+        ((line_counter == 0)) && {
+            ((g_verbose)) && vMsg "Zero lines found"
+            return 1
+        }
+        ((version_counter == 0)) && {
+            ((g_verbose)) && vMsg "Zero version matches"
+            return 1
+        }
+    else
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status"
+        return 1
+    fi
+
+    return 0
+}
+
+###############################################################################
+# Purpose: Print release notes (body_text) for a specified version or all versions
+# Input:   1 (optional) Proton-ge-custom version (in one of the acceptable formats described in usage)
+# Output:  None
+# Return:  0 (Success)
+#          1 (Failure) Zero lines were read from g_file_latest_json, zero version
+#                      matches occurred, or UpdateCachedGEReleases returned failure
+ShowGEReleaseNotes() {
+
+    local -i flag_version_found=0 flag_title=0 flag_content=0 flag_show_all_versions=1 flag_url_found=0 line_counter=0 version_counter=0
+    local version=${1-} value_release_notes_url
+
+    # Determine whether to show all versions or a specified version
+    if [[ -n $version ]]; then
+        CleanUpVersion
+        flag_show_all_versions=0
+        ((g_verbose)) && vMsg "Getting release notes for version $version"
+    else
+        ((g_verbose)) && vMsg "No version specified, showing release notes for all versions"
+        version=".*"
+    fi
+
+    if UpdateCachedGEReleases; then
+        while IFS= read -r -- || [[ -n $REPLY ]]; do
+            ((line_counter++))
+            [[ -z $REPLY ]] && continue
+
+            # Match a release URL and store it in value_release_notes_url
+            # "html_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
+            # "html_url":  "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
+            # "html_url":   "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST",
+            [[ $REPLY =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
+                flag_url_found=1
+                REPLY=${REPLY%\"*}
+                value_release_notes_url=${REPLY##*\"}
+                continue
+            }
+
+            # NOTE: The regex must match all 3 of the following potential formats:
+            # "name":"Proton-5.9-GE-5-ST.tar.gz"
+            #         "name": "Proton-5.9-GE-5-ST.tar.gz",
+            # "name": "Proton-5.9-GE-5-ST.tar.gz"
+            ((flag_url_found)) && {
+                [[ $REPLY =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
+                    ((version_counter++))
+                    flag_version_found=1
+                    flag_url_found=0
+                    REPLY=${REPLY%.tar.gz*}
+                    REPLY=${REPLY##*\"}
+                    printf '%s\n' "$REPLY ($value_release_notes_url)"
+                    continue
+                }
+            }
+
+            ((flag_version_found)) && {
+                # "body_text":"7-28-2020:
+                # NOTE: does not support "body_text": "
+                [[ $REPLY =~ ^[[:blank:]]*\"body_text\":\".*$ ]] && {
+                    flag_title=1
+                    flag_content=1
+                    REPLY=${REPLY#*'"body_text":"'}
+                    # If it is only a one line message (none found yet, but it's possible)
+                    [[ $REPLY == *\" ]] && { REPLY=${REPLY/%\"}; flag_title=0; flag_content=0; }
+                    printf '%s\n' "  $REPLY"
+                    flag_title=0
+                    continue
+                }
+
+                (( flag_content && ! flag_title )) && {
+                    if [[ $REPLY == *\" ]]; then
+                        REPLY=${REPLY/%\"}
+                        flag_content=0
+                        flag_version_found=0
+                        # TODO: Reformat output based on line length and columns available
+                        # NOTE: DO NOT attempt to use COLUMNS (even with shopt -s checkwinsize). It won't work.
+                        #(( ${#REPLY} > ($(tput cols)-4) )) && printf '%s\n' "${#REPLY} $(( ${#REPLY} / ($(tput cols)-4) ))"
+                        printf '%s\n' "  $REPLY"
+                    else
+                        # TODO: Reformat output based on line length and columns available
+                        #(( ${#REPLY} > ($(tput cols)-4) )) && printf '%s\n' "${#REPLY} $(( ${#REPLY} / ($(tput cols)-4) ))"
+                        printf '%s\n' "  $REPLY"
+                    fi
+
+                    # If only showing a single version, break after all info for it has been printed
+                    if (( ! flag_show_all_versions && ! flag_content && flag_version_found )); then
+                        break
+                    fi
+                }
+            }
+        done < "$g_file_releases_json"
+
+        # Report if read read 0 lines
+        ((line_counter == 0)) && {
+            ((g_verbose)) && vMsg "Zero lines read"
+            return 1
+        }
+
+        # Report if no matches were found
+        ((version_counter == 0)) && {
+            ((g_verbose)) && vMsg "Zero matches found"
+            return 1
+        }
+    else
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status"
+        return 1
+    fi
+
+    return 0
+}
+
+###############################################################################
 # Purpose: Print the currently installed Proton-ge-custom versions, saved
 #          packages, and their individual disk usage to stdout.
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Success) Always
 ListInstalledGEVersions() {
 
     local node installed_version_disk_usage saved_package_disk_usage saved_packages_total_disk_usage size_bytes expected_size_bytes
@@ -749,7 +920,8 @@ ListInstalledGEVersions() {
 # Input:   1 (optional) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
 # Return:  0 Success
-#          1 A required external command was not found or the version requested was not found
+#          1 (Failure) A required external command was not found or the version
+#                      requested was not found.
 ReportGEDiskUsage() {
 
     local version file_counter path disk_usage="0"
@@ -826,7 +998,9 @@ ReportGEDiskUsage() {
 # Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
 # Return:  0 Success
-#          1 Failure
+#          1 (Failure) g_command_rm returned >0 status, no write permission to
+#                      remove the requested path, or a package for the requested
+#                      version does not exist.
 RemoveSavedPackage() {
 
     local version package
@@ -864,8 +1038,8 @@ RemoveSavedPackage() {
 # Purpose: Remove all saved packages in g_install_path
 # Input:   None
 # Output:  None
-# Return:  0 Success (all packages or 0 packages were removed)
-#          1 Failure (any one package removal failed)
+# Return:  0 (Success) All packages or zero packages were removed.
+#          1 (Failure) g_command_rm returned >0 for any one package.
 RemoveAllSavedPackages() {
 
     local package
@@ -902,8 +1076,10 @@ RemoveAllSavedPackages() {
 # Purpose: Remove g_install_path
 # Input:   None
 # Output:  None
-# Return:  0 Success
-#          1 Failure (Remove failed or re-creating g_install_path failed)
+# Return:  0 (Success) The install path was successfully removed and the install
+#                      path was subsequently successfully recreated.
+#          1 (Failure) g_command_rm returned >0 removing the install path or
+#                      mkdir returned failure re-creating the install path failed.
 RemoveGEInstallPath() {
 
     local disk_usage="?"
@@ -1201,7 +1377,7 @@ VerifyGEInstall() {
 #          2 (required) A supported attribute name (refer to QueryJSONAttribute)
 # Output:  The value of the attribute requested or NULL (stdout)
 # Return:  0 Success
-#          1 Failure (a value was not found for the requested attribute or an error occured)
+#          1 (Failure) A value was not found for the requested attribute or an error occured.
 # TODO Seperate return values for not found and error
 QueryGEAttribute() {
 
@@ -1259,7 +1435,7 @@ QueryGEAttribute() {
 #          3 (required) A supported attribute name (size or browser_download_url)
 # Output:  The value of the attribute requested or NULL (stdout)
 # Return:  0 Success
-#          1 Failure (a value was not found for the requested attribute or an error occured)
+#          1 (Failure) A value was not found for the requested attribute or an error occured.
 #
 # NOTE This function relies on the JSON being structured in a precise, predictable order
 # Example order of attributes expected (line numbers are irrelevant, what matters is the order they appear in):
@@ -1294,8 +1470,7 @@ QueryJSONAttribute() {
 
     ((g_verbose)) && vMsg "Searching in $file_json"
 
-    # WARNING: Do not output to stdout or stderr inside the following loop
-    while IFS= read -r --; do
+    while IFS= read -r -- || [[ -n $REPLY ]]; do
         ((counter_lines++))
         # version match
         # version example: 5.9-GE-5-ST
@@ -1333,9 +1508,9 @@ QueryJSONAttribute() {
             [[ $REPLY =~ ^.*\"browser_download_url\":[[:blank:]]*\".*Proton-${version}\.tar\.gz\".*$ ]] && {
                 #flag_browserurl_found=1
                 line_browserurl_found=$counter_lines
-                REPLY=${REPLY//[[:space:]]}
-                REPLY=${REPLY/#*\"browser_download_url\":\"}
-                value_browser_url=${REPLY%%\"*}
+                REPLY=${REPLY//[[:space:]]} # Remove all spaces/tabs
+                REPLY=${REPLY/#*\"browser_download_url\":\"} # Trim the unneeded left side
+                value_browser_url=${REPLY%%\"*} # Trim the unneeded right side
                 break
             }
         }
@@ -1390,8 +1565,8 @@ QueryJSONAttribute() {
 # Input:   1 (required) File to check
 #          2 (required) Interval in seconds
 # Output:  None
-# Return:  1 (The specified interval has not elapsed since the last access)
-#          0 (The specified interval has elapsed since the last access, or an error occured)
+# Return:  0 (The specified interval has elapsed since the last access, or an error occured)
+#          1 (The specified interval has not elapsed since the last access)
 CheckAccessTime() {
 
     local -i current_seconds=0 last_check_seconds=0 interval=${2:-0}
@@ -1503,7 +1678,7 @@ IsJSONminified() {
 #          in bytes does not match an expected value, create/overwrite it
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Success) Always
 CreateSedUnminifyJSONscript() {
 
     if [[ ! -f $g_file_sed_unminify_script ]] || (($(stat -c '%s' -- "$g_file_sed_unminify_script") != g_size_bytes_sed_unminify_script)); then
@@ -1600,8 +1775,8 @@ IsInstalled() {
 # Purpose: Check if Steam is running
 # Input:   None
 # Output:  None
-# Return:  0 Yes/True (a Steam process was detected, or an error occured)
-#          1 No/False (a Steam process was not detected)
+# Return:  0 (Yes/True) A Steam process was detected, or an error occured.
+#          1 (No/False) A Steam process was not detected.
 IsSteamRunning() {
 
     local -i flag_found_steam=0
@@ -1623,7 +1798,9 @@ IsSteamRunning() {
 #          2 (required) A file (does not have to exist)
 # Output:  None
 # Return:  0 Success
-#          1 Failure
+#          1 (Failure) Curl returned failure, the server responded "Not Found" or
+#                      Github API request rate limit exceeded, or a failure occured
+#                      trying to copy the temporary file to the specified file.
 RequestURL() {
 
     local requested_url=${1-} file_local=${2-} file_temp
@@ -1859,8 +2036,8 @@ SpaceRemaining() {
 # Purpose: If g_file_script_config is not found, create a default
 # Input:   None
 # Output:  None
-# Return:  0 (Success)
-#          1 (Create path to g_file_script_config failed)
+# Return:  0 Success
+#          1 (Failure) mkdir returned failure status.
 CreateDefaultConfigFile() {
 
     local rm_command path
@@ -1946,7 +2123,10 @@ DEFAULT_CONFIG
 #          variables accordingly.
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 Success
+#          1 (Failure) An invalid value was encountered during key/value validation
+#                      or if after parsing the config file a crucial global variable
+#                      is empty.
 # NOTE: Runs DetectSteamInstallPath if g_install_path is set to the special value "auto"
 ParseConfigFile() {
 
@@ -1991,7 +2171,7 @@ ParseConfigFile() {
     }
 
     # Begin parsing g_file_script_config
-    while IFS= read -r --; do
+    while IFS= read -r -- || [[ -n $REPLY ]]; do
 
         # Increment the line counter
         ((counter_config_line++))
@@ -2071,12 +2251,10 @@ ParseConfigFile() {
                 [[ ${config_value,,} = "auto" ]] && {
                     ((g_verbose)) && vMsg "$config_key is set to $config_value, Running DetectSteamInstallPath"
                     DetectSteamInstallPath
-                    if [[ -n $g_override_default_install_path && ${g_override_default_install_path,,} != "auto" ]]; then
+                    [[ -n $g_override_default_install_path && ${g_override_default_install_path,,} != "auto" ]] && {
                         config_value=$g_override_default_install_path/compatibilitytools.d
                         flag_update_install_path=1
-                    else
-                        return 1
-                    fi
+                    }
                 }
                 if [[ -d $config_value && -w $config_value ]]; then
                     ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it"
@@ -2200,23 +2378,23 @@ ParseConfigFile() {
 
     # If any crucial config options are empty (missing from config, except g_script_config_path)
     [[ -z ${g_install_path-} ]] && {
-        vMsg "Invalid/missing g_install_path ($g_file_script_config)"
+        vMsg "Missing g_install_path ($g_file_script_config)"
         return 1
     }
 
     [[ -z ${g_temp_base_path-} ]] && {
-        vMsg "Invalid/missing g_temp_base_path ($g_file_script_config)"
+        vMsg "Missing g_temp_base_path ($g_file_script_config)"
         return 1
     }
 
     # A warning in case the default global variable is manually changed
     [[ -z ${g_script_config_path-} ]] && {
-        vMsg "Invalid/missing g_script_config_path"
+        vMsg "Missing g_script_config_path"
         return 1
     }
 
     [[ -z ${g_script_cache_path-} ]] && {
-        vMsg "Invalid/missing g_script_cache_path ($g_file_script_config)"
+        vMsg "Missing g_script_cache_path ($g_file_script_config)"
         return 1
     }
 
@@ -2244,7 +2422,7 @@ ParseConfigFile() {
 # Purpose: When invoked, "clean" a version string stored in the variable version.
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Success) Always
 CleanUpVersion() {
 
     local -i length_characters=0
@@ -2277,8 +2455,8 @@ CleanUpVersion() {
 # Purpose: Bash only primitive replacement for mktemp (file version)
 # Input:   None
 # Output:  A string containing a path and file with no trailing newline (stdout)
-# Return:  0 (Success)
-#          1 (Failure)
+# Return:  0 Success
+#          1 (Failure) g_temp_base_path does not exist or is not writeable.
 MkTempFile() {
 
     local create_temp_file
@@ -2305,8 +2483,8 @@ MkTempFile() {
 # Purpose: Bash only primitive replacement for mktemp (path version)
 # Input:   None
 # Output:  A string containing a path with no trailing newline (stdout)
-# Return:  0 (Success)
-#          1 (Failure)
+# Return:  0 Success
+#          1 (Failure) g_temp_base_path does not exist or is not writeable.
 MkTempPath() {
 
     local create_temp_path
@@ -2333,8 +2511,8 @@ MkTempPath() {
 # Purpose: Generate a pseudo-random alphanumeric string using only Bash
 # Input:   1 (optional) An integer indicating the length of the sequence to generate
 # Output:  A string containing the generated alphanumeric sequence (stdout)
-# Return:  0 (Success)
-#          1 (Failure)
+# Return:  0 Success
+#          1 (Failure) printf returned failure status
 # NOTE: Valid input length range 1-32767 (default: 10)
 GenerateRandomAlphaNumericString() {
 
@@ -2378,7 +2556,8 @@ GenerateRandomAlphaNumericString() {
 #          occurs install_path will remain set to auto.
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Success) Always
+#
 # NOTE: ~/.steam/root/compatibilitytools.d                                   # proton-ge-custom install notes
 #       /usr/share/steam/compatibilitytools.d
 #       /usr/local/share/steam/compatibilitytools.d
@@ -2621,7 +2800,7 @@ SetupEnvironment() {
         fi
     elif [[ ! -f $g_file_script_config ]]; then
         ((g_verbose)) && vMsg "g_file_script_config not found, creating at $g_file_script_config"
-        if printf '' > "$g_file_script_config"; then
+        if printf '' > "$g_file_script_config"; then # NOTE: Do not : > here
             ((g_verbose)) && vMsg "Create script config file succeeded"
         else
             vMsg "Failed to create: $g_file_script_config"
@@ -2679,8 +2858,8 @@ SetupEnvironment() {
 #          and report if any are missing.
 # Input:   None
 # Output:  None
-# Return:  0 (Success) All checks passed
-#          1 (Failure) Any one check failed
+# Return:  0 (Success) All required commands were found
+#          1 (Failure) Any one required command was not found
 CheckRequirements() {
 
     local -i flag_failed=0
@@ -2715,7 +2894,7 @@ CheckRequirements() {
 #          that excludes "main". Similar to the caller built-in.
 # Input:   1 (required) A string (the message to output)
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Success) Always
 vMsg() {
 
     [[ -z ${1-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" 1>&2; return 1; }
@@ -2740,7 +2919,7 @@ vMsg() {
 # Purpose: Provide a basic diagnostic tool that reports environment information.
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Success) Always
 # NOTE: Exactly -fzZ invokes this function
 ReportEnvironmentInfo() {
 
@@ -2788,14 +2967,14 @@ ReportEnvironmentInfo() {
 #          of the rest of the script.
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Success) Always
 # NOTE: Exactly -fzT invokes this function
 # All hope abandon, ye who enter here!
 ProvingGrounds() {
 
     ((g_integration_testing)) || return 1
 
-    exit
+    exit 0
 }
 
 ###############################################################################
@@ -2803,7 +2982,8 @@ ProvingGrounds() {
 #          is not enabled
 # Input:   None
 # Output:  None
-# Return:  Always 0
+# Return:  0 (Always) Unless SIGINT was caught (then it's value is carried over)
+#                     which defaults to 0 on my system (varies by environment).
 CleanUp() {
 
     local node
@@ -2861,12 +3041,12 @@ CleanUp() {
 #          according to what was requested.
 # Input:   1 (required) "$@" (all command line positional parameters)
 # Output:  None
-# Return:  getopts exist status (man getopts):
+# Return:  getopts exist status
 #          0  (An option, specified or unspecified by optstring, was found.)
 #          >0 (The end of options was encountered or an error occurred.)
 ParseParameters() {
     OPTERR=1 # make sure it's on
-    while getopts 'zZThHflSs:i:d:R:r:NuUXv:V' sOPT; do
+    while getopts 'zZThHflLn:NSs:i:d:R:r:xuUXv:V' sOPT; do
         case "$sOPT" in
             (h) g_show_help=1 ;;
             (H) g_show_usage=1 ;;
@@ -2884,7 +3064,7 @@ ParseParameters() {
             ;;
             (u) g_check_update=1 ;;
             (X) g_remove_install_path=1 ;;
-            (N) g_remove_all_saved_packages=1 ;;
+            (x) g_remove_all_saved_packages=1 ;;
             (R)
                 g_remove_installed_version=1
                 g_remove_version=$OPTARG
@@ -2894,6 +3074,12 @@ ParseParameters() {
                 g_remove_saved_version=$OPTARG
             ;;
             (l) g_list_installed_versions=1 ;;
+            (L) g_list_available_versions=1 ;;
+            (n)
+                g_show_release_notes=1
+                g_show_release_notes_version=$OPTARG
+            ;;
+            (N) g_show_all_release_notes=1 ;;
             (s)
                 g_report_version_usage=1
                 g_report_version=$OPTARG
@@ -2923,7 +3109,7 @@ ParseParameters() {
 # Input:   1 (required) "$@" (all command line positional parameters)
 # Output:  None
 # Return:  0 (Success)
-#          1 (An error occured)
+#          1 (Failure) A called function returned failure (>0)
 Main() {
 
     (( $(id -u) )) || { echo "This script requires non-root effective permissions"; exit 1; }
@@ -2937,7 +3123,10 @@ Main() {
     # If no parameters were supplied, show help
     # NOTE: Ignore g_force and g_verbose flags
     # TODO: This is not ideal
-    if ((! g_remove_install_path)) && \
+    if ((! g_list_available_versions)) && \
+       ((! g_show_release_notes)) && \
+       ((! g_show_all_release_notes)) && \
+       ((! g_remove_install_path)) && \
        ((! g_remove_all_saved_packages)) && \
        ((! g_remove_installed_version)) && \
        ((! g_remove_saved_package)) && \
@@ -2997,6 +3186,25 @@ Main() {
         fi
     fi
 
+    # Print versions available to install
+    if ((g_list_available_versions)); then
+        ListAvailableGEVersions
+    fi
+
+    # Print release notes for all release versions
+    if ((g_show_all_release_notes)); then
+        if ! ShowGEReleaseNotes; then
+            echo "Version $version not found"
+        fi
+    fi
+
+    # Print release notes for a specified version
+    if ((g_show_release_notes && ! g_show_all_release_notes)) && [[ -n $g_show_release_notes_version ]]; then
+        if ! ShowGEReleaseNotes "$g_show_release_notes_version"; then
+            echo "An error occured" # super helpful -.-
+        fi
+    fi
+
     # Remove install path if force mode is active
     if (( g_remove_install_path && g_force )); then
         if IsSteamRunning; then
@@ -3005,13 +3213,15 @@ Main() {
             RemoveGEInstallPath
         fi
     # If remove install path was requested but force mode is not active
-    elif ((g_remove_install_path)); then
-        echo "-X must be combined with -f to confirm that you are sure"
+    elif ((g_remove_install_path && ! g_force)); then
+        echo "-f must be combined with -X to confirm that you are sure"
     fi
 
     # Remove all saved packages if remove install path was not requested
-    if (( g_remove_all_saved_packages && ! g_remove_install_path )); then
-        RemoveAllSavedPackages # TODO: -f required?
+    if (( g_remove_all_saved_packages && ! g_remove_install_path && g_force)); then
+        RemoveAllSavedPackages
+    elif (( g_remove_all_saved_packages && ! g_remove_install_path && ! g_force)); then
+        echo "-f must be combined with -x to confirm that you are sure"
     fi
 
     # Remove an installed version if remove install path was not requested
@@ -3069,7 +3279,7 @@ Main() {
 #          Save the exit status of the last executed command before invoking
 #          the CleanUp function. Report both the saved exit status and the exit
 #          status of CleanUp if debug mode is enabled.
-trap 'g_real_exit_status=$?; ((g_verbose)) && vMsg "Exit status (before CleanUp): $g_real_exit_status"; CleanUp; ((g_verbose)) && vMsg "Exit status (after CleanUp): $?"; exit $g_real_exit_status' EXIT
+trap 'g_real_exit_status=$?; CleanUp; exit $g_real_exit_status' EXIT
 
 ###############################################################################
 # Purpose: Run the function CleanUp if the process group received SIGINT

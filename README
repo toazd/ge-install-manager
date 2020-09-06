@@ -1,4 +1,4 @@
-Version 0.7.5
+Version 0.7.6
 
 Help:
 
@@ -8,6 +8,10 @@ Help:
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
     -l            - List installed versions and saved packages
+    -L            - List all releases available to install
+    -n <version>  - Show release notes for <version>
+                      Combined with -N, -n will be ignored
+    -N            - Show release notes for all versions
     -S            - Report file count and disk usage of install path
     -s <version>  - Report file count and disk usage of <version>
     -U            - Check for and install the latest release
@@ -21,9 +25,11 @@ Help:
                       Saved packages will be downloaded as needed
     -v <version>  - Verify <version> using its saved package
     -d <version>  - Download and save the package for <version>
-    -N            - Remove all saved packages matching the pattern "Proton-*.tar.gz" in the install path
+    -x            - Remove all saved packages
+                      Also requires -f
     -X            - Remove the entire install path
                       NOTE: Saved packages are currently stored in the installation path
+                      Also requires -f
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable verbose output mode (to stderr)
@@ -73,6 +79,9 @@ Usage:
       Show usage,
       Debug toggle,
       Check for latest release,
+      Show all releases available,
+      Show all release notes,
+      Show release notes for a version,
       Remove install path,
       Remove saved packages (if remove install path is not active),
       Remove installed version (if remove install path is not active),
