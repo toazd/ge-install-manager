@@ -27,10 +27,6 @@ set -huo pipefail
 # "Things that would be nice, but aren't required for main features" list
 #
 # TODO: Install parameter (-I?) / -f erases cache and config?
-#       Currently, using any function that requires cache/config will run the
-#       "first time setup" if those files are missing so an explicit parameter
-#       isn't exactly required. Install can be as simple as: ge-install-manager -U
-#       or ge-install-manager -i <version>
 # TODO: Replace getopts with a custom parser
 # TODO: support for using jq in addition to sed
 #
@@ -100,7 +96,7 @@ ShowHelp() {
 
     cat <<HELP_HEREDOC
 
-    $(basename "$0")  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
+    ${0##*/}  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
     Configuration file: $g_script_config_path/${0##*/}.conf
 
@@ -158,29 +154,29 @@ Usage:
   - Most parameters can be combined with other unique parameters.
     > NOTE: arguments must directly follow parameters that require arguments
       Example (both produce the same result):
-        ./$(basename "$0") -Hh
-        ./$(basename "$0") -h -H
+        ./${0##*/} -Hh
+        ./${0##*/} -h -H
           Result: Show help and then show usage
       Example (both produce the same result):
-        ./$(basename "$0") -lSui 5.9-GE-3-ST
-        ./$(basename "$0") -lS -i 5.9-GE-3-ST -u
+        ./${0##*/} -lSui 5.9-GE-3-ST
+        ./${0##*/} -lS -i 5.9-GE-3-ST -u
           Result: Check for the latest version and install it,
            install version 5.9-GE-3-ST, list installed versions, then
            report file and disk usage for the install path
       Example: (assume the latest version is 5.9-GE-3-ST)
-        ./$(basename "$0") -z -u -i Proton-5.11-GE-1-MF -Xf
+        ./${0##*/} -z -u -i Proton-5.11-GE-1-MF -Xf
           Result: enable debug mode, remove the installation path,
            update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
       Example (both produce the same result):
-        ./$(basename "$0") -s 5.6-GE-3-ST -S
-        ./$(basename "$0") -Ss 5.6-GE-3-ST
+        ./${0##*/} -s 5.6-GE-3-ST -S
+        ./${0##*/} -Ss 5.6-GE-3-ST
           Result: report disk usage and file count for the install path,
            and then report disk usage and file count for version 5.6-GE-3-ST
 
   - The order of parameters is not significant except:
     > If during invocation multiple identical parameters are supplied.
       Example:
-        ./$(basename "$0") -s 5.11-GE-1-MF -s 5.9-GE-3-ST
+        ./${0##*/} -s 5.11-GE-1-MF -s 5.9-GE-3-ST
           Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
   - Order of operations if multiple unique parameters are supplied:
@@ -416,7 +412,7 @@ DownloadGEPackage() {
         fi
 
         # Check if the the package size and expected size are equal
-        if (( downloaded_package_size_bytes == $(QueryGEAttribute "$version" "size") )); then
+        if ((downloaded_package_size_bytes == $(QueryGEAttribute "$version" "size"))); then
             echo "Downloaded package is the expected size ($expected_size_bytes bytes)"
         else
             printf '%s\n%s\n%s\n' \
@@ -517,7 +513,7 @@ InstallGEVersion() {
 
     CleanUpVersion
 
-    [[ -n $version ]] && ((g_verbose)) && vMsg "Requested version is $version"
+    [[ -n $version ]] && ((g_verbose)) && vMsg "Version is $version"
 
     # If the requested version is already installed
     if IsInstalled "$version"; then
@@ -835,7 +831,7 @@ ShowGEReleaseNotes() {
                     fi
 
                     # If only showing a single version, break after all info for it has been printed
-                    if (( ! flag_show_all_versions && ! flag_content && flag_version_found )); then
+                    if ((! flag_show_all_versions && ! flag_content && flag_version_found)); then
                         break
                     fi
                 }
@@ -1261,7 +1257,7 @@ VerifyGEInstall() {
 
                 # Begin comparing, using the faster method
                 # If the number of elements match
-                if (( files_arrays_count_match == 1 )); then
+                if ((files_arrays_count_match == 1)); then
                     total_files=${#files_extracted[@]}
                     start_time_seconds=$(date +%s)
                     for counter_extracted in "${!files_extracted[@]}"; do
@@ -1293,7 +1289,7 @@ VerifyGEInstall() {
                     end_time_seconds=$(date +%s)
 
                 # Begin comparing, using the slower method
-                elif (( files_arrays_count_match == 0 )); then
+                elif ((files_arrays_count_match == 0)); then
                     total_files=${#files_extracted[@]}
                     start_time_seconds=$(date +%s)
                     for counter_extracted in "${!files_extracted[@]}"; do
@@ -1944,7 +1940,7 @@ CreateBackup() {
                 ((backups_counter++))
                 files_existing_backups+=("$file")
                 ((g_verbose)) && vMsg "Valid backup file found at $file"
-                if ((backup_index == 1 )); then
+                if ((backup_index == 1)); then
                     ((g_verbose)) && vMsg "Index 1 found, existing backups will be renamed"
                     flag_rename_backups=1
                 fi
@@ -2087,7 +2083,7 @@ DEFAULT_CONFIG
 install_path=auto
 
 # Default cache path
-cache_path=${XDG_CACHE_HOME:-"$HOME"/.cache}/$SCRIPT_FULL_NAME
+cache_path=${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_FULL_NAME
 
 # Default URL used to retrieve 'latest' JSON
 latest_version_url=https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest
@@ -2129,7 +2125,6 @@ DEFAULT_CONFIG
 #                      is empty.
 # NOTE: Runs DetectSteamInstallPath if g_install_path is set to the special value "auto"
 ParseConfigFile() {
-
 
     local config_key config_value
     local -i existing_config_file_lines=0 counter_config_line=0 flag_failed=0 flag_update_install_path=0
@@ -2581,7 +2576,7 @@ DetectSteamInstallPath () {
     # Report the set status of XDG vars
     # XDG_DATA_HOME
     if [[ ${XDG_DATA_HOME-unset} != 'unset' ]]; then
-        if [[ ${XDG_DATA_HOME-} != "$HOME"/.local/share ]]; then
+        if [[ ${XDG_DATA_HOME-} != $HOME/.local/share ]]; then
             ((g_verbose)) && vMsg "XDG_DATA_HOME is not set to the default: $XDG_DATA_HOME"
         else
             ((g_verbose)) && vMsg "XDG_DATA_HOME is set to: $XDG_DATA_HOME"
@@ -2592,7 +2587,7 @@ DetectSteamInstallPath () {
 
     # XDG_CONFIG_HOME
     if [[ ${XDG_CONFIG_HOME-unset} != 'unset' ]]; then
-        if [[ ${XDG_CONFIG_HOME-} != "$HOME"/.config ]]; then
+        if [[ ${XDG_CONFIG_HOME-} != $HOME/.config ]]; then
             ((g_verbose)) && vMsg "XDG_CONFIG_HOME is not set to the default: $XDG_CONFIG_HOME"
         else
             ((g_verbose)) && vMsg "XDG_CONFIG_HOME is set to: $XDG_CONFIG_HOME"
@@ -2603,7 +2598,7 @@ DetectSteamInstallPath () {
 
     # XDG_CACHE_HOME
     if [[ ${XDG_CACHE_HOME-unset} != 'unset' ]]; then
-        if [[ ${XDG_CACHE_HOME-} != "$HOME"/.cache ]]; then
+        if [[ ${XDG_CACHE_HOME-} != $HOME/.cache ]]; then
             ((g_verbose)) && vMsg "XDG_CACHE_HOME is not set to the default: $XDG_CACHE_HOME"
         else
             ((g_verbose)) && vMsg "XDG_CACHE_HOME is set to: $XDG_CACHE_HOME"
@@ -2634,7 +2629,7 @@ DetectSteamInstallPath () {
         printf '%s\n%s\n%s\n' \
                "ERROR: Unable to detect Steam installation path" \
                "You will need to configure install_path manually in the configuration file" \
-               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+               "(default: ${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
         g_override_default_install_path=''
 
     # Prefer to use the symlink if two paths were found and one is a link to the other
@@ -2642,7 +2637,7 @@ DetectSteamInstallPath () {
         printf '%s\n%s\n%s\n' \
                "Steam install path detected as ${valid_paths[0]}" \
                "If that path is incorrect, then change install_path in the configuration file" \
-               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+               "(default: ${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
         g_override_default_install_path=${valid_paths[0]}
 
     # Multiple paths detected with or without the Steam home link pointing to one of them
@@ -2670,7 +2665,7 @@ DetectSteamInstallPath () {
                         printf '%s\n%s\n%s\n' \
                                "You have chosen the path $g_override_default_install_path" \
                                "If that is not correct then change install_path in the configuration file" \
-                               "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+                               "(default: ${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
                         ((g_verbose)) && vMsg "g_override_default_install_path set to $g_override_default_install_path"
                         break
                     fi
@@ -2682,7 +2677,7 @@ DetectSteamInstallPath () {
         [[ -z $g_override_default_install_path ]] && {
             printf '%s\n%s\n' \
                    "You will need to manually set install_path in the configuration file" \
-                   "(default: ${XDG_CONFIG_HOME:-"$HOME"/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+                   "(default: ${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
             g_override_default_install_path="auto"
         }
     fi
@@ -3175,7 +3170,7 @@ Main() {
     fi
 
     # Check if the latest release is installed
-    if (( g_check_update && ! g_update )); then
+    if ((g_check_update && ! g_update)); then
         if GetLatestGEVersion; then
             if IsInstalled "$g_latest_version"; then
                 echo "The latest version $g_latest_version is installed"
@@ -3205,7 +3200,7 @@ Main() {
     fi
 
     # Remove install path if force mode is active
-    if (( g_remove_install_path && g_force )); then
+    if ((g_remove_install_path && g_force)); then
         if IsSteamRunning; then
             echo "Please close Steam before removing the install path"
         else
@@ -3217,14 +3212,14 @@ Main() {
     fi
 
     # Remove all saved packages if remove install path was not requested
-    if (( g_remove_all_saved_packages && ! g_remove_install_path && g_force)); then
+    if ((g_remove_all_saved_packages && ! g_remove_install_path && g_force)); then
         RemoveAllSavedPackages
-    elif (( g_remove_all_saved_packages && ! g_remove_install_path && ! g_force)); then
+    elif ((g_remove_all_saved_packages && ! g_remove_install_path && ! g_force)); then
         echo "-f must be combined with -x to confirm that you are sure"
     fi
 
     # Remove an installed version if remove install path was not requested
-    if (( g_remove_installed_version && ! g_remove_install_path )); then
+    if ((g_remove_installed_version && ! g_remove_install_path)); then
         RemoveGEVersion "$g_remove_version" # NOTE: g_remove_version is set in getops
     # If remove install path was requested in the same invocation, skip removing version/package
     elif ((g_remove_installed_version)); then
@@ -3232,7 +3227,7 @@ Main() {
     fi
 
     # Remove a saved package if both remove install path and remove all saved packages was not requested
-    if (( g_remove_saved_package && ! g_remove_install_path && ! g_remove_all_saved_packages )); then
+    if ((g_remove_saved_package && ! g_remove_install_path && ! g_remove_all_saved_packages)); then
         RemoveSavedPackage "$g_remove_saved_version" # NOTE: g_remove_version is set in getops
     elif ((g_remove_saved_package)); then
         echo "Remove saved package skipped (remove install path or remove all saved packages was requested)"
@@ -3249,7 +3244,7 @@ Main() {
     ((g_update)) && UpdateGEVersion
 
     # Install a package
-    if (( g_install && ! g_update )); then
+    if ((g_install && ! g_update)); then
         InstallGEVersion "$g_install_version" # NOTE: g_install_version is set in getops
     fi
 
