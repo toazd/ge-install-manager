@@ -102,7 +102,7 @@ ShowHelp() {
 
     $(basename "$0")  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
-    Configuration path: $g_script_config_path
+    Configuration file: $g_script_config_path/${0##*/}.conf
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc, touch
     Optional:       date, du, pgrep, sort, cmp, envsubst, fallocate, trash
@@ -2149,15 +2149,14 @@ ParseConfigFile() {
                 while :; do
                     read -rp "Would you like to open it with ${EDITOR}? " </dev/tty
                     case ${REPLY,,} in
-                        ("y"|"yes") ($EDITOR "$g_file_script_config"); exit 0 ;;
-                        ("n"|"no") exit 0 ;;
+                        ("y"|"yes") ($EDITOR "$g_file_script_config") ;;
+                        ("n"|"no") break ;;
                         ("*") echo "Enter (y)es or (n)o" ;;
                     esac
                 done
             else
                 echo "EDITOR not set, default configuration created at $g_file_script_config"
             fi
-            exit 0
         else
             vMsg "Failed to create default config file at: $g_file_script_config"
             return 1
