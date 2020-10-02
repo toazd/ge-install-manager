@@ -154,6 +154,7 @@ ShowHelp() {
     -z            - Enable verbose output mode (to stderr)
                       Also preserves any temporary files created
                       Format: (calling line)[function trace]: message
+
 HELP_HEREDOC
 
     return 0
@@ -481,13 +482,13 @@ UpdateGEVersion() {
 
         # Latest version is installed and force mode is not active
         if IsInstalled "$g_latest_version" && ((! g_force)); then
-            echo "Latest version is already installed ($g_latest_version)"
+            printf "%s${g_color_green}%s${g_color_reset}%s${g_color_blue}%s${g_color_reset}%s\n" "Latest version is already " "installed " "(" "$g_latest_version" ")"
         # Latest version is not installed
         elif ! IsInstalled "$g_latest_version"; then
-            echo "Latest version ($g_latest_version) is not installed"
+            printf "%s${g_color_blue}%s${g_color_reset}%s${g_color_yellow}%s${g_color_reset}" "Latest version (" "$g_latest_version" ") is " "not installed"
             if InstallGEVersion "$g_latest_version"; then
                 echo "Update succeeded"
-                IsSteamRunning && echo "Restart Steam to use the new version"
+                IsSteamRunning && printf "${g_color_yellow}%s${g_color_reset}\n" "Restart Steam to use the new version"
             else
                 echo "Update failed"
                 return 1
@@ -2946,6 +2947,7 @@ CheckRequirements() {
 #          line number that called this function followed by a function trace
 #          that excludes "main". Similar to the caller built-in.
 # Input:   1 (required) A string (the message to output)
+#          2 (optional) Message type (g)reen, (y)ellow, (r)ed,
 # Output:  None
 # Return:  0 (Success) Always
 vMsg() {
@@ -2953,17 +2955,35 @@ vMsg() {
     [[ -z ${1-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" 1>&2; return 1; }
 
     local -i i
+    local type=${2:-i}
 
     # Calling line number
-    printf '%s' "(${BASH_LINENO[0]})[" 1>&2
+    printf "${g_color_yellow}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}" "(" "${BASH_LINENO[0]}" ")[" 1>&2
     for (( i=$(( ${#FUNCNAME[@]} - 2 )); i>1; i-- )); do
         # Function trace (excluding 'main')
-        printf '%s' "${FUNCNAME[i]}," 1>&2
+        printf "${g_color_magenta}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}" "${FUNCNAME[i]}" "," 1>&2
     done
     # The last function in the function trace doesn't get a comma suffix
-    printf '%s' "${FUNCNAME[i]}]: " 1>&2
-    # Message
-    printf '%s\n' "$1" 1>&2
+    printf "${g_color_magenta}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}" "${FUNCNAME[i]}" "]: " 1>&2
+    # Message with color based on type (default: info)
+    case $type in
+        b|i)
+            # Blue / Info
+            printf "${g_color_blue}%s${g_color_reset}\n" "$1" 1>&2
+        ;;
+        g|s)
+            # Green / Success
+            printf "${g_color_green}%s${g_color_reset}\n" "$1" 1>&2
+        ;;
+        w)
+            # Yellow / Warning
+            printf "${g_color_yellow}%s${g_color_reset}\n" "$1" 1>&2
+        ;;
+        r|f|e)
+            # Red / Failure / Error
+            printf "${g_color_red}%s${g_color_reset}\n" "$1" 1>&2
+        ;;
+    esac
 
     return 0
 }
@@ -3232,9 +3252,9 @@ Main() {
     if ((g_check_update && ! g_update)); then
         if GetLatestGEVersion; then
             if IsInstalled "$g_latest_version"; then
-                echo "The latest version $g_latest_version is installed"
+                printf "%s${g_color_blue}%s${g_color_reset}%s${g_color_green}%s${g_color_reset}\n" "The latest version " "$g_latest_version" " is " "installed"
             else
-                echo "The latest version $g_latest_version is not installed"
+                printf "%s${g_color_blue}%s${g_color_reset}%s${g_color_yellow}%s${g_color_reset}\n" "The latest version " "$g_latest_version" " is " "not installed"
             fi
         fi
     fi
