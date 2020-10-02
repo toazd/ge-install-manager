@@ -768,7 +768,7 @@ ListAvailableGEVersions() {
                             while (( ${#line_releases} <= (30-7) )); do # minus the length of Proton-
                                 line_releases="${line_releases} " # "pad" with a space
                             done
-                            printf "${g_color_blue}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}\n" "Proton-${line_releases}" "$value_release_notes_url"
+                            printf "${g_color_blue}%s${g_color_reset}${g_color_green}%s${g_color_reset}\n" "Proton-${line_releases}" "$value_release_notes_url"
                         else
                             # Don't print the URL if there isn't enough room or if COLUMNS was unset/NULL
                             if (( ${COLUMNS:-0} < 80 )); then
@@ -777,7 +777,7 @@ ListAvailableGEVersions() {
                                 # Columns between 81 and 112
                                 # Use an alternative format that prints the version and the
                                 # release URL on seperate lines
-                                printf "${g_color_blue}%s${g_color_reset}:\n${g_color_yellow}%s${g_color_reset}\n" "Proton-${line_releases}" "$value_release_notes_url"
+                                printf "${g_color_blue}%s${g_color_reset}:\n${g_color_green}%s${g_color_reset}\n" "Proton-${line_releases}" "$value_release_notes_url"
                             fi
                         fi
                     else
@@ -860,7 +860,7 @@ ShowGEReleaseNotes() {
                     flag_url_found=0
                     line_releases=${line_releases%.tar.gz*}
                     line_releases=${line_releases##*\"}
-                    printf "${g_color_blue}%s${g_color_reset} ${g_color_cyan}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}\n" "$line_releases" "(" "$value_release_notes_url" ")"
+                    printf "${g_color_blue}%s${g_color_reset}  ${g_color_cyan}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}\n" "$line_releases" "(" "$value_release_notes_url" ")"
                     continue
                 }
             }
@@ -874,12 +874,14 @@ ShowGEReleaseNotes() {
                     line_releases=${line_releases#*'"body_text":"'}
                     # If it is only a one line message (none found yet, but it's possible)
                     [[ $line_releases == *\" ]] && { line_releases=${line_releases/%\"}; flag_title=0; flag_content=0; }
-                    printf '%s\n' "  $line_releases"
+                    printf "${g_color_green}  %s${g_color_reset}\n" "$line_releases" # First line of body content
                     flag_title=0
                     continue
                 }
 
                 (( flag_content && ! flag_title )) && {
+                    # Replace \" with "
+                    line_releases=${line_releases//\\\"/\"}
                     if [[ $line_releases == *\" ]]; then
                         line_releases=${line_releases/%\"}
                         flag_content=0
@@ -887,11 +889,11 @@ ShowGEReleaseNotes() {
                         # TODO: Reformat output based on line length and columns available
                         # NOTE: DO NOT attempt to use COLUMNS (even with shopt -s checkwinsize). It won't work.
                         #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
-                        printf '%s\n' "  $line_releases"
+                        printf "${g_color_green}  %s${g_color_reset}\n" "$line_releases" # Last line of body content
                     else
                         # TODO: Reformat output based on line length and columns available
                         #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
-                        printf '%s\n' "  $line_releases"
+                        printf "${g_color_green}  %s${g_color_reset}\n" "$line_releases" # Body content that is not on first or last line
                     fi
 
                     # If only showing a single version, break after all info for it has been printed
@@ -966,9 +968,9 @@ ListInstalledGEVersions() {
         while IFS=$'\t' read -r -- size path; do
             [[ $path = "total" ]] && saved_packages_total_disk_usage=$size
         done < <(du -csh -- "$g_install_path/"*.tar.gz)
-        printf "${g_color_yellow}%s${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n" "Saved packages total" "$saved_packages_total_disk_usage"
+        printf "${g_color_green}%s${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n" "Saved packages total" "$saved_packages_total_disk_usage"
     else
-        printf "${g_color_yellow}%s${g_color_reset}\n" "  None found"
+        printf "${g_color_green}%s${g_color_reset}\n" "  None found"
     fi
 
     return 0
@@ -2965,13 +2967,13 @@ vMsg() {
     local type=${2:-i}
 
     # Calling line number
-    printf "${g_color_yellow}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}" "(" "${BASH_LINENO[0]}" ")[" 1>&2
+    printf "${g_color_cyan}%s${g_color_reset}${g_color_green}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}" "(" "${BASH_LINENO[0]}" ")[" 1>&2
     for (( i=$(( ${#FUNCNAME[@]} - 2 )); i>1; i-- )); do
         # Function trace (excluding 'main')
-        printf "${g_color_magenta}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}" "${FUNCNAME[i]}" "," 1>&2
+        printf "${g_color_magenta}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "," 1>&2
     done
     # The last function in the function trace doesn't get a comma suffix
-    printf "${g_color_magenta}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}" "${FUNCNAME[i]}" "]: " 1>&2
+    printf "${g_color_magenta}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "]: " 1>&2
     # Message with color based on type (default: info)
     case $type in
         b|i)
