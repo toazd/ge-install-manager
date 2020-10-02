@@ -860,7 +860,7 @@ ShowGEReleaseNotes() {
                     flag_url_found=0
                     line_releases=${line_releases%.tar.gz*}
                     line_releases=${line_releases##*\"}
-                    printf "${g_color_blue}%s${g_color_reset}  ${g_color_cyan}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}\n" "$line_releases" "(" "$value_release_notes_url" ")"
+                    printf "${g_color_blue}%s${g_color_reset}  ${g_color_cyan}%s${g_color_reset}${g_color_green}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}\n" "$line_releases" "(" "$value_release_notes_url" ")"
                     continue
                 }
             }
