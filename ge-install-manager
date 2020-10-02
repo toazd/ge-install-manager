@@ -731,23 +731,23 @@ ExtractGEPackage() {
 ListAvailableGEVersions() {
 
     local -i flag_url_found=0 flag_version_found=0
-    local value_release_notes_url=''
+    local line_releases value_release_notes_url=''
     local -i line_counter=0 version_counter=0
 
     if UpdateCachedGEReleases; then
 
-        while IFS= read -r -- || [[ -n $REPLY ]]; do # NOTE: g_file_releases_json does not always have a trailing blank line
+        while IFS= read -r -- line_releases || [[ -n $line_releases ]]; do # NOTE: g_file_releases_json does not always have a trailing blank line
             ((line_counter++))
-            [[ -z $REPLY ]] && continue
+            [[ -z $line_releases ]] && continue
 
             # Match a release notes URL and store it in value_release_notes_url
             # "html_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
             # "html_url":  "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
             # "html_url":   "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST",
-            if [[ $REPLY =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]]; then
+            if [[ $line_releases =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]]; then
                 flag_url_found=1
-                REPLY=${REPLY%\"*}
-                value_release_notes_url=${REPLY##*\"}
+                line_releases=${line_releases%\"*}
+                value_release_notes_url=${line_releases##*\"}
                 continue
             else
                 [[ -z $value_release_notes_url ]] && flag_url_found=0
@@ -757,34 +757,34 @@ ListAvailableGEVersions() {
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name": "Proton-5.9-GE-5-ST.tar.gz"
-            [[ $REPLY =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
-                REPLY=${REPLY%.tar.gz*}
-                REPLY=${REPLY#*Proton-}
+            [[ $line_releases =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
+                line_releases=${line_releases%.tar.gz*}
+                line_releases=${line_releases#*Proton-}
                 if ((flag_url_found)); then
                     if [[ -n $value_release_notes_url ]]; then
                         # If there are enough columns
                         if (( ${COLUMNS:-0} > 112 )); then
                             # Add whitespace to make things easier to read
-                            while (( ${#REPLY} <= (30-7) )); do # minus the length of Proton-
-                                REPLY="${REPLY} " # "pad" with a space
+                            while (( ${#line_releases} <= (30-7) )); do # minus the length of Proton-
+                                line_releases="${line_releases} " # "pad" with a space
                             done
-                            printf "${g_color_green}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}\n" "Proton-${REPLY}" "$value_release_notes_url"
+                            printf "${g_color_blue}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}\n" "Proton-${line_releases}" "$value_release_notes_url"
                         else
                             # Don't print the URL if there isn't enough room or if COLUMNS was unset/NULL
                             if (( ${COLUMNS:-0} < 80 )); then
-                                printf "${g_color_green}%s${g_color_reset}\n" "Proton-${REPLY}"
+                                printf "${g_color_blue}%s${g_color_reset}\n" "Proton-${line_releases}"
                             else
                                 # Columns between 81 and 112
                                 # Use an alternative format that prints the version and the
                                 # release URL on seperate lines
-                                printf "${g_color_green}%s${g_color_reset}:\n${g_color_yellow}%s${g_color_reset}\n" "Proton-${REPLY}" "$value_release_notes_url"
+                                printf "${g_color_blue}%s${g_color_reset}:\n${g_color_yellow}%s${g_color_reset}\n" "Proton-${line_releases}" "$value_release_notes_url"
                             fi
                         fi
                     else
-                        printf "${g_color_green}%s${g_color_reset}\n" "Proton-${REPLY} (URL not found)"
+                        printf "${g_color_yellow}%s${g_color_reset}\n" "Proton-${line_releases} (URL not found)"
                     fi
                 else
-                    printf "${g_color_green}%s${g_color_reset}\n" "Proton-${REPLY} (URL not found)"
+                    printf "${g_color_yellow}%s${g_color_reset}\n" "Proton-${line_releases} (URL not found)"
                 fi
                 ((version_counter++))
                 continue
@@ -817,7 +817,7 @@ ListAvailableGEVersions() {
 ShowGEReleaseNotes() {
 
     local -i flag_version_found=0 flag_title=0 flag_content=0 flag_show_all_versions=1 flag_url_found=0 line_counter=0 version_counter=0
-    local version=${1-} value_release_notes_url
+    local version=${1-} line_releases='' value_release_notes_url=''
 
     # Determine whether to show all versions or a specified version
     if [[ -n $version ]]; then
@@ -830,18 +830,20 @@ ShowGEReleaseNotes() {
     fi
 
     if UpdateCachedGEReleases; then
-        while IFS= read -r -- || [[ -n $REPLY ]]; do
+        while IFS= read -r -- line_releases || [[ -n $line_releases ]]; do
             ((line_counter++))
-            [[ -z $REPLY ]] && continue
+            [[ -z $line_releases ]] && continue
+            #((g_verbose)) && vMsg "Checking: $line_releases"
 
             # Match a release URL and store it in value_release_notes_url
             # "html_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
             # "html_url":  "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
             # "html_url":   "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST",
-            [[ $REPLY =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
+            [[ $line_releases =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
                 flag_url_found=1
-                REPLY=${REPLY%\"*}
-                value_release_notes_url=${REPLY##*\"}
+                #((g_verbose)) && vMsg "URL match: $line_releases"
+                line_releases=${line_releases%\"*}
+                value_release_notes_url=${line_releases##*\"}
                 continue
             }
 
@@ -850,13 +852,15 @@ ShowGEReleaseNotes() {
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name": "Proton-5.9-GE-5-ST.tar.gz"
             ((flag_url_found)) && {
-                [[ $REPLY =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
+                #((g_verbose)) && vMsg "Checking regex: ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$"
+                [[ $line_releases =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
                     ((version_counter++))
                     flag_version_found=1
+                    #((g_verbose)) && vMsg "Version match: $line_releases"
                     flag_url_found=0
-                    REPLY=${REPLY%.tar.gz*}
-                    REPLY=${REPLY##*\"}
-                    printf '%s\n' "$REPLY ($value_release_notes_url)"
+                    line_releases=${line_releases%.tar.gz*}
+                    line_releases=${line_releases##*\"}
+                    printf "${g_color_blue}%s${g_color_reset} ${g_color_cyan}%s${g_color_reset}${g_color_yellow}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}\n" "$line_releases" "(" "$value_release_notes_url" ")"
                     continue
                 }
             }
@@ -864,30 +868,30 @@ ShowGEReleaseNotes() {
             ((flag_version_found)) && {
                 # "body_text":"7-28-2020:
                 # NOTE: does not support "body_text": "
-                [[ $REPLY =~ ^[[:blank:]]*\"body_text\":\".*$ ]] && {
+                [[ $line_releases =~ ^[[:blank:]]*\"body_text\":\".*$ ]] && {
                     flag_title=1
                     flag_content=1
-                    REPLY=${REPLY#*'"body_text":"'}
+                    line_releases=${line_releases#*'"body_text":"'}
                     # If it is only a one line message (none found yet, but it's possible)
-                    [[ $REPLY == *\" ]] && { REPLY=${REPLY/%\"}; flag_title=0; flag_content=0; }
-                    printf '%s\n' "  $REPLY"
+                    [[ $line_releases == *\" ]] && { line_releases=${line_releases/%\"}; flag_title=0; flag_content=0; }
+                    printf '%s\n' "  $line_releases"
                     flag_title=0
                     continue
                 }
 
                 (( flag_content && ! flag_title )) && {
-                    if [[ $REPLY == *\" ]]; then
-                        REPLY=${REPLY/%\"}
+                    if [[ $line_releases == *\" ]]; then
+                        line_releases=${line_releases/%\"}
                         flag_content=0
                         flag_version_found=0
                         # TODO: Reformat output based on line length and columns available
                         # NOTE: DO NOT attempt to use COLUMNS (even with shopt -s checkwinsize). It won't work.
-                        #(( ${#REPLY} > ($(tput cols)-4) )) && printf '%s\n' "${#REPLY} $(( ${#REPLY} / ($(tput cols)-4) ))"
-                        printf '%s\n' "  $REPLY"
+                        #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
+                        printf '%s\n' "  $line_releases"
                     else
                         # TODO: Reformat output based on line length and columns available
-                        #(( ${#REPLY} > ($(tput cols)-4) )) && printf '%s\n' "${#REPLY} $(( ${#REPLY} / ($(tput cols)-4) ))"
-                        printf '%s\n' "  $REPLY"
+                        #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
+                        printf '%s\n' "  $line_releases"
                     fi
 
                     # If only showing a single version, break after all info for it has been printed
@@ -2485,8 +2489,11 @@ CleanUpVersion() {
 
     ((g_verbose)) && {
         length_characters=${#version}
-        vMsg "Before: $version"
+        vMsg "Before: \"$version\""
     }
+
+    # global remove spaces/tabs
+    version=${version//[[:blank:]]}
 
     # global upper case
     version=${version^^}
@@ -2498,7 +2505,7 @@ CleanUpVersion() {
     version=${version%'.TAR.GZ'*}
 
     ((g_verbose)) && {
-        vMsg "After: $version"
+        vMsg "After: \"$version\""
         ((length_characters != ${#version})) && vMsg "Removed $(( length_characters - ${#version} )) characters"
     }
 
