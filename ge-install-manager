@@ -375,8 +375,9 @@ DownloadGEPackage() {
 
     # Check if there is enough free space to copy the package to g_install_path
     if ((expected_size_bytes > install_path_remaining_bytes)); then
-        printf '%s\n%s\n' \
-               "WARNING: Not enough free space at $g_install_path" \
+        printf "${g_color_red}%s${g_color_reset}%s\n%s\n" \
+               "WARNING" \
+               ": Not enough free space at $g_install_path" \
                "Need at least $expected_size_bytes bytes but there is only $install_path_remaining_bytes bytes free"
         return 1
     else
@@ -391,8 +392,9 @@ DownloadGEPackage() {
     # TODO: Use a different path as a fallback?
     if ((temp_base_path_remaining_bytes < expected_size_bytes)); then
         ((g_verbose)) && vMsg "Free space on $g_temp_base_path is $temp_base_path_remaining_bytes bytes"
-        printf '%s\n%s\n%s\n' \
-               "WARNING: Not enough free space at $g_temp_base_path" \
+        printf "${g_color_red}%s${g_color_reset}%s\n%s\n%s\n" \
+               "WARNING" \
+               ": Not enough free space on temp_path: $g_temp_base_path" \
                "Need at least $expected_size_bytes bytes but there is only $temp_base_path_remaining_bytes bytes free" \
                "Free up space or change temp_path in the configuration file"
         return 1
@@ -421,7 +423,7 @@ DownloadGEPackage() {
 
         # Not found
         if ((downloaded_package_size_bytes == 9)); then
-            echo "Server responded Not Found for version $version"
+            printf "${g_color_red}%s${g_color_blue}%s${g_color_reset}\n" "Server responded Not Found for version " "$version"
             CleanUp
             return 1
         fi
@@ -432,7 +434,7 @@ DownloadGEPackage() {
             CleanUp
             return 1
         fi
-
+#TODO:################################################################################################COLOR_UPDATE_CONT
         # Check if the the package size and expected size are equal
         if ((downloaded_package_size_bytes == $(QueryGEAttribute "$version" "size"))); then
             echo "Downloaded package is the expected size ($expected_size_bytes bytes)"
@@ -482,13 +484,13 @@ UpdateGEVersion() {
 
         # Latest version is installed and force mode is not active
         if IsInstalled "$g_latest_version" && ((! g_force)); then
-            printf "%s${g_color_green}%s${g_color_reset}%s${g_color_blue}%s${g_color_reset}%s\n" "Latest version is already " "installed " "(" "$g_latest_version" ")"
+            printf "%s${g_color_blue}%s${g_color_reset}%s\n" "The latest version " "$g_latest_version" " is already installed"
         # Latest version is not installed
         elif ! IsInstalled "$g_latest_version"; then
-            printf "%s${g_color_blue}%s${g_color_reset}%s${g_color_yellow}%s${g_color_reset}" "Latest version (" "$g_latest_version" ") is " "not installed"
+            printf "%s${g_color_blue}%s${g_color_reset}%s\n" "The latest version " "$g_latest_version" " is not installed"
             if InstallGEVersion "$g_latest_version"; then
                 echo "Update succeeded"
-                IsSteamRunning && printf "${g_color_yellow}%s${g_color_reset}\n" "Restart Steam to use the new version"
+                IsSteamRunning && printf "${g_color_green}%s${g_color_reset}\n" "Restart Steam to use the new version"
             else
                 echo "Update failed"
                 return 1
@@ -768,7 +770,7 @@ ListAvailableGEVersions() {
                             while (( ${#line_releases} <= (30-7) )); do # minus the length of Proton-
                                 line_releases="${line_releases} " # "pad" with a space
                             done
-                            printf "${g_color_blue}%s${g_color_reset}${g_color_green}%s${g_color_reset}\n" "Proton-${line_releases}" "$value_release_notes_url"
+                            printf "${g_color_blue}%s${g_color_reset}%s\n" "Proton-${line_releases}" "$value_release_notes_url"
                         else
                             # Don't print the URL if there isn't enough room or if COLUMNS was unset/NULL
                             if (( ${COLUMNS:-0} < 80 )); then
@@ -777,7 +779,7 @@ ListAvailableGEVersions() {
                                 # Columns between 81 and 112
                                 # Use an alternative format that prints the version and the
                                 # release URL on seperate lines
-                                printf "${g_color_blue}%s${g_color_reset}:\n${g_color_green}%s${g_color_reset}\n" "Proton-${line_releases}" "$value_release_notes_url"
+                                printf "${g_color_blue}%s${g_color_reset}:\n%s\n" "Proton-${line_releases}" "$value_release_notes_url"
                             fi
                         fi
                     else
@@ -860,7 +862,7 @@ ShowGEReleaseNotes() {
                     flag_url_found=0
                     line_releases=${line_releases%.tar.gz*}
                     line_releases=${line_releases##*\"}
-                    printf "${g_color_blue}%s${g_color_reset}  ${g_color_cyan}%s${g_color_reset}${g_color_green}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}\n" "$line_releases" "(" "$value_release_notes_url" ")"
+                    printf "${g_color_blue}%s${g_color_reset}  ${g_color_blue}%s${g_color_reset}%s${g_color_blue}%s${g_color_reset}\n" "$line_releases" "(" "$value_release_notes_url" ")"
                     continue
                 }
             }
@@ -874,7 +876,7 @@ ShowGEReleaseNotes() {
                     line_releases=${line_releases#*'"body_text":"'}
                     # If it is only a one line message (none found yet, but it's possible)
                     [[ $line_releases == *\" ]] && { line_releases=${line_releases/%\"}; flag_title=0; flag_content=0; }
-                    printf "${g_color_green}  %s${g_color_reset}\n" "$line_releases" # First line of body content
+                    printf '%s\n' "$line_releases" # First line of body content
                     flag_title=0
                     continue
                 }
@@ -889,11 +891,11 @@ ShowGEReleaseNotes() {
                         # TODO: Reformat output based on line length and columns available
                         # NOTE: DO NOT attempt to use COLUMNS (even with shopt -s checkwinsize). It won't work.
                         #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
-                        printf "${g_color_green}  %s${g_color_reset}\n" "$line_releases" # Last line of body content
+                        printf '%s\n' "$line_releases" # Last line of body content
                     else
                         # TODO: Reformat output based on line length and columns available
                         #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
-                        printf "${g_color_green}  %s${g_color_reset}\n" "$line_releases" # Body content that is not on first or last line
+                        printf '%s\n' "$line_releases" # Body content that is not on first or last line
                     fi
 
                     # If only showing a single version, break after all info for it has been printed
@@ -936,18 +938,18 @@ ListInstalledGEVersions() {
 
     ((g_verbose)) && vMsg "Install path: $g_install_path"
 
-    printf "${g_color_green}%s${g_color_reset}:\n" "Installed version(s)"
+    printf "${g_color_blue}%s${g_color_reset}:\n" "Installed version(s)"
     for node in "$g_install_path"/Proton-*; do
         [[ -d $node ]] && {
             ((i++))
             # Get the disk usage of the package in human readable format
             IFS=$'\t' read -r -- installed_version_disk_usage path < <(du -sh -- "$node")
-            printf "${g_color_blue}%s${g_color_reset} ${g_color_cyan}%s${g_color_reset}${g_color_magenta}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}\n" "  ${node##*/}" "(" "$installed_version_disk_usage" ")"
+            printf '%s\n' "  ${node##*/} ($installed_version_disk_usage)"
         }
     done
     ((i)) || printf "${g_color_yellow}%s${g_color_reset}\n" "  None found"
 
-    printf "${g_color_green}%s${g_color_reset}:\n" "Saved package(s)"
+    printf "${g_color_blue}%s${g_color_reset}:\n" "Saved package(s)"
     i=0
     for node in "$g_install_path"/Proton-*.tar.gz; do
         if [[ -f $node ]]; then
@@ -958,7 +960,7 @@ ListInstalledGEVersions() {
                 printf "${g_color_red}%s${g_color_reset}\n" "  ${node##*/} (WARNING: Size [$size_bytes] is not the expected size [$expected_size_bytes])"
             else
                 IFS=$'\t' read -r -- saved_package_disk_usage path < <(du -h -- "$node")
-                printf "${g_color_blue}%s${g_color_reset} ${g_color_cyan}%s${g_color_reset}${g_color_magenta}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}\n" "  ${node##*/}" "(" "$saved_package_disk_usage" ")"
+                printf '%s\n' "  ${node##*/} ($saved_package_disk_usage)"
             fi
         fi
     done
@@ -968,9 +970,9 @@ ListInstalledGEVersions() {
         while IFS=$'\t' read -r -- size path; do
             [[ $path = "total" ]] && saved_packages_total_disk_usage=$size
         done < <(du -csh -- "$g_install_path/"*.tar.gz)
-        printf "${g_color_green}%s${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n" "Saved packages total" "$saved_packages_total_disk_usage"
+        printf "${g_color_blue}%s${g_color_reset}: %s\n" "Saved packages total" "$saved_packages_total_disk_usage"
     else
-        printf "${g_color_green}%s${g_color_reset}\n" "  None found"
+        printf "${g_color_yellow}%s${g_color_reset}\n" "  None found"
     fi
 
     return 0
@@ -1015,8 +1017,8 @@ ReportGEDiskUsage() {
             if [[ -d $g_install_path ]]; then
                 disk_usage=$(du -sh -- "$g_install_path")
                 file_counter=$(find "$g_install_path" -type f | wc -l)
-                printf "${g_color_green}%s${g_color_reset}:\n" "Install path report"
-                printf "  ${g_color_yellow}Path${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n  ${g_color_yellow}Files${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n  ${g_color_yellow}Disk usage${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n" \
+                printf "${g_color_blue}%s${g_color_reset}:\n" "Install path report"
+                printf "  ${g_color_blue}Path${g_color_reset}: %s\n  ${g_color_blue}Files${g_color_reset}: %s\n  ${g_color_blue}Disk usage${g_color_reset}: %s\n" \
                        "$g_install_path" \
                        "$file_counter" \
                        "${disk_usage%%[[:blank:]]*}"
@@ -1035,8 +1037,8 @@ ReportGEDiskUsage() {
             if [[ -d $path ]]; then
                 disk_usage=$(du -sh -- "$path")
                 file_counter=$(find "$path" -type f | wc -l)
-                printf "${g_color_green}%s${g_color_reset}${g_color_blue}%s${g_color_reset}${g_color_green}%s${g_color_reset}:\n" "Version " "$version" " report"
-                printf "  ${g_color_yellow}Path${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n  ${g_color_yellow}Files${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n  ${g_color_yellow}Disk usage${g_color_reset}: ${g_color_magenta}%s${g_color_reset}\n" \
+                printf "${g_color_blue}%s${g_color_reset}:\n" "Version $version report"
+                printf "  ${g_color_blue}Path${g_color_reset}: %s\n  ${g_color_blue}Files${g_color_reset}: %s\n  ${g_color_blue}Disk usage${g_color_reset}: %s\n" \
                        "$path" \
                        "$file_counter" \
                        "${disk_usage%%[[:blank:]]*}"
@@ -2967,13 +2969,13 @@ vMsg() {
     local type=${2:-i}
 
     # Calling line number
-    printf "${g_color_cyan}%s${g_color_reset}${g_color_green}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}" "(" "${BASH_LINENO[0]}" ")[" 1>&2
+    printf "${g_color_cyan}%s${g_color_green}%s${g_color_cyan}%s${g_color_reset}" "(" "${BASH_LINENO[0]}" ")[" 1>&2
     for (( i=$(( ${#FUNCNAME[@]} - 2 )); i>1; i-- )); do
         # Function trace (excluding 'main')
-        printf "${g_color_magenta}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "," 1>&2
+        printf "${g_color_magenta}%s${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "," 1>&2
     done
     # The last function in the function trace doesn't get a comma suffix
-    printf "${g_color_magenta}%s${g_color_reset}${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "]: " 1>&2
+    printf "${g_color_magenta}%s${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "]: " 1>&2
     # Message with color based on type (default: info)
     case $type in
         b|i)
@@ -3261,9 +3263,9 @@ Main() {
     if ((g_check_update && ! g_update)); then
         if GetLatestGEVersion; then
             if IsInstalled "$g_latest_version"; then
-                printf "%s${g_color_blue}%s${g_color_reset}%s${g_color_green}%s${g_color_reset}\n" "The latest version " "$g_latest_version" " is " "installed"
+                printf "%s${g_color_blue}%s${g_color_reset}%s%s\n" "The latest version " "$g_latest_version" " is " "installed"
             else
-                printf "%s${g_color_blue}%s${g_color_reset}%s${g_color_yellow}%s${g_color_reset}\n" "The latest version " "$g_latest_version" " is " "not installed"
+                printf "%s${g_color_blue}%s${g_color_reset}%s%s\n" "The latest version " "$g_latest_version" " is " "not installed"
             fi
         fi
     fi
