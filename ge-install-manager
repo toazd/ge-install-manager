@@ -275,10 +275,11 @@ GetLatestGEVersion() {
             }
         done < "$g_file_latest_json"
         [[ -z $g_latest_version ]] && {
-            ((g_verbose)) && vMsg "g_latest_version is NULL (no match or not found)"
+            ((g_verbose)) && vMsg "g_latest_version is NULL (no match or not found)" r
             return 1
         }
     else
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" y
         return 1
     fi
 
@@ -296,6 +297,8 @@ GetLatestGEVersion() {
 #          1 = (Failure) RequestURL returned 1 for either file.
 UpdateCachedGEReleases() {
 
+    local flag_requesturl_failure=0
+
     ((g_verbose)) && {
         vMsg "g_latest_version_url: $g_latest_version_url"
         vMsg "g_file_latest_json: $g_file_latest_json"
@@ -305,7 +308,7 @@ UpdateCachedGEReleases() {
     # call RequestURL to update the file (if the remote version is newer).
     if CheckAccessTime "$g_file_latest_json" "$g_checked_recently_seconds"; then
         if ! RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
-            return 1
+            flag_requesturl_failure=1
         fi
     fi
 
@@ -318,11 +321,14 @@ UpdateCachedGEReleases() {
     # call RequestURL to update the file (if the remote version is newer).
     if CheckAccessTime "$g_file_releases_json" "$g_checked_recently_seconds"; then
         if ! RequestURL "$g_releases_url" "$g_file_releases_json"; then
-            return 1
+            flag_requesturl_failure=1
         fi
     fi
 
-    ((g_verbose)) && vMsg "Returning default value of 0"
+    ((flag_requesturl_failure)) && {
+        vMsg "RequestURL returned failure status" error
+        return 1
+    }
 
     return 0
 }
@@ -354,22 +360,22 @@ DownloadGEPackage() {
     version=${1-}
     CleanUpVersion
 
-    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" failure; return 1; }
 
     # Get the download URL from the saved latest/releases JSON
     package_download_url=$(QueryGEAttribute "$version" "browser_download_url") || {
-        ((g_verbose)) && vMsg "QueryGEAttribute browser_download_url returned failure"
+        ((g_verbose)) && vMsg "QueryGEAttribute browser_download_url returned failure" r
         return 1
     }
 
     # If QueryGEAttribute returned success but the URL is NULL, abort
-    [[ -z $package_download_url ]] && { ((g_verbose)) && vMsg "package_download_url is NULL"; return 1; }
+    [[ -z $package_download_url ]] && { ((g_verbose)) && vMsg "package_download_url is NULL" r; return 1; }
 
     # Get the expected package size in bytes from the saved latest/releases JSON
-    expected_size_bytes=$(QueryGEAttribute "$version" "size") || { ((g_verbose)) && vMsg "QueryGEAttribute size returned failure"; return 1; }
+    expected_size_bytes=$(QueryGEAttribute "$version" "size") || { ((g_verbose)) && vMsg "QueryGEAttribute size returned failure" r; return 1; }
 
     # If QueryGEAttribute returned success and size is not only one or more digits, abort
-    [[ $expected_size_bytes =~ ^[[:digit:]]+$ ]] || { ((g_verbose)) && vMsg "size is not all digits: $expected_size_bytes"; return 1; }
+    [[ $expected_size_bytes =~ ^[[:digit:]]+$ ]] || { ((g_verbose)) && vMsg "size is not all digits: $expected_size_bytes" r; return 1; }
 
     # Create a temporary path for the package
     temp_path=$(MkTempPath)
@@ -447,7 +453,7 @@ DownloadGEPackage() {
         # Copy the package from the temporary path to g_install path
         ((g_verbose)) && vMsg "Copying package $temp_package to $g_install_path"
         if cp -- "$temp_package" "$g_install_path"; then
-            ((g_verbose)) && vMsg "Package copied successfully"
+            ((g_verbose)) && vMsg "Package copied successfully" g
             echo "Copy package to install path succeeded"
             CleanUp
         else
@@ -502,12 +508,12 @@ UpdateGEVersion() {
                 return 1
             fi
         else
-            ((g_verbose)) && vMsg "Error determining install status and force mode"
+            ((g_verbose)) && vMsg "Error determining install status and force mode" r
             return 1
         fi
     else
         # GetLatestGEVersionInfo failed
-        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status"
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" r
         echo "Update failed"
         return 1
     fi
@@ -530,7 +536,7 @@ InstallGEVersion() {
 
     local version=${1-}
 
-    [[ -z $version ]] && ((g_verbose)) && { vMsg "Parameter error (NULL)"; return 1; }
+    [[ -z $version ]] && ((g_verbose)) && { vMsg "Parameter error (NULL)" r; return 1; }
 
     CleanUpVersion
 
@@ -635,7 +641,7 @@ RemoveGEVersion() {
     version=${1-}
     CleanUpVersion
 
-    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     # Define the path that will be removed
     remove_path=$g_install_path/Proton-${version}
@@ -680,14 +686,14 @@ ExtractGEPackage() {
     version=${1-}
     CleanUpVersion
 
-    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     # Define the package name to extract
     extract_file=$g_install_path/Proton-${version}.tar.gz
 
     # Define the path to extract the package to
     extract_path=${2:-$g_install_path}
-    [[ ! -d $extract_path && -w $extract_path ]] && { ((g_verbose)) && vMsg "Parameter error (not a valid path)"; return 1; }
+    [[ ! -d $extract_path && -w $extract_path ]] && { ((g_verbose)) && vMsg "Parameter error (not a valid path)" r; return 1; }
 
     # Display "Extracting" with trailing dots indicating the extraction progress
     printf '%s' "Extracting $extract_file to $extract_path"
@@ -791,15 +797,15 @@ ListAvailableGEVersions() {
         done < "$g_file_releases_json"
 
         ((line_counter == 0)) && {
-            ((g_verbose)) && vMsg "Zero lines found"
+            ((g_verbose)) && vMsg "Zero lines found" r
             return 1
         }
         ((version_counter == 0)) && {
-            ((g_verbose)) && vMsg "Zero version matches"
+            ((g_verbose)) && vMsg "Zero version matches" r
             return 1
         }
     else
-        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status"
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" r
         return 1
     fi
 
@@ -905,17 +911,17 @@ ShowGEReleaseNotes() {
 
         # Report if read read 0 lines
         ((line_counter == 0)) && {
-            ((g_verbose)) && vMsg "Zero lines read"
+            ((g_verbose)) && vMsg "Zero lines read" r
             return 1
         }
 
         # Report if no matches were found
         ((version_counter == 0)) && {
-            ((g_verbose)) && vMsg "Zero matches found"
+            ((g_verbose)) && vMsg "Zero matches found" r
             return 1
         }
     else
-        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status"
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" r
         return 1
     fi
 
@@ -1020,7 +1026,7 @@ ReportGEDiskUsage() {
                        "$file_counter" \
                        "${disk_usage%%[[:blank:]]*}"
             else
-                ((g_verbose)) && vMsg "Path: $g_install_path"
+                ((g_verbose)) && vMsg "Path: $g_install_path" y
                 echo "Version $version not found"
                 return 1
             fi
@@ -1040,7 +1046,7 @@ ReportGEDiskUsage() {
                        "$file_counter" \
                        "${disk_usage%%[[:blank:]]*}"
             else
-                ((g_verbose)) && vMsg "Path: $path"
+                ((g_verbose)) && vMsg "Path: $path" y
                 echo "Version $version not found"
                 return 1
             fi
@@ -1069,7 +1075,7 @@ RemoveSavedPackage() {
     version=${1-}
     CleanUpVersion
 
-    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     # Define the package path and name that will be removed
     package=$g_install_path/Proton-${version}.tar.gz
@@ -1148,7 +1154,7 @@ RemoveGEInstallPath() {
     if command -v du &>/dev/null; then
         disk_usage=$(du -sh -- "$g_install_path")
     else
-        ((g_verbose)) && vMsg "Command 'du' not found"
+        ((g_verbose)) && vMsg "Command 'du' not found" r
         disk_usage="unknown"
     fi
 
@@ -1158,10 +1164,10 @@ RemoveGEInstallPath() {
 
         # Re-create the g_install_path in case a requested subsequent script function needs it
         if mkdir -p -- "$g_install_path" &>/dev/null; then
-            ((g_verbose)) && vMsg "mkdir -p $g_install_path succeeded"
+            ((g_verbose)) && vMsg "mkdir -p $g_install_path succeeded" g
         else
             if ((g_verbose)); then
-                vMsg "mkdir -p $g_install_path failed"
+                vMsg "mkdir -p $g_install_path failed" r
             else
                 echo "Warning: failed to re-create install path at $g_install_path"
                 return 1
@@ -1439,7 +1445,6 @@ VerifyGEInstall() {
 # Output:  The value of the attribute requested or NULL (stdout)
 # Return:  0 Success
 #          1 (Failure) A value was not found for the requested attribute or an error occured.
-# TODO Seperate return values for not found and error
 QueryGEAttribute() {
 
     [[ -z $1 || -z $2 || $# -ne 2 ]] && { ((g_verbose)) && vMsg "Parameter error 1: $1 2: $2 \$#: $#"; return 1; }
@@ -1450,31 +1455,36 @@ QueryGEAttribute() {
     CleanUpVersion
 
     if ! UpdateCachedGEReleases; then
-        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status"
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" r
         [[ ! -f $g_file_latest_json ]] && {
-            ((g_verbose)) && vMsg "g_file_latest_json: $g_file_latest_json"
+            ((g_verbose)) && vMsg "g_file_latest_json: $g_file_latest_json" w
         }
         [[ ! -f $g_file_releases_json ]] && {
-            ((g_verbose)) && {
-                vMsg "g_file_releases_json: $g_file_releases_json"
-            }
+            ((g_verbose)) && vMsg "g_file_releases_json: $g_file_releases_json" w
         }
+
+        return 1
     fi
 
-    ((g_verbose)) && vMsg "Checking $g_file_latest_json"
-
-    # Search g_file_latest_json
-    value=$(QueryJSONAttribute "$g_file_latest_json" "$version" "$key") # NOTE: DO NOT return 1 on failure
-
-    # If the returned value from QueryJSONAttribute was NULL and the return status
-    # was 0 (success), try g_file_releases_json
-    if [[ -z $value ]]; then
+    [[ -f $g_file_releases_json ]] && {
         ((g_verbose)) && vMsg "Checking $g_file_releases_json"
         ((g_verbose)) && vMsg "For $key of version $version"
         if value=$(QueryJSONAttribute "$g_file_releases_json" "$version" "$key"); then
-            ((g_verbose)) && vMsg "QueryJSONAttribute returned success"
+            ((g_verbose)) && vMsg "QueryJSONAttribute returned success" g
         else
-            ((g_verbose)) && vMsg "QueryJSONAttribute returned failure. value: $value"
+            ((g_verbose)) && vMsg "QueryJSONAttribute returned failure. value: $value" r
+        fi
+    }
+
+    # If value is still empty/NULL check g_file_latest_json
+    if [[ -z $value ]] && [[ -f $g_file_latest_json ]]; then
+        ((g_verbose)) && vMsg "value is NULL" y
+        ((g_verbose)) && vMsg "Checking $g_file_latest_json"
+        # Search g_file_latest_json
+        if value=$(QueryJSONAttribute "$g_file_latest_json" "$version" "$key"); then
+            ((g_verbose)) && vMsg "QueryJSONAttribute returned success" g
+        else
+            ((g_verbose)) && vMsg "QueryJSONAttribute returned failure. value: $value" r
         fi
     fi
 
@@ -1482,7 +1492,7 @@ QueryGEAttribute() {
         printf '%s' "$value"
         return 0
     else
-        printf '' # TODO: is it really necessary to return NULL?
+        printf ''
         return 1
     fi
 
@@ -1511,12 +1521,12 @@ QueryJSONAttribute() {
 
     # If the number of parameters is not exactly three, the second parameter is not a regular file, or any of the three parameters are empty
     if [[ $# -ne 3 ]] || [[ ! -f $1 ]] || [[ -z $1 || -z $2 || -z $3 ]]; then
-        ((g_verbose)) && vMsg "Parameter error 1: $1 2: $2 3: $3 \$#: $#"
+        ((g_verbose)) && vMsg "Parameter error 1: $1 2: $2 3: $3 \$#: $#" r
         return 1
     fi
 
     # Check if the attribute requested is currently supported
-    [[ ${3,,} != @(size|browser_download_url) ]] && { ((g_verbose)) && vMsg "Parameter error (unsupported attribute requested)"; return 1; }
+    [[ ${3,,} != @(size|browser_download_url) ]] && { ((g_verbose)) && vMsg "Parameter error (unsupported attribute requested)" r; return 1; }
 
     local version file_json=${1-} value_browser_url='' key
     local -i counter_lines=0 line_version_found=0 line_size_found=0 line_browserurl_found=0 flag_version_found=0 flag_size_found=0 value_size_bytes=0
@@ -1525,7 +1535,7 @@ QueryJSONAttribute() {
     version=$2
     CleanUpVersion
 
-    [[ -z $version ]] && { ((g_verbose)) && vMsg "version is NULL"; return 1; }
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "version is NULL" r; return 1; }
 
     key=${3,,}
 
@@ -1580,17 +1590,17 @@ QueryJSONAttribute() {
     # Debug messages
     ((g_verbose)) && {
         if ((flag_version_found)); then
-            vMsg "Version match found at line $line_version_found"
+            vMsg "Version match found at line $line_version_found" g
         else
-            vMsg "Version match not found"
+            vMsg "Version match not found" w
         fi
         if [[ -z $value_size_bytes ]]; then
-            vMsg "value_size_bytes is NULL"
+            vMsg "value_size_bytes is NULL" w
         else
             vMsg "value_size_bytes: $value_size_bytes"
         fi
         if [[ -z $value_browser_url ]]; then
-            vMsg "value_browser_url is NULL"
+            vMsg "value_browser_url is NULL" w
         else
             vMsg "value_browser_url: $value_browser_url"
         fi
@@ -1607,8 +1617,7 @@ QueryJSONAttribute() {
                 printf '%s' "$value_browser_url"
             ;;
             (*)
-                # NOTE: NULL response indicates error OR not found. This is NOT ideal
-                printf '' # TODO: is it really necessary to return NULL?
+                printf ''
                 return 1
             ;;
         esac
@@ -1645,23 +1654,23 @@ CheckAccessTime() {
         ((g_verbose)) && {
             vMsg "Access denied, last access is less than the required interval"
             vMsg "$(( current_seconds - last_check_seconds )) out of $interval seconds have elapsed since the last access"
-            vMsg "The next access will be allowed in $(( interval - (current_seconds - last_check_seconds) )) seconds"
+            vMsg "The next access will be allowed in $(( interval - (current_seconds - last_check_seconds) )) seconds" y
         }
         return 1
     else
         ((g_verbose)) && {
-            vMsg "Interval has elapsed, allowing access to $file"
-            vMsg "Access was restored $(( (current_seconds - last_check_seconds) - interval )) seconds ago"
+            vMsg "Interval has elapsed, allowing access to $file" g
+            vMsg "Access was restored $(( (current_seconds - last_check_seconds) - interval )) seconds ago" g
         }
         return 0
     fi
 
     ((g_verbose)) && {
-        vMsg "Warning, returning default value of 0"
-        vMsg "file: $file"
-        vMsg "current_seconds: $current_seconds"
-        vMsg "last_check_seconds: $last_check_seconds"
-        vMsg "interval: $interval"
+        vMsg "Returning default value of 0" y
+        vMsg "file: $file" y
+        vMsg "current_seconds: $current_seconds" y
+        vMsg "last_check_seconds: $last_check_seconds" y
+        vMsg "interval: $interval" y
     }
 
     return 0
@@ -1678,22 +1687,22 @@ ReformatJSONUsingSed() {
 
     local file_json=${1-}
 
-    [[ -z $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
-    [[ -f $file_json ]] || { ((g_verbose)) && vMsg "Parameter error (not a file)"; return 1; }
+    [[ -z $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
+    [[ -f $file_json ]] || { ((g_verbose)) && vMsg "Parameter error (not a file)" r; return 1; }
 
     ((g_verbose)) && vMsg "file_json: $file_json"
     ((g_verbose)) && vMsg "g_file_sed_unminify_script: $g_file_sed_unminify_script"
 
     if [[ -w $file_json ]]; then
         if sed -i --file="$g_file_sed_unminify_script" "$file_json"; then
-            ((g_verbose)) && vMsg "'sed' returned success"
+            ((g_verbose)) && vMsg "'sed' returned success" g
             return 0
         else
-            ((g_verbose)) && vMsg "'sed' returned failure"
+            ((g_verbose)) && vMsg "'sed' returned failure" r
             return 1
         fi
     else
-        ((g_verbose)) && vMsg "No write access to: $file_json"
+        ((g_verbose)) && vMsg "No write access to: $file_json" r
         return 1
     fi
 
@@ -1713,8 +1722,8 @@ IsJSONminified() {
     local file_json=${1-}
     local -i counter_lines=0
 
-    [[ -z $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
-    [[ ! -f $file_json || ! -r $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (not a file and/or not readable)"; return 1; }
+    [[ -z $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
+    [[ ! -f $file_json || ! -r $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (not a file and/or not readable)" r; return 1; }
 
     # Get the number of newlines in the file
     counter_lines=$(wc -l -- < "$file_json")
@@ -1743,7 +1752,7 @@ IsJSONminified() {
 CreateSedUnminifyJSONscript() {
 
     if [[ ! -f $g_file_sed_unminify_script ]] || (($(stat -c '%s' -- "$g_file_sed_unminify_script") != g_size_bytes_sed_unminify_script)); then
-        ((g_verbose)) && vMsg "sed script at $g_file_sed_unminify_script does not exist or is not the expected size ($g_size_bytes_sed_unminify_script)"
+        ((g_verbose)) && vMsg "sed script at $g_file_sed_unminify_script does not exist or is not the expected size ($g_size_bytes_sed_unminify_script)" y
         cat <<"END_OF_SED_SCRIPT" > "$g_file_sed_unminify_script"
 #### begin minimum required for ge-install-manager
 # replace: ","
@@ -1796,7 +1805,7 @@ s|"}|"|g
 s|\["|"|g
 END_OF_SED_SCRIPT
     else
-        ((g_verbose)) && vMsg "sed script already exists at g_file_sed_unminify_script and is the expected size ($g_size_bytes_sed_unminify_script bytes)"
+        ((g_verbose)) && vMsg "sed script already exists at g_file_sed_unminify_script and is the expected size ($g_size_bytes_sed_unminify_script bytes)" g
     fi
 
     return 0
@@ -1814,18 +1823,18 @@ IsInstalled() {
 
     local version
 
-    [[ -z $1 ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
+    [[ -z $1 ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     version=${1-}
-    CleanUpVersion
+    #CleanUpVersion
 
     ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
 
     if [[ -d $g_install_path/Proton-${version} ]]; then
-        ((g_verbose)) && vMsg "Version $version found"
+        ((g_verbose)) && vMsg "Version $version found" g
         return 0
     else
-        ((g_verbose)) && vMsg "Version $version not found"
+        ((g_verbose)) && vMsg "Version $version not found" w
         return 1
     fi
 
@@ -1869,8 +1878,8 @@ RequestURL() {
 
     file_temp=$(MkTempFile)
 
-    [[ -z $requested_url || -z $file_local || $# -ne 2 ]] && ((g_verbose)) && vMsg "Parameter error (NULL or not exactly two)"
-    [[ ! -f $file_temp || ! -w $file_temp ]] && ((g_verbose)) && vMsg "Parameter error (temp file not a file or not writeable)"
+    [[ -z $requested_url || -z $file_local || $# -ne 2 ]] && ((g_verbose)) && vMsg "Parameter error (NULL or not exactly two)" r
+    [[ ! -f $file_temp || ! -w $file_temp ]] && ((g_verbose)) && vMsg "Parameter error (temp file not a file or not writeable)" r
 
     ((g_verbose)) && vMsg "Checking remote file against $file_local"
 
@@ -1883,12 +1892,12 @@ RequestURL() {
 
         # Force an update to the access time of file_local
         if touch -ac -- "$file_local"; then
-            ((g_verbose)) && vMsg "Updated access time for $file_local"
+            ((g_verbose)) && vMsg "Updated access time for $file_local" g
         else
-            ((g_verbose)) && vMsg "Failed to update access time for $file_local"
+            ((g_verbose)) && vMsg "Failed to update access time for $file_local" r
         fi
 
-        ((g_verbose)) && vMsg "curl returned success"
+        ((g_verbose)) && vMsg "curl returned success" g
         if (($(stat -c '%s' -- "$file_temp"))); then
             if [[ -f $file_temp && -r $file_temp ]]; then
 
@@ -1896,14 +1905,14 @@ RequestURL() {
                 # Not found
                 downloaded_package_size_bytes=$(stat -c '%s' -- "$file_temp")
                 if ((downloaded_package_size_bytes == 9)); then
-                    ((g_verbose)) && vMsg "Server responded Not Found"
+                    ((g_verbose)) && vMsg "Server responded Not Found" r
                     CleanUp
                     return 1
                 fi
 
                 # Github API request rate limit exceeded
                 if ((downloaded_package_size_bytes == 248)); then
-                    ((g_verbose)) && vMsg "Github API request rate limit exceeded. Unable to retrieve remote file."
+                    ((g_verbose)) && vMsg "Github API request rate limit exceeded. Unable to retrieve remote file." r
                     CleanUp
                     return 1
                 fi
@@ -1912,23 +1921,23 @@ RequestURL() {
                 IsJSONminified "$file_temp"
 
                 if ReformatJSONUsingSed "$file_temp"; then
-                    ((g_verbose)) && vMsg "ReformatJSONUsingSed returned success"
+                    ((g_verbose)) && vMsg "ReformatJSONUsingSed returned success" g
 
                     # If the local file already exists, create a backup first
                     [[ -f $file_local ]] && CreateBackup "$file_local"
                     if cp -f -- "$file_temp" "$file_local"; then
-                        ((g_verbose)) && vMsg "Copied $file_temp to $file_local"
+                        ((g_verbose)) && vMsg "Copied $file_temp to $file_local" g
                         return 0
                     else
-                        ((g_verbose)) && vMsg "Failed to copy $file_temp to $file_local"
+                        ((g_verbose)) && vMsg "Failed to copy $file_temp to $file_local" r
                         return 1
                     fi
                 else
-                    ((g_verbose)) && vMsg "ReformatJSONUsingSed returned failure"
+                    ((g_verbose)) && vMsg "ReformatJSONUsingSed returned failure" r
                     return 1
                 fi
             else
-                ((g_verbose)) && vMsg "file_temp not found or not readable: $file_temp"
+                ((g_verbose)) && vMsg "file_temp not found or not readable: $file_temp" r
                 return 1
             fi
         else
@@ -1937,7 +1946,7 @@ RequestURL() {
             return 0
         fi
     else
-        ((g_verbose)) && vMsg "curl returned failure"
+        ((g_verbose)) && vMsg "curl returned failure" r
         return 1
     fi
 
@@ -1974,7 +1983,7 @@ CreateBackup() {
         if [[ -d $backup_target ]]; then
             ((g_verbose)) && vMsg "backup_target is a path"
         else
-            ((g_verbose)) && vMsg "Parameter error (not a file or a path)"
+            ((g_verbose)) && vMsg "Parameter error (not a file or a path)" r
             return 1
         fi
     fi
@@ -2004,9 +2013,9 @@ CreateBackup() {
             [[ $backup_index =~ ^[[:digit:]]+$ ]] && {
                 ((backups_counter++))
                 files_existing_backups+=("$file")
-                ((g_verbose)) && vMsg "Valid backup file found at $file"
+                ((g_verbose)) && vMsg "Valid backup file found at $file" g
                 if ((backup_index == 1)); then
-                    ((g_verbose)) && vMsg "Index 1 found, existing backups will be renamed"
+                    ((g_verbose)) && vMsg "Index 1 found, existing backups will be renamed" y
                     flag_rename_backups=1
                 fi
             }
@@ -2024,7 +2033,7 @@ CreateBackup() {
                     ((g_verbose)) && vMsg "Removed highest index greater than $max_backups: ${files_existing_backups[backup_index-1]}"
                     backup_index=$((backup_index - 1))
                 else
-                    vMsg "Failed to remove backup file ${files_existing_backups[backup_index-1]}"
+                    vMsg "Failed to remove backup file ${files_existing_backups[backup_index-1]}" r
                     return 1
                 fi
             done
@@ -2035,19 +2044,19 @@ CreateBackup() {
             if mv -- "${files_existing_backups[backup_index-1]}" "${files_existing_backups[backup_index-1]/${backup_index}/$((backup_index+1))}"; then
                 ((g_verbose)) && vMsg "${files_existing_backups[backup_index-1]} renamed to ${files_existing_backups[backup_index-1]/${backup_index}/$((backup_index+1))}"
             else
-                vMsg "Failed to rename backup file: ${files_existing_backups[backup_index-1]}"
+                vMsg "Failed to rename backup file: ${files_existing_backups[backup_index-1]}" r
                 return 1
             fi
         done
     else
-        ((g_verbose)) && vMsg "Index 1 not found, no need to rename existing backups"
+        ((g_verbose)) && vMsg "Index 1 not found, no need to rename existing backups" y
     fi
 
     if tar -C "$backup_target_path" -cf "$backup_target_path/${backup_target_basename}_1.tar.gz" -z "$backup_target_basename"; then
-        ((g_verbose)) && vMsg "Created new backup at: $backup_target_path/${backup_target_basename}_1.tar.gz"
+        ((g_verbose)) && vMsg "Created new backup at: $backup_target_path/${backup_target_basename}_1.tar.gz" g
         return 0
     else
-        ((g_verbose)) && vMsg "Backup failed: $backup_target_path/${backup_target_basename}_1.tar.gz"
+        ((g_verbose)) && vMsg "Backup failed: $backup_target_path/${backup_target_basename}_1.tar.gz" r
         return 1
     fi
 
@@ -2072,9 +2081,9 @@ SpaceRemaining() {
     local file_system=${1-} binary_prefix=${2-}
     local -i power_of=0
 
-    [[ -z $file_system || -z $binary_prefix ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
+    [[ -z $file_system || -z $binary_prefix ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
-    [[ ! -d $file_system ]] && { ((g_verbose)) && vMsg "Parameter error (not a directory)"; return 1; }
+    [[ ! -d $file_system ]] && { ((g_verbose)) && vMsg "Parameter error (not a directory)" r; return 1; }
 
     case ${binary_prefix,,} in
         (b|byte|bytes) power_of=0 ;;
@@ -2107,7 +2116,7 @@ CreateDefaultConfigFile() {
     path=$(dirname "$g_file_script_config")
     [[ ! -d $path ]] && {
         if ! mkdir -p -- "$path"; then
-            vMsg "Failed to create path: $path"
+            vMsg "Failed to create path: $path" r
             return 1
         fi
     }
@@ -2202,7 +2211,7 @@ ParseConfigFile() {
     [[ -z $existing_config_file_lines || ! -f $g_file_script_config ]] && {
         ((g_verbose)) && vMsg "Generating a default config file at: $g_file_script_config"
         if CreateDefaultConfigFile; then
-            ((g_verbose)) && vMsg "CreateDefaultConfigFile returned success"
+            ((g_verbose)) && vMsg "CreateDefaultConfigFile returned success" g
             echo "Default configuration created at $g_file_script_config"
             if [[ -n ${EDITOR-} ]]; then
                 ((g_verbose)) && vMsg "EDITOR is set to: $EDITOR"
@@ -2218,14 +2227,14 @@ ParseConfigFile() {
                 echo "EDITOR not set, default configuration created at $g_file_script_config"
             fi
         else
-            vMsg "Failed to create default config file at: $g_file_script_config"
+            vMsg "Failed to create default config file at: $g_file_script_config" r
             return 1
         fi
     }
 
     # Sanity checks
     [[ -z $g_file_script_config || ! -f $g_file_script_config || ! -w $g_file_script_config ]] && {
-        ((g_verbose)) && vMsg "g_file_script_config error (NULL, not a file, or not writeable)"
+        ((g_verbose)) && vMsg "g_file_script_config error (NULL, not a file, or not writeable)" r
         return 1
     }
 
@@ -2239,10 +2248,10 @@ ParseConfigFile() {
         [[ $REPLY =~ ^#.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (#)"; continue; }
 
         # Ignore lines that contain one or more semi-colon ";". Anti-exploit measure.
-        [[ $REPLY =~ ^.*\;+.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (;)"; continue; }
+        [[ $REPLY =~ ^.*\;+.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (;)" y; continue; }
 
         # Ignore lines containing potential escape sequences. Anti-exploit measure.
-        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (potential escape code)"; continue; }
+        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (potential escape code)" y; continue; }
 
         # Trim away inline comments
         if [[ $REPLY =~ ^.*#.*$ ]]; then
@@ -2258,9 +2267,9 @@ ParseConfigFile() {
 
         # Ignore lines that don't contain exactly one = and also don't have characters on either side of the = sign.
         # If there are characters on either side of the = sign, they may not be spaces or tabs
-        [[ $REPLY =~ ^[^=[:blank:]]+=[^=[:blank:]]+$ ]] || { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (improperly formatted)"; continue; }
+        [[ $REPLY =~ ^[^=[:blank:]]+=[^=[:blank:]]+$ ]] || { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (improperly formatted)" y; continue; }
 
-        ((g_verbose)) && vMsg "Potentially valid config line ($counter_config_line): $REPLY"
+        ((g_verbose)) && vMsg "Potentially valid config line ($counter_config_line): $REPLY" g
 
         # Get the key (the characters to the left of the equals "=" sign)
         config_key=${REPLY%%=*}
@@ -2274,7 +2283,7 @@ ParseConfigFile() {
         # Skip expansion if the value doesn't contain one or more $
         if [[ $config_value =~ ^.+[$]+.+$ ]]; then
             if [[ $config_value =~ ^.+:[+-=?]{1}.+$ ]]; then
-                ((g_verbose)) && vMsg "Using 'eval' to expand config_value: $config_value"
+                ((g_verbose)) && vMsg "Using 'eval' to expand config_value: $config_value" y
                 config_value=$(eval printf '%s' "$config_value")
                 ((g_verbose)) && vMsg "config_value expanded to: $config_value"
             else
@@ -2284,20 +2293,20 @@ ParseConfigFile() {
 
                     # If there is still a $ in config_value it contained a variable envsubst couldn't expand
                     [[ $config_value =~ ^.*\$+.*$ ]] && {
-                        ((g_verbose)) && vMsg "config_value still contains one or more $ after envsubst"
+                        ((g_verbose)) && vMsg "config_value still contains one or more $ after envsubst" y
                         config_value=$(eval printf '%s' "$config_value")
                         ((g_verbose)) && vMsg "config_value expanded again with 'eval' to: $config_value"
                     }
                     ((g_verbose)) && vMsg "config_value expanded to: $config_value"
                 else
-                    ((g_verbose)) && vMsg "Command 'envsubst' not available, using 'eval' to expand config_value: $config_value"
+                    ((g_verbose)) && vMsg "Command 'envsubst' not available, using 'eval' to expand config_value: $config_value" y
                     config_value=$(eval printf '%s' "$config_value")
                     ((g_verbose)) && vMsg "config_value expanded to: $config_value"
                 fi
             fi
         else
             # No $ were found, no expansion necessary
-            ((g_verbose)) && vMsg "Skipping expansion of config_value: $config_value"
+            ((g_verbose)) && vMsg "Skipping expansion of config_value (no $ found): $config_value"
         fi
 
         # Validate values for recognized keys and set global variables accordingly
@@ -2316,22 +2325,22 @@ ParseConfigFile() {
                     }
                 }
                 if [[ -d $config_value && -w $config_value ]]; then
-                    ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it"
+                    ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it" g
                     g_install_path=$config_value
                     flag_update_install_path=1
                 else
-                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it"
+                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
                     if mkdir -p -- "$config_value" &>/dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "Script has write permission to $config_value"
+                            ((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_install_path=$config_value
                         else
-                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
+                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
                             flag_failed=1
                             flag_update_install_path=0
                         fi
                     else
-                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
+                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
                         flag_failed=1
                         flag_update_install_path=0
                     fi
@@ -2342,24 +2351,24 @@ ParseConfigFile() {
                     ((g_verbose)) && {
                         # If cache_path would = g_install_path
                         if [[ $config_value -ef $g_install_path ]]; then
-                            vMsg "cache_path is the same as g_install_path"
+                            vMsg "cache_path is the same as g_install_path" y
                         else
-                            vMsg "$config_value is a directory and the script has write permission to it"
+                            vMsg "$config_value is a directory and the script has write permission to it" g
                         fi
                     }
                     g_script_cache_path=$config_value
                 else
-                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it"
+                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
                     if mkdir -p -- "$config_value" &>/dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "Script has write permission to $config_value"
+                            ((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_script_cache_path=$config_value
                         else
-                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
+                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
                             flag_failed=1
                         fi
                     else
-                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
+                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
                         flag_failed=1
                     fi
                 fi
@@ -2367,24 +2376,24 @@ ParseConfigFile() {
             (tmp_path) # g_temp_base_path
                 # If tmp_path would = g_install_path (would cause issues with VerifyGEInstall)
                 [[ $config_value -ef $g_install_path ]] && {
-                    vMsg "Setting tmp_path and g_install_path to the same path is not supported"
+                    vMsg "Setting tmp_path and g_install_path to the same path is not supported" r
                     flag_failed=1
                 }
                 if [[ -d $config_value && -w $config_value ]]; then
-                    ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it"
+                    ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it" g
                     g_temp_base_path=$config_value
                 else
-                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it"
+                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
                     if mkdir -p -- "$config_value" &>/dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "Script has write permission to $config_value"
+                            ((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_temp_base_path=$config_value
                         else
-                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
+                            vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
                             flag_failed=1
                         fi
                     else
-                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
+                        vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
                         flag_failed=1
                     fi
                 fi
@@ -2392,34 +2401,34 @@ ParseConfigFile() {
             (rm_command)
                 if (command -v -- "$config_value" &>/dev/null); then
                     g_command_rm=$config_value
-                    ((g_verbose)) && vMsg "g_command_rm set to: $g_command_rm"
+                    ((g_verbose)) && vMsg "g_command_rm set to: $g_command_rm" g
                 else
-                    ((g_verbose)) && vMsg "command -v $config_value failed"
-                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" \
-                    vMsg "If you don't want the script to use 'rm' then fix it"
+                    ((g_verbose)) && vMsg "command -v $config_value failed" r
+                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r \
+                    vMsg "If you don't want the script to use 'rm' then fix it" y
                     g_command_rm='rm'
                 fi
             ;;
             (latest_version_url)
                 if curl -sLI -- "$config_value" &>/dev/null; then
                     g_latest_version_url=$config_value
-                    ((g_verbose)) && vMsg "g_latest_version_url set to: $g_latest_version_url"
+                    ((g_verbose)) && vMsg "g_latest_version_url set to: $g_latest_version_url" g
                 else
-                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
+                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
                     flag_failed=1
                 fi
             ;;
             (releases_url)
                 if curl -sLI -- "$config_value" &>/dev/null; then
                     g_releases_url=$config_value
-                    ((g_verbose)) && vMsg "g_releases_url set to: $g_releases_url"
+                    ((g_verbose)) && vMsg "g_releases_url set to: $g_releases_url" g
                 else
-                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value"
+                    vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
                     flag_failed=1
                 fi
             ;;
             (*)
-                ((g_verbose)) && vMsg "No key match for valid config ($counter_config_line): $REPLY"
+                ((g_verbose)) && vMsg "No key match for valid config ($counter_config_line): $REPLY" y
             ;;
         esac
     done < "$g_file_script_config"
@@ -2437,42 +2446,42 @@ ParseConfigFile() {
 
     # If any crucial config options are empty (missing from config, except g_script_config_path)
     [[ -z ${g_install_path-} ]] && {
-        vMsg "Missing g_install_path ($g_file_script_config)"
+        vMsg "Missing g_install_path ($g_file_script_config)" r
         return 1
     }
 
     [[ -z ${g_temp_base_path-} ]] && {
-        vMsg "Missing g_temp_base_path ($g_file_script_config)"
+        vMsg "Missing g_temp_base_path ($g_file_script_config)" r
         return 1
     }
 
     # A warning in case the default global variable is manually changed
     [[ -z ${g_script_config_path-} ]] && {
-        vMsg "Missing g_script_config_path"
+        vMsg "Missing g_script_config_path" r
         return 1
     }
 
     [[ -z ${g_script_cache_path-} ]] && {
-        vMsg "Missing g_script_cache_path ($g_file_script_config)"
+        vMsg "Missing g_script_cache_path ($g_file_script_config)" r
         return 1
     }
 
     # Debug report
-    ((g_verbose)) && vMsg "Install path set to: $g_install_path"
-    ((g_verbose)) && vMsg "Temp path set to: $g_temp_base_path"
-    ((g_verbose)) && vMsg "Config path set to: $g_script_config_path" # NOTE: config_path is currently not configurable
+    ((g_verbose)) && vMsg "Install path set to: $g_install_path" g
+    ((g_verbose)) && vMsg "Temp path set to: $g_temp_base_path" g
+    ((g_verbose)) && vMsg "Config path set to: $g_script_config_path" g # NOTE: config_path is currently not configurable
     # update global variables that depend on this one
     #g_file_script_config=$g_script_config_path/$SCRIPT_FULL_NAME.conf
     #((g_verbose)) && vMsg "g_file_script_config set to: $g_file_script_config"
     #((g_verbose)) && vMsg "g_file_sed_unminify_script set to: $g_file_sed_unminify_script"
 
-    ((g_verbose)) && vMsg "Cache path set to: $g_script_cache_path"
+    ((g_verbose)) && vMsg "Cache path set to: $g_script_cache_path" g
     # update global variables that depend on this one
     g_file_latest_json="$g_script_cache_path"/latest.json
-    ((g_verbose)) && vMsg "g_file_latest_json set to: $g_file_latest_json"
+    ((g_verbose)) && vMsg "g_file_latest_json set to: $g_file_latest_json" g
 
     g_file_releases_json="$g_script_cache_path"/releases.json
-    ((g_verbose)) && vMsg "g_file_releases_json set to: $g_file_releases_json"
+    ((g_verbose)) && vMsg "g_file_releases_json set to: $g_file_releases_json" g
 
     return $(( flag_failed ? 1 : 0 ))
 }
@@ -2486,7 +2495,7 @@ CleanUpVersion() {
 
     local -i length_characters=0
 
-    [[ -z $version ]] && { ((g_verbose)) && vMsg "version is NULL"; printf ''; return 1; }
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "version is NULL" r; printf ''; return 1; }
 
     ((g_verbose)) && {
         length_characters=${#version}
@@ -2524,13 +2533,13 @@ MkTempFile() {
     local create_temp_file
 
     [[ -d $g_temp_base_path && -w $g_temp_base_path ]] || {
-        ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: $g_temp_base_path"
+        ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: $g_temp_base_path" r
         return 1
     }
 
     create_temp_file=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
 
-    ((g_verbose)) && vMsg "Created temp file at: $create_temp_file"
+    ((g_verbose)) && vMsg "Created temp file at: $create_temp_file" g
 
     # Create the empty temp file
     : > "$create_temp_file"
@@ -2552,13 +2561,13 @@ MkTempPath() {
     local create_temp_path
 
     [[ -d $g_temp_base_path && -w $g_temp_base_path ]] || {
-        ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: $g_temp_base_path"
+        ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: $g_temp_base_path" r
         return 1
     }
 
     create_temp_path=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
 
-    ((g_verbose)) && vMsg "Created temp path at: $create_temp_path"
+    ((g_verbose)) && vMsg "Created temp path at: $create_temp_path" g
 
     # Create the path
     mkdir -p "$create_temp_path" &>/dev/null
@@ -2645,34 +2654,34 @@ DetectSteamInstallPath () {
     # XDG_DATA_HOME
     if [[ ${XDG_DATA_HOME-unset} != 'unset' ]]; then
         if [[ ${XDG_DATA_HOME-} != $HOME/.local/share ]]; then
-            ((g_verbose)) && vMsg "XDG_DATA_HOME is not set to the default: $XDG_DATA_HOME"
+            ((g_verbose)) && vMsg "XDG_DATA_HOME is not set to the default: $XDG_DATA_HOME" y
         else
             ((g_verbose)) && vMsg "XDG_DATA_HOME is set to: $XDG_DATA_HOME"
         fi
     else
-        ((g_verbose)) && vMsg "XDG_DATA_HOME is unset"
+        ((g_verbose)) && vMsg "XDG_DATA_HOME is unset" y
     fi
 
     # XDG_CONFIG_HOME
     if [[ ${XDG_CONFIG_HOME-unset} != 'unset' ]]; then
         if [[ ${XDG_CONFIG_HOME-} != $HOME/.config ]]; then
-            ((g_verbose)) && vMsg "XDG_CONFIG_HOME is not set to the default: $XDG_CONFIG_HOME"
+            ((g_verbose)) && vMsg "XDG_CONFIG_HOME is not set to the default: $XDG_CONFIG_HOME" y
         else
             ((g_verbose)) && vMsg "XDG_CONFIG_HOME is set to: $XDG_CONFIG_HOME"
         fi
     else
-        ((g_verbose)) && vMsg "XDG_CONFIG_HOME is unset"
+        ((g_verbose)) && vMsg "XDG_CONFIG_HOME is unset" y
     fi
 
     # XDG_CACHE_HOME
     if [[ ${XDG_CACHE_HOME-unset} != 'unset' ]]; then
         if [[ ${XDG_CACHE_HOME-} != $HOME/.cache ]]; then
-            ((g_verbose)) && vMsg "XDG_CACHE_HOME is not set to the default: $XDG_CACHE_HOME"
+            ((g_verbose)) && vMsg "XDG_CACHE_HOME is not set to the default: $XDG_CACHE_HOME" y
         else
             ((g_verbose)) && vMsg "XDG_CACHE_HOME is set to: $XDG_CACHE_HOME"
         fi
     else
-        ((g_verbose)) && vMsg "XDG_CACHE_HOME is unset"
+        ((g_verbose)) && vMsg "XDG_CACHE_HOME is unset" y
     fi
 
     # Search each known possible Steam install path path for steam.sh
@@ -2683,10 +2692,10 @@ DetectSteamInstallPath () {
     for check_path in "${search_paths[@]}"; do
         ((g_verbose)) && vMsg "Checking $check_path"
         if [[ -f $check_path/steam.sh ]]; then
-            ((g_verbose)) && vMsg "steam.sh found in $check_path"
+            ((g_verbose)) && vMsg "steam.sh found in $check_path" g
             valid_paths+=("$check_path")
         else
-            ((g_verbose)) && vMsg "steam.sh not found in $check_path"
+            ((g_verbose)) && vMsg "steam.sh not found in $check_path" y
         fi
     done
 
@@ -2774,117 +2783,117 @@ SetupEnvironment() {
     for check_alias in "${check_alias_commands[@]}"; do
         result=$(alias "$check_alias" 2>&1)
         [[ $result == *"${check_alias}="* && $result != *'not found'* ]] && {
-            ((g_verbose)) && vMsg "Found alias for $check_alias: $result"
+            ((g_verbose)) && vMsg "Found alias for $check_alias: $result" r
             echo "WARNING: Alias detected for $check_alias (it will be unset to avoid undefined behavior)"
             if ! unalias "$check_alias"; then
-                ((g_verbose)) && vMsg "unalias $check_alias failed"
+                ((g_verbose)) && vMsg "unalias $check_alias failed" r
                 flag_failed=1
             fi
             count_failed=$(( count_failed + 1 ))
             continue
         }
-        ((g_verbose)) && vMsg "No alias found for $check_alias"
+        ((g_verbose)) && vMsg "No alias found for $check_alias" g
         count_success=$(( count_success + 1 ))
     done
     ((g_verbose)) && vMsg "Checked for $(( count_success + count_failed )) aliases"
 
     # g_install_path
     if [[ -d $g_install_path ]]; then
-        ((g_verbose)) && vMsg "Found existing install path at $g_install_path"
+        ((g_verbose)) && vMsg "Found existing install path at $g_install_path" g
         if [[ -w $g_install_path ]]; then
-            ((g_verbose)) && vMsg "Script has write access"
+            ((g_verbose)) && vMsg "Script has write access" g
         else
-            vMsg "No write access to: $g_install_path"
+            vMsg "No write access to: $g_install_path" r
             flag_failed=1
         fi
     elif [[ ! -d $g_install_path ]]; then
-        ((g_verbose)) && vMsg "g_install_path not found. Creating at $g_install_path"
+        ((g_verbose)) && vMsg "g_install_path not found. Creating at $g_install_path" y
         if mkdir -p -- "$g_install_path" &>/dev/null; then
-            ((g_verbose)) && vMsg "Create install path succeeded"
+            ((g_verbose)) && vMsg "Create install path succeeded" g
         else
-            vMsg "Failed to create: $g_install_path"
+            vMsg "Failed to create: $g_install_path" r
             flag_failed=1
         fi
     fi
 
     # g_script_config_path
     if [[ -d $g_script_config_path ]]; then
-        ((g_verbose)) && vMsg "Found existing config path at $g_script_config_path"
+        ((g_verbose)) && vMsg "Found existing config path at $g_script_config_path" g
         if [[ -w $g_script_config_path ]]; then
-            ((g_verbose)) && vMsg "Script has write access"
+            ((g_verbose)) && vMsg "Script has write access" g
         else
-            vMsg "No write access to: $g_script_config_path"
+            vMsg "No write access to: $g_script_config_path" r
             flag_failed=1
         fi
     elif [[ ! -d $g_script_config_path ]]; then
-        ((g_verbose)) && vMsg "Config path not found, creating at $g_script_config_path"
+        ((g_verbose)) && vMsg "Config path not found, creating at $g_script_config_path" y
         if mkdir -p -- "$g_script_config_path" &>/dev/null; then
-            ((g_verbose)) && vMsg "Create config path succeeded"
+            ((g_verbose)) && vMsg "Create config path succeeded" g
         else
-            vMsg "Failed to create: $g_script_config_path"
+            vMsg "Failed to create: $g_script_config_path" r
             flag_failed=1
         fi
     fi
 
     # g_script_cache_path
     if [[ -d $g_script_cache_path ]]; then
-        ((g_verbose)) && vMsg "Found existing cache path at $g_script_cache_path"
+        ((g_verbose)) && vMsg "Found existing cache path at $g_script_cache_path" g
         if [[ -w $g_script_cache_path ]]; then
-            ((g_verbose)) && vMsg "Script has write access"
+            ((g_verbose)) && vMsg "Script has write access" g
         else
-            vMsg "No write access to: $g_script_cache_path"
+            vMsg "No write access to: $g_script_cache_path" r
             flag_failed=1
         fi
     elif [[ ! -d $g_script_cache_path ]]; then
-        ((g_verbose)) && vMsg "Cache path not found, creating at $g_script_cache_path"
+        ((g_verbose)) && vMsg "Cache path not found, creating at $g_script_cache_path" y
         if mkdir -p -- "$g_script_cache_path" &>/dev/null; then
-            ((g_verbose)) && vMsg "Create cache path succeeded"
+            ((g_verbose)) && vMsg "Create cache path succeeded" g
         else
-            vMsg "Failed to create: $g_script_cache_path"
+            vMsg "Failed to create: $g_script_cache_path" r
             flag_failed=1
         fi
     fi
 
     # g_file_script_config
     if [[ -f $g_file_script_config ]]; then
-        ((g_verbose)) && vMsg "Found existing script config file at $g_file_script_config"
-        if [[ -w $g_file_script_config ]]; then
-            ((g_verbose)) && vMsg "Script has write access"
+        ((g_verbose)) && vMsg "Found existing script config file at $g_file_script_config" g
+        if [[ -r $g_file_script_config ]]; then
+            ((g_verbose)) && vMsg "Script has read access" g
         else
-            vMsg "No write access to: $g_file_script_config"
+            vMsg "No read access to: $g_file_script_config" r
             flag_failed=1
         fi
-        if [[ -r $g_file_script_config ]]; then
-            ((g_verbose)) && vMsg "Script has read access"
+        if [[ -w $g_file_script_config ]]; then
+            ((g_verbose)) && vMsg "Script has write access" g
         else
-            vMsg "No read access to: $g_file_script_config"
+            vMsg "No write access to: $g_file_script_config" r
             flag_failed=1
         fi
     elif [[ ! -f $g_file_script_config ]]; then
-        ((g_verbose)) && vMsg "g_file_script_config not found, creating at $g_file_script_config"
+        ((g_verbose)) && vMsg "g_file_script_config not found, creating at $g_file_script_config" y
         if printf '' > "$g_file_script_config"; then # NOTE: Do not : > here
-            ((g_verbose)) && vMsg "Create script config file succeeded"
+            ((g_verbose)) && vMsg "Create script config file succeeded" g
         else
-            vMsg "Failed to create: $g_file_script_config"
+            vMsg "Failed to create: $g_file_script_config" r
             flag_failed=1
         fi
     fi
 
     # g_temp_base_path
     if [[ -d $g_temp_base_path ]]; then
-        ((g_verbose)) && vMsg "Found existing temp base path at $g_temp_base_path"
+        ((g_verbose)) && vMsg "Found existing temp base path at $g_temp_base_path" g
         if [[ -w $g_temp_base_path ]]; then
-            ((g_verbose)) && vMsg "Script has write access"
+            ((g_verbose)) && vMsg "Script has write access" g
         else
-            vMsg "Invalid tmp_path path: $g_temp_base_path"
+            vMsg "Invalid tmp_path path: $g_temp_base_path" r
             flag_failed=1
         fi
     elif [[ ! -d $g_temp_base_path ]]; then
-        ((g_verbose)) && vMsg "Temp base path not found, creating at $g_temp_base_path"
+        ((g_verbose)) && vMsg "Temp base path not found, creating at $g_temp_base_path" y
         if mkdir -p -- "$g_temp_base_path" &>/dev/null; then
-            ((g_verbose)) && vMsg "Create cache path succeeded"
+            ((g_verbose)) && vMsg "Create cache path succeeded" g
         else
-            vMsg "Failed to create: $g_temp_base_path"
+            vMsg "Failed to create: $g_temp_base_path" r
             flag_failed=1
         fi
     fi
@@ -2892,7 +2901,7 @@ SetupEnvironment() {
     # Remove 0 size g_file_latest_json
     [[ -f $g_file_latest_json ]] && {
         (( $(stat -c '%s' -- "$g_file_latest_json" 2>/dev/null) == 0 )) && {
-            ((g_verbose)) && vMsg "g_file_latest_json is size 0, removing"
+            ((g_verbose)) && vMsg "g_file_latest_json is size 0, removing" y
             if ! rm -f -- "$g_file_latest_json"; then
                 flag_failed=1
             fi
@@ -2902,7 +2911,7 @@ SetupEnvironment() {
     # Remove 0 size g_file_releases_json
     [[ -f $g_file_releases_json ]] && {
         (( $(stat -c '%s' -- "$g_file_releases_json" 2>/dev/null) == 0 )) && {
-            ((g_verbose)) && vMsg "g_file_releases_json is size 0, removing"
+            ((g_verbose)) && vMsg "g_file_releases_json is size 0, removing" y
             if ! rm -f -- "$g_file_releases_json"; then
                 flag_failed=1
             fi
@@ -2941,9 +2950,9 @@ CheckRequirements() {
 
     ((g_verbose)) && {
         if ((flag_failed)); then
-            vMsg "One or more required commands not found" error
+            vMsg "One or more required commands not found" r
         else
-            vMsg "All required commands found" success
+            vMsg "All required commands found" g
         fi
     }
 
@@ -2960,9 +2969,9 @@ CheckRequirements() {
 # Return:  0 (Success) Always
 vMsg() {
 
-    [[ -z ${1-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" 1>&2; return 1; }
+    [[ -z ${1-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" r 1>&2; return 1; }
 
-    local -i i
+    local -i i=0
     local type=${2:-info}
 
     # TODO: temporary colors for verbose information only
@@ -3090,28 +3099,28 @@ CleanUp() {
     for node in "$g_temp_base_path/$TEMP_PREFIX"*; do
         # Paths
         [[ -d $node ]] && {
-            ((g_verbose)) && vMsg "Temporary path found at $node"
+            ((g_verbose)) && vMsg "Temporary path found at $node" g
             if ((g_verbose)); then
-                vMsg "Debug enabled, temporary path not removed"
+                vMsg "Debug enabled, temporary path not removed" y
             else
                 if rm -fr -- "$node" &>/dev/null; then
-                    ((g_verbose)) && vMsg "Temporary path removed"
+                    ((g_verbose)) && vMsg "Temporary path removed" g
                 else
-                    vMsg "Failed to remove temporary path: $node"
+                    vMsg "Failed to remove temporary path: $node" r
                 fi
             fi
         }
 
         # Files
         [[ -f $node ]] && {
-            ((g_verbose)) && vMsg "Temp file found at $node"
+            ((g_verbose)) && vMsg "Temp file found at $node" g
             if ((g_verbose)); then
-                vMsg "Debug enabled, temporary file not removed"
+                vMsg "Debug enabled, temporary file not removed" y
             else
                 if rm -f -- "$node" &>/dev/null; then
-                    ((g_verbose)) && vMsg "Temporary file removed"
+                    ((g_verbose)) && vMsg "Temporary file removed" g
                 else
-                    vMsg "Failed to remove temporary file: $node"
+                    vMsg "Failed to remove temporary file: $node" r
                 fi
             fi
         }
@@ -3220,7 +3229,7 @@ Main() {
     ParseParameters "$@" || exit 1
 
     # Report if debug mode is enabled
-    ((g_verbose)) && vMsg "Verbose mode enabled" info
+    ((g_verbose)) && vMsg "Verbose mode enabled"
 
     # If no parameters were supplied, show help
     # If -z was supplied report some basic information
