@@ -8,6 +8,7 @@ Help:
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
     -l            - List installed versions and saved packages
+                      Saved package sizes are also checked (backports)
     -L            - List all releases available to install
     -n <version>  - Show release notes for <version>
                       Combined with -N, -n will be ignored

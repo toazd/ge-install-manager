@@ -98,14 +98,22 @@ declare -gi g_show_all_release_notes=0
 # https://www.shellcheck.net/wiki/SC2034
 #shellcheck disable=SC2034
 {
-declare -g g_color_red='\033[1;31m'
-declare -g g_color_green='\033[1;32m'
-declare -g g_color_yellow='\033[1;33m'
-declare -g g_color_blue='\033[1;34m'
-declare -g g_color_magenta='\033[1;35m'
-declare -g g_color_cyan='\033[1;36m'
-declare -g g_color_white='\033[1;37m'
-declare -g g_color_reset='\033[m'
+#declare -g g_color_red='\033[1;31m'
+#declare -g g_color_green='\033[1;32m'
+#declare -g g_color_yellow='\033[1;33m'
+#declare -g g_color_blue='\033[1;34m'
+#declare -g g_color_magenta='\033[1;35m'
+#declare -g g_color_cyan='\033[1;36m'
+#declare -g g_color_white='\033[1;37m'
+#declare -g g_color_reset='\033[m'
+declare -g g_color_red=''
+declare -g g_color_green=''
+declare -g g_color_yellow=''
+declare -g g_color_blue=''
+declare -g g_color_magenta=''
+declare -g g_color_cyan=''
+declare -g g_color_white=''
+declare -g g_color_reset=''
 }
 
 ###############################################################################
@@ -127,6 +135,7 @@ ShowHelp() {
     -h            - Show this help
     -H            - Show usage notes, formats, and examples
     -l            - List installed versions and saved packages
+                      Saved package sizes are also checked (backports)
     -L            - List all releases available to install
     -n <version>  - Show release notes for <version>
                       Combined with -N, -n will be ignored
@@ -176,29 +185,29 @@ Usage:
   - Most parameters can be combined with other unique parameters.
     > NOTE: arguments must directly follow parameters that require arguments
       Example (both produce the same result):
-        ./${0##*/} -Hh
-        ./${0##*/} -h -H
+        ./${SCRIPT_FULL_NAME} -Hh
+        ./${SCRIPT_FULL_NAME} -h -H
           Result: Show help and then show usage
       Example (both produce the same result):
-        ./${0##*/} -lSui 5.9-GE-3-ST
-        ./${0##*/} -lS -i 5.9-GE-3-ST -u
+        ./${SCRIPT_FULL_NAME} -lSui 5.9-GE-3-ST
+        ./${SCRIPT_FULL_NAME} -lS -i 5.9-GE-3-ST -u
           Result: Check for the latest version and install it,
            install version 5.9-GE-3-ST, list installed versions, then
            report file and disk usage for the install path
       Example: (assume the latest version is 5.9-GE-3-ST)
-        ./${0##*/} -z -u -i Proton-5.11-GE-1-MF -Xf
+        ./${SCRIPT_FULL_NAME} -z -u -i Proton-5.11-GE-1-MF -Xf
           Result: enable debug mode, remove the installation path,
            update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
       Example (both produce the same result):
-        ./${0##*/} -s 5.6-GE-3-ST -S
-        ./${0##*/} -Ss 5.6-GE-3-ST
+        ./${SCRIPT_FULL_NAME} -s 5.6-GE-3-ST -S
+        ./${SCRIPT_FULL_NAME} -Ss 5.6-GE-3-ST
           Result: report disk usage and file count for the install path,
            and then report disk usage and file count for version 5.6-GE-3-ST
 
   - The order of parameters is not significant except:
     > If during invocation multiple identical parameters are supplied.
       Example:
-        ./${0##*/} -s 5.11-GE-1-MF -s 5.9-GE-3-ST
+        ./${SCRIPT_FULL_NAME} -s 5.11-GE-1-MF -s 5.9-GE-3-ST
           Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
   - Order of operations if multiple unique parameters are supplied:
@@ -2944,9 +2953,9 @@ CheckRequirements() {
 
     ((g_verbose)) && {
         if ((flag_failed)); then
-            vMsg "One or more required commands not found"
+            vMsg "One or more required commands not found" error
         else
-            vMsg "All required commands found"
+            vMsg "All required commands found" success
         fi
     }
 
@@ -2958,7 +2967,7 @@ CheckRequirements() {
 #          line number that called this function followed by a function trace
 #          that excludes "main". Similar to the caller built-in.
 # Input:   1 (required) A string (the message to output)
-#          2 (optional) Message type (g)reen, (y)ellow, (r)ed,
+#          2 (optional) Message type [g]reen (success), [y]ellow (warning), [r]ed (Failure), [b]lue (info)
 # Output:  None
 # Return:  0 (Success) Always
 vMsg() {
@@ -2966,31 +2975,36 @@ vMsg() {
     [[ -z ${1-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" 1>&2; return 1; }
 
     local -i i
-    local type=${2:-i}
+    local type=${2:-info}
 
     # Calling line number
     printf "${g_color_cyan}%s${g_color_green}%s${g_color_cyan}%s${g_color_reset}" "(" "${BASH_LINENO[0]}" ")[" 1>&2
+
+    # Count backwards iterating through the elements of the FUNCNAME array, skipping the 'last' two.
     for (( i=$(( ${#FUNCNAME[@]} - 2 )); i>1; i-- )); do
-        # Function trace (excluding 'main')
+
+        # Print the function name from the 'stack' with a comma suffix
         printf "${g_color_magenta}%s${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "," 1>&2
     done
-    # The last function in the function trace doesn't get a comma suffix
+
+    # Don't place a comma as a suffix for the last function printed
     printf "${g_color_magenta}%s${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "]: " 1>&2
+
     # Message with color based on type (default: info)
-    case $type in
-        b|i)
+    case ${type,,} in
+        info|i|blue|b)
             # Blue / Info
             printf "${g_color_blue}%s${g_color_reset}\n" "$1" 1>&2
         ;;
-        g|s)
+        success|s|green|g)
             # Green / Success
             printf "${g_color_green}%s${g_color_reset}\n" "$1" 1>&2
         ;;
-        w)
+        warning|w|yellow|y)
             # Yellow / Warning
             printf "${g_color_yellow}%s${g_color_reset}\n" "$1" 1>&2
         ;;
-        r|f|e)
+        failure|f|red|r|error|e)
             # Red / Failure / Error
             printf "${g_color_red}%s${g_color_reset}\n" "$1" 1>&2
         ;;
@@ -3202,7 +3216,7 @@ Main() {
     ParseParameters "$@" || exit 1
 
     # Report if debug mode is enabled
-    ((g_verbose)) && vMsg "Verbose mode enabled"
+    ((g_verbose)) && vMsg "Verbose mode enabled" info
 
     # If no parameters were supplied, show help
     # NOTE: Ignore g_force and g_verbose flags
