@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2128/3291 SLOC (64%) [SLOC/Comment:2.81], 757 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.35], 440 empty (13%)
+# 2186/3389 SLOC (64%) [SLOC/Comment:2.76], 791 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.36], 444 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -1195,8 +1195,8 @@ RemoveGEInstallPath() {
 # Output:  None
 # Return:  0 Success
 #          1 Failure
-# NOTE: __pycache__ is created at runtime in an installed version path and will
-#       not be present in the saved packages.
+# NOTE: __pycache__ (inside the proton-ge-custom installation folder) folders
+#       are created at runtime and will not be present in the saved packages.
 # NOTE: bash 5+ is required for EPOCHSECONDS
 # NOTE: bash 4.2+ is required for printf $()T
 VerifyGEInstall() {
@@ -3158,6 +3158,12 @@ ParseParameters() {
             (Z)
                 if [[ $g_force -eq 1 ]] && [[ $g_verbose -eq 1 ]]; then
                     (ReportEnvironmentInfo)
+                elif [[ $g_force -eq 0 ]] && [[ $g_verbose -eq 1 ]]; then # -zZ
+                    printf "%s: illegal option -- Z (did you mean -fzZ?)\n" "$0"
+                    exit 0
+                elif [[ $g_force -eq 0 ]] && [[ $g_verbose -eq 0 ]]; then # -Z
+                    printf "%s: illegal option -- Z\n" "$0"
+                    exit 0
                 fi
             ;;
             (u) g_check_update=1 ;;
@@ -3219,25 +3225,10 @@ Main() {
     ((g_verbose)) && vMsg "Verbose mode enabled" info
 
     # If no parameters were supplied, show help
-    # NOTE: Ignore g_force and g_verbose flags
-    # TODO: This is not ideal
-    if ((! g_list_available_versions)) && \
-       ((! g_show_release_notes)) && \
-       ((! g_show_all_release_notes)) && \
-       ((! g_remove_install_path)) && \
-       ((! g_remove_all_saved_packages)) && \
-       ((! g_remove_installed_version)) && \
-       ((! g_remove_saved_package)) && \
-       ((! g_list_installed_versions)) && \
-       ((! g_report_version_usage)) && \
-       ((! g_report_install_path_usage)) && \
-       ((! g_download)) && \
-       ((! g_install)) && \
-       ((! g_check_update)) && \
-       ((! g_verify)) && \
-       ((! g_show_help)) && \
-       ((! g_show_usage)) && \
-       ((! g_update)); then
+    # If -z was supplied report some basic information
+    # Enables invoking the script with only -z (eg. "ge-install-manager -z") to check
+    # basic requirements and report if any are not found
+    if [[ ${1-unset} = "unset" || $1 = "" ]] || [[ ${#1} -eq 2 && $1 = "-z" ]]; then
 
         ((g_verbose)) && {
             if IsSteamRunning; then
@@ -3375,8 +3366,7 @@ Main() {
 ###############################################################################
 # Purpose: Run the function CleanUp on SIGEXIT
 #          Save the exit status of the last executed command before invoking
-#          the CleanUp function. Report both the saved exit status and the exit
-#          status of CleanUp if debug mode is enabled.
+#          the CleanUp function and exit with that status instead.
 trap 'g_real_exit_status=$?; CleanUp; exit $g_real_exit_status' EXIT
 
 ###############################################################################
