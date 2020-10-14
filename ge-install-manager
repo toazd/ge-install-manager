@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2186/3389 SLOC (64%) [SLOC/Comment:2.76], 791 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.36], 444 empty (13%)
+# 2172/3377 SLOC (64%) [SLOC/Comment:2.73], 795 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.37], 445 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -2633,13 +2633,13 @@ DetectSteamInstallPath () {
 
     local check_path
     local -i i=0
-    local -a valid_paths search_paths=("$HOME/.steam/root" \
-                                       "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
-                                       "/usr/share/steam" \
-                                       "/usr/local/share/steam" \
-                                       "$HOME/.var/app/com.valvesoftware.Steam/data/Steam" \
-                                       "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
-                                       "$HOME/.var/app/com.valvesoftware.Steam/.steam")
+    local -a valid_paths=() search_paths=("$HOME/.steam/root" \
+                                          "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
+                                          "/usr/share/steam" \
+                                          "/usr/local/share/steam" \
+                                          "$HOME/.var/app/com.valvesoftware.Steam/data/Steam" \
+                                          "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
+                                          "$HOME/.var/app/com.valvesoftware.Steam/.steam")
 
     # Report the set status of XDG vars
     # XDG_DATA_HOME
