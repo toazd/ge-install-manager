@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2172/3377 SLOC (64%) [SLOC/Comment:2.73], 795 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.37], 445 empty (13%)
+# 2182/3386 SLOC (64%) [SLOC/Comment:2.76], 790 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.36], 446 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -98,23 +98,14 @@ declare -gi g_show_all_release_notes=0
 # https://www.shellcheck.net/wiki/SC2034
 #shellcheck disable=SC2034
 {
-# TODO: temporarily disable normal color output
-#declare -g g_color_red='\033[1;31m'
-#declare -g g_color_green='\033[1;32m'
-#declare -g g_color_yellow='\033[1;33m'
-#declare -g g_color_blue='\033[1;34m'
-#declare -g g_color_magenta='\033[1;35m'
-#declare -g g_color_cyan='\033[1;36m'
-#declare -g g_color_white='\033[1;37m'
-#declare -g g_color_reset='\033[m'
-declare -g g_color_red=''
-declare -g g_color_green=''
-declare -g g_color_yellow=''
-declare -g g_color_blue=''
-declare -g g_color_magenta=''
-declare -g g_color_cyan=''
-declare -g g_color_white=''
-declare -g g_color_reset=''
+declare -g g_color_red='\033[1;31m'
+declare -g g_color_green='\033[1;32m'
+declare -g g_color_yellow='\033[1;33m'
+declare -g g_color_blue='\033[1;34m'
+declare -g g_color_magenta='\033[1;35m'
+declare -g g_color_cyan='\033[1;36m'
+declare -g g_color_white='\033[1;37m'
+declare -g g_color_reset='\033[m'
 }
 
 ###############################################################################
@@ -391,9 +382,8 @@ DownloadGEPackage() {
 
     # Check if there is enough free space to copy the package to g_install_path
     if ((expected_size_bytes > install_path_remaining_bytes)); then
-        printf "${g_color_red}%s${g_color_reset}%s\n%s\n" \
-               "WARNING" \
-               ": Not enough free space at $g_install_path" \
+        printf "%s\n%s\n" \
+               "WARNING: Not enough free space at $g_install_path" \
                "Need at least $expected_size_bytes bytes but there is only $install_path_remaining_bytes bytes free"
         return 1
     else
@@ -408,9 +398,8 @@ DownloadGEPackage() {
     # TODO: Use a different path as a fallback?
     if ((temp_base_path_remaining_bytes < expected_size_bytes)); then
         ((g_verbose)) && vMsg "Free space on $g_temp_base_path is $temp_base_path_remaining_bytes bytes"
-        printf "${g_color_red}%s${g_color_reset}%s\n%s\n%s\n" \
-               "WARNING" \
-               ": Not enough free space on temp_path: $g_temp_base_path" \
+        printf "%s\n%s\n%s\n" \
+               "WARNING: Not enough free space on temp_path: $g_temp_base_path" \
                "Need at least $expected_size_bytes bytes but there is only $temp_base_path_remaining_bytes bytes free" \
                "Free up space or change temp_path in the configuration file"
         return 1
@@ -426,7 +415,7 @@ DownloadGEPackage() {
 
         # Not found
         if ((downloaded_package_size_bytes == 9)); then
-            printf "${g_color_red}%s${g_color_blue}%s${g_color_reset}\n" "Server responded Not Found for version " "$version"
+            echo "Server responded \"Not Found\" for version $version"
             CleanUp
             return 1
         fi
@@ -437,7 +426,7 @@ DownloadGEPackage() {
             CleanUp
             return 1
         fi
-#TODO:################################################################################################COLOR_UPDATE_CONT
+
         # Check if the the package size and expected size are equal
         if ((downloaded_package_size_bytes == $(QueryGEAttribute "$version" "size"))); then
             echo "Downloaded package is the expected size ($expected_size_bytes bytes)"
@@ -487,13 +476,13 @@ UpdateGEVersion() {
 
         # Latest version is installed and force mode is not active
         if IsInstalled "$g_latest_version" && ((! g_force)); then
-            printf "%s${g_color_blue}%s${g_color_reset}%s\n" "The latest version " "$g_latest_version" " is already installed"
+            echo "The latest version $g_latest_version is already installed"
         # Latest version is not installed
         elif ! IsInstalled "$g_latest_version"; then
-            printf "%s${g_color_blue}%s${g_color_reset}%s\n" "The latest version " "$g_latest_version" " is not installed"
+            echo "The latest version $g_latest_version is not installed"
             if InstallGEVersion "$g_latest_version"; then
                 echo "Update succeeded"
-                IsSteamRunning && printf "${g_color_green}%s${g_color_reset}\n" "Restart Steam to use the new version"
+                IsSteamRunning && echo "Restart Steam to use the new version"
             else
                 echo "Update failed"
                 return 1
@@ -773,23 +762,23 @@ ListAvailableGEVersions() {
                             while (( ${#line_releases} <= (30-7) )); do # minus the length of Proton-
                                 line_releases="${line_releases} " # "pad" with a space
                             done
-                            printf "${g_color_blue}%s${g_color_reset}%s\n" "Proton-${line_releases}" "$value_release_notes_url"
+                            echo "Proton-${line_releases} $value_release_notes_url"
                         else
                             # Don't print the URL if there isn't enough room or if COLUMNS was unset/NULL
                             if (( ${COLUMNS:-0} < 80 )); then
-                                printf "${g_color_blue}%s${g_color_reset}\n" "Proton-${line_releases}"
+                                echo "Proton-${line_releases}"
                             else
                                 # Columns between 81 and 112
                                 # Use an alternative format that prints the version and the
                                 # release URL on seperate lines
-                                printf "${g_color_blue}%s${g_color_reset}:\n%s\n" "Proton-${line_releases}" "$value_release_notes_url"
+                                printf "%s:\n%s\n" "Proton-${line_releases}" "$value_release_notes_url"
                             fi
                         fi
                     else
-                        printf "${g_color_yellow}%s${g_color_reset}\n" "Proton-${line_releases} (URL not found)"
+                        echo "Proton-${line_releases} (URL not found)"
                     fi
                 else
-                    printf "${g_color_yellow}%s${g_color_reset}\n" "Proton-${line_releases} (URL not found)"
+                    echo "Proton-${line_releases} (URL not found)"
                 fi
                 ((version_counter++))
                 continue
@@ -865,7 +854,7 @@ ShowGEReleaseNotes() {
                     flag_url_found=0
                     line_releases=${line_releases%.tar.gz*}
                     line_releases=${line_releases##*\"}
-                    printf "${g_color_blue}%s${g_color_reset}  ${g_color_blue}%s${g_color_reset}%s${g_color_blue}%s${g_color_reset}\n" "$line_releases" "(" "$value_release_notes_url" ")"
+                    echo "$line_releases  ($value_release_notes_url)"
                     continue
                 }
             }
@@ -941,7 +930,7 @@ ListInstalledGEVersions() {
 
     ((g_verbose)) && vMsg "Install path: $g_install_path"
 
-    printf "${g_color_blue}%s${g_color_reset}:\n" "Installed version(s)"
+    echo "Installed version(s)"
     for node in "$g_install_path"/Proton-*; do
         [[ -d $node ]] && {
             ((i++))
@@ -952,7 +941,7 @@ ListInstalledGEVersions() {
     done
     ((i)) || printf "${g_color_yellow}%s${g_color_reset}\n" "  None found"
 
-    printf "${g_color_blue}%s${g_color_reset}:\n" "Saved package(s)"
+    echo "Saved package(s)"
     i=0
     for node in "$g_install_path"/Proton-*.tar.gz; do
         if [[ -f $node ]]; then
@@ -960,7 +949,7 @@ ListInstalledGEVersions() {
             size_bytes=$(stat -c '%s' -- "$node")
             expected_size_bytes=$(QueryGEAttribute "${node##*/}" "size")
             if ((size_bytes != expected_size_bytes)); then
-                printf "${g_color_red}%s${g_color_reset}\n" "  ${node##*/} (WARNING: Size [$size_bytes] is not the expected size [$expected_size_bytes])"
+                echo "  ${node##*/} (WARNING: Size [$size_bytes] is not the expected size [$expected_size_bytes])"
             else
                 IFS=$'\t' read -r -- saved_package_disk_usage path < <(du -h -- "$node")
                 printf '%s\n' "  ${node##*/} ($saved_package_disk_usage)"
@@ -973,9 +962,9 @@ ListInstalledGEVersions() {
         while IFS=$'\t' read -r -- size path; do
             [[ $path = "total" ]] && saved_packages_total_disk_usage=$size
         done < <(du -csh -- "$g_install_path/"*.tar.gz)
-        printf "${g_color_blue}%s${g_color_reset}: %s\n" "Saved packages total" "$saved_packages_total_disk_usage"
+        echo "Saved packages total: $saved_packages_total_disk_usage"
     else
-        printf "${g_color_yellow}%s${g_color_reset}\n" "  None found"
+        echo "  None found"
     fi
 
     return 0
@@ -1020,8 +1009,8 @@ ReportGEDiskUsage() {
             if [[ -d $g_install_path ]]; then
                 disk_usage=$(du -sh -- "$g_install_path")
                 file_counter=$(find "$g_install_path" -type f | wc -l)
-                printf "${g_color_blue}%s${g_color_reset}:\n" "Install path report"
-                printf "  ${g_color_blue}Path${g_color_reset}: %s\n  ${g_color_blue}Files${g_color_reset}: %s\n  ${g_color_blue}Disk usage${g_color_reset}: %s\n" \
+                echo "Install path report"
+                printf "  Path: %s\n  Files: %s\n  Disk usage: %s\n" \
                        "$g_install_path" \
                        "$file_counter" \
                        "${disk_usage%%[[:blank:]]*}"
@@ -1040,8 +1029,8 @@ ReportGEDiskUsage() {
             if [[ -d $path ]]; then
                 disk_usage=$(du -sh -- "$path")
                 file_counter=$(find "$path" -type f | wc -l)
-                printf "${g_color_blue}%s${g_color_reset}:\n" "Version $version report"
-                printf "  ${g_color_blue}Path${g_color_reset}: %s\n  ${g_color_blue}Files${g_color_reset}: %s\n  ${g_color_blue}Disk usage${g_color_reset}: %s\n" \
+                echo "Version $version report"
+                printf "  Path: %s\n  Files: %s\n  Disk usage: %s\n" \
                        "$path" \
                        "$file_counter" \
                        "${disk_usage%%[[:blank:]]*}"
@@ -1642,7 +1631,10 @@ CheckAccessTime() {
     local -i current_seconds=0 last_check_seconds=0 interval=${2:-0}
     local file=${1-}
 
-    [[ -z $file || ! -r $file || $interval -lt 1 ]] && { ((g_verbose)) && vMsg "Parameter error file"; exit 1; }
+    # If the file doesn't exist, return success (it needs to be created)
+    [[ ! -f $file ]] && return 0
+
+    [[ -z $file || ! -r $file || $interval -lt 1 ]] && { ((g_verbose)) && vMsg "Parameter error (file: $file interval: $interval" r; exit 1; }
 
     ((g_verbose)) && vMsg "Checking access time for $file (interval: $interval)"
 
@@ -2218,9 +2210,17 @@ ParseConfigFile() {
                 while :; do
                     read -rp "Would you like to open it with ${EDITOR}? " </dev/tty
                     case ${REPLY,,} in
-                        ("y"|"yes") ($EDITOR "$g_file_script_config") ;;
-                        ("n"|"no") break ;;
-                        ("*") echo "Enter (y)es or (n)o" ;;
+                        ("y"|"yes")
+                            $EDITOR "$g_file_script_config"
+                            echo "Configuration file location: $g_file_script_config"
+                            break
+                        ;;
+                        ("n"|"no")
+                            break
+                        ;;
+                        ("*")
+                            echo "Enter (y)es or (n)o"
+                        ;;
                     esac
                 done
             else
@@ -2974,16 +2974,6 @@ vMsg() {
     local -i i=0
     local type=${2:-info}
 
-    # TODO: temporary colors for verbose information only
-    local g_color_red='\033[1;31m'
-    local g_color_green='\033[1;32m'
-    local g_color_yellow='\033[1;33m'
-    local g_color_blue='\033[1;34m'
-    local g_color_magenta='\033[1;35m'
-    local g_color_cyan='\033[1;36m'
-    #local g_color_white='\033[1;37m'
-    local g_color_reset='\033[m'
-
     # Calling line number
     printf "${g_color_cyan}%s${g_color_green}%s${g_color_cyan}%s${g_color_reset}" "(" "${BASH_LINENO[0]}" ")[" 1>&2
 
@@ -3275,9 +3265,9 @@ Main() {
     if ((g_check_update && ! g_update)); then
         if GetLatestGEVersion; then
             if IsInstalled "$g_latest_version"; then
-                printf "%s${g_color_blue}%s${g_color_reset}%s%s\n" "The latest version " "$g_latest_version" " is " "installed"
+                echo "The latest version $g_latest_version is installed"
             else
-                printf "%s${g_color_blue}%s${g_color_reset}%s%s\n" "The latest version " "$g_latest_version" " is " "not installed"
+                echo "The latest version $g_latest_version is not installed"
             fi
         fi
     fi
