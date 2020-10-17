@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2186/3383 SLOC (64%) [SLOC/Comment:2.80], 781 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.36], 449 empty (13%)
+# 2200/3401 SLOC (64%) [SLOC/Comment:2.81], 782 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 452 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -2940,8 +2940,13 @@ SetupEnvironment() {
 #          1 (Failure) Any one required command was not found
 CheckRequirements() {
 
-    local -i flag_failed=0
+    local cur_cmd=''
+    local -i flag_failed=0 flag_apt=0 flag_pacman=0 flag_dnf=0
     local -a required_commands=(curl sed tar gzip stat wc touch)
+
+    command -v pacman > /dev/null && flag_pacman=1
+    command -v apt > /dev/null && flag_apt=1
+    command -v dnf > /dev/null && flag_dnf=1
 
     while IFS= read -r --; do
         [[ ${REPLY,,} == *'is'* ]] && { ((g_verbose)) && vMsg "$REPLY"; continue; }
@@ -2950,7 +2955,20 @@ CheckRequirements() {
             REPLY=${REPLY#*:} # remove lineno:
             # Remove a leading space if found
             [[ ${REPLY:0:1} = [[:blank:]] ]] && REPLY=${REPLY/#[[:blank:]]}
-            echo "Required $REPLY"
+
+            # Remove all but the current command
+            cur_cmd=${REPLY#*": "}
+            cur_cmd=${cur_cmd%": "*}
+
+            if (( flag_apt == 1 && flag_pacman == 0 && flag_dnf == 0 )); then
+                echo "Required $REPLY (sudo apt install $cur_cmd -y)"
+            elif (( flag_apt == 0 && flag_pacman == 0 && flag_dnf == 1 )); then
+                echo "Required $REPLY (sudo dnf install $cur_cmd -y)"
+            elif (( flag_apt == 0 && flag_pacman == 1 && flag_dnf == 0  )); then
+                echo "Required $REPLY (sudo pacman -Syu $cur_cmd)"
+            else
+                echo "Required $REPLY"
+            fi
             flag_failed=1
         }
     done < <(command -V -- "${required_commands[@]}" 2>&1)

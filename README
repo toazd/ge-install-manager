@@ -1,3 +1,11 @@
+NOTE: After installing Steam, you will need to run it at least once before
+      this script will detect that Steam is installed.
+
+NOTE: Ubuntu users - you may need to install curl (sudo apt install curl)
+
+      The script will check for all required commands and then notify you
+      if any are not found.
+
 Version 0.7.6
 
 Help:
