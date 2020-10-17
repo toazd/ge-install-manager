@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2239/3453 SLOC (64%) [SLOC/Comment:2.84], 788 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 460 empty (13%)
+# 2243/3457 SLOC (64%) [SLOC/Comment:2.85], 788 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 460 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -336,11 +336,14 @@ CheckForScriptUpdate() {
 
     ((g_verbose)) && vMsg "Checking $g_file_script_raw"
     if CheckAccessTime "$g_file_script_raw" "$g_script_update_interval"; then
-        if ! RequestURL "$g_script_raw_url" "$g_file_script_raw"; then
-            ((g_verbose)) && vMsg "RequestURL returned failure"
+        if RequestURL "$g_script_raw_url" "$g_file_script_raw"; then
+            ((g_verbose)) && vMsg "RequestURL returned success" g
+            return 0
+        else
+            ((g_verbose)) && vMsg "RequestURL returned failure" r
         fi
     else
-        ((g_verbose)) && vMsg "CheckAccessTime returned failure"
+        ((g_verbose)) && vMsg "CheckAccessTime returned failure" y
         return 0
     fi
 
