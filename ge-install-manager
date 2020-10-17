@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2182/3386 SLOC (64%) [SLOC/Comment:2.76], 790 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.36], 446 empty (13%)
+# 2186/3383 SLOC (64%) [SLOC/Comment:2.80], 781 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.36], 449 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -939,7 +939,7 @@ ListInstalledGEVersions() {
             printf '%s\n' "  ${node##*/} ($installed_version_disk_usage)"
         }
     done
-    ((i)) || printf "${g_color_yellow}%s${g_color_reset}\n" "  None found"
+    ((i)) || echo "  None found"
 
     echo "Saved package(s)"
     i=0
@@ -1641,7 +1641,7 @@ CheckAccessTime() {
     # Using the access time of file, determine if the specified interval has elapsed or not
     # NOTE: RequestURL forcibly updates access times using touch
     current_seconds=$(date +%s)
-    last_check_seconds=$(stat --cached=never -c '%X' -- "$file")
+    last_check_seconds=$(stat -c '%X' -- "$file") # --cached=never not available on Ubuntu 20.04.1 LTS
     if (( (current_seconds - last_check_seconds) < interval )); then
         ((g_verbose)) && {
             vMsg "Access denied, last access is less than the required interval"
@@ -2089,7 +2089,8 @@ SpaceRemaining() {
 
     ((g_verbose)) && vMsg "Checking $file_system"
 
-    printf '%s' "$(( ($(stat -L --cached=never -c '%s' -f -- "$file_system") * $(stat -L --cached=never -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"
+    # --cached=never not available on Ubuntu 20.04.1 LTS
+    printf '%s' "$(( ($(stat -L -c '%s' -f -- "$file_system") * $(stat -L -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"
 
     return
 }
@@ -2319,11 +2320,16 @@ ParseConfigFile() {
                 [[ ${config_value,,} = "auto" ]] && {
                     ((g_verbose)) && vMsg "$config_key is set to $config_value, Running DetectSteamInstallPath"
                     DetectSteamInstallPath
-                    [[ -n $g_override_default_install_path && ${g_override_default_install_path,,} != "auto" ]] && {
+                    if [[ -n $g_override_default_install_path && ${g_override_default_install_path,,} != "auto" ]]; then
                         config_value=$g_override_default_install_path/compatibilitytools.d
                         flag_update_install_path=1
-                    }
+                    fi
+
+                    if [[ ${g_override_default_install_path,,} = "auto" ]]; then
+                        exit 1
+                    fi
                 }
+
                 if [[ -d $config_value && -w $config_value ]]; then
                     ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it" g
                     g_install_path=$config_value
@@ -2707,7 +2713,8 @@ DetectSteamInstallPath () {
                "ERROR: Unable to detect Steam installation path" \
                "You will need to configure install_path manually in the configuration file" \
                "(default: ${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
-        g_override_default_install_path=''
+        g_override_default_install_path='auto'
+        return 1
 
     # Prefer to use the symlink if two paths were found and one is a link to the other
     elif ((${#valid_paths[@]} == 1)) || [[ ${#valid_paths[@]} -eq 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]; then
