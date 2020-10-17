@@ -4,7 +4,6 @@ Basic installation (the script can be renamed and does not have to be in /usr/lo
       git clone https://github.com/toazd/ge-install-manager.git
       cd ge-install-manager
       sudo ln -s /usr/local/sbin/ge-install-manager "$(realpath ge-install-manager)"
-      ge-install-manager -U (perform initial setup and then download and install the latest release version of proton-ge-custom)
 
 Update (the script currently does not auto-update itself):
       cd ~/github/ge-install-manager
