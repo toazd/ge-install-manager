@@ -5,7 +5,7 @@ Basic installation (the script can be renamed and does not have to be in /usr/lo
       cd ge-install-manager
       sudo ln -s /usr/local/sbin/ge-install-manager "$(realpath ge-install-manager)"
 
-Update (the script currently does not auto-update itself):
+Update:
       cd ~/github/ge-install-manager
       git pull
 
@@ -14,8 +14,14 @@ NOTE: After installing Steam, you will need to run it at least once before
 
 NOTE: Ubuntu users - you may need to install curl (sudo apt install curl -y)
 
+NOTE: If you have 3GB or less of system RAM you will need to edit tmp_path
+      in the configuration file and set it to a path with at least ~1.2GB free.
+
       The script will check for all required commands and then notify you
       if any are not found.
+
+      The script will check for an updated version of itself when verbose mode
+      (-z) is active and either update function is used (-u and/or -U).
 
 Version 0.7.6
 

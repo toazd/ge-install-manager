@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2200/3401 SLOC (64%) [SLOC/Comment:2.81], 782 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 452 empty (13%)
+# 2239/3453 SLOC (64%) [SLOC/Comment:2.84], 788 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 460 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -47,6 +47,8 @@ declare -g g_command_rm
 declare -g g_download_version
 declare -g g_file_latest_json
 declare -g g_file_releases_json
+declare -g g_script_raw_url="https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager"
+declare -g g_file_script_raw=''
 declare -g g_script_config_path=${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME
 declare -g g_file_script_config=$g_script_config_path/$SCRIPT_FULL_NAME.conf
 declare -g g_file_sed_unminify_script=$g_script_config_path/unminify-JSON.sed
@@ -89,7 +91,8 @@ declare -gi g_size_bytes_sed_unminify_script=824
 declare -gi g_update=0
 declare -gi g_verify=0
 # NOTE: Minimum interval in seconds that checks for a newer remote version of latest/releases will be allowed (60 minutes)
-declare -gi g_checked_recently_seconds=3600
+declare -gi g_releases_update_interval=3600
+declare -gi g_script_update_interval=604800 # 7 days
 declare -gi g_list_available_versions=0
 declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
@@ -297,7 +300,7 @@ UpdateCachedGEReleases() {
 
     # Check the access time of the local file and if the interval has passed
     # call RequestURL to update the file (if the remote version is newer).
-    if CheckAccessTime "$g_file_latest_json" "$g_checked_recently_seconds"; then
+    if CheckAccessTime "$g_file_latest_json" "$g_releases_update_interval"; then
         if ! RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
             flag_requesturl_failure=1
         fi
@@ -310,7 +313,7 @@ UpdateCachedGEReleases() {
 
     # Check the access time of the local file and if the interval has passed
     # call RequestURL to update the file (if the remote version is newer).
-    if CheckAccessTime "$g_file_releases_json" "$g_checked_recently_seconds"; then
+    if CheckAccessTime "$g_file_releases_json" "$g_releases_update_interval"; then
         if ! RequestURL "$g_releases_url" "$g_file_releases_json"; then
             flag_requesturl_failure=1
         fi
@@ -322,6 +325,25 @@ UpdateCachedGEReleases() {
     }
 
     return 0
+}
+
+###############################################################################
+# Purpose:
+# Input:
+# Output:
+# Return:
+CheckForScriptUpdate() {
+
+    ((g_verbose)) && vMsg "Checking $g_file_script_raw"
+    if CheckAccessTime "$g_file_script_raw" "$g_script_update_interval"; then
+        if ! RequestURL "$g_script_raw_url" "$g_file_script_raw"; then
+            ((g_verbose)) && vMsg "RequestURL returned failure"
+        fi
+    else
+        ((g_verbose)) && vMsg "CheckAccessTime returned failure"
+    fi
+
+    return $(( ($(stat -c '%s' "$(realpath "$0")") != $(stat -c '%s' "$(realpath "$g_file_script_raw")")) ? 1 : 0 ))
 }
 
 ###############################################################################
@@ -2472,6 +2494,8 @@ ParseConfigFile() {
         return 1
     }
 
+
+
     # Debug report
     ((g_verbose)) && vMsg "Install path set to: $g_install_path" g
     ((g_verbose)) && vMsg "Temp path set to: $g_temp_base_path" g
@@ -2484,7 +2508,9 @@ ParseConfigFile() {
     ((g_verbose)) && vMsg "Cache path set to: $g_script_cache_path" g
     # update global variables that depend on this one
     g_file_latest_json="$g_script_cache_path"/latest.json
+    g_file_script_raw=$g_script_cache_path/$SCRIPT_FULL_NAME.update
     ((g_verbose)) && vMsg "g_file_latest_json set to: $g_file_latest_json" g
+    ((g_verbose)) && vMsg "g_file_script_raw set to: $g_file_script_raw" g
 
     g_file_releases_json="$g_script_cache_path"/releases.json
     ((g_verbose)) && vMsg "g_file_releases_json set to: $g_file_releases_json" g
@@ -3094,6 +3120,24 @@ ProvingGrounds() {
 
     ((g_integration_testing)) || return 1
 
+    if CheckRequirements; then
+        if ParseConfigFile; then
+            if ! SetupEnvironment; then
+                exit 1
+            fi
+        else
+            exit 1
+        fi
+    else
+        exit 1
+    fi
+
+    if CheckForScriptUpdate; then
+        vMsg "CheckForScriptUpdate returned success (0)"
+    else
+        vMsg "CheckForScriptUpdate returned failure (>0)"
+    fi
+
     exit 0
 }
 
@@ -3284,6 +3328,14 @@ Main() {
         fi
     else
         exit 1
+    fi
+
+    if ((g_check_update == 1 || g_update == 1)); then
+        if CheckForScriptUpdate; then
+            echo "The latest version of the script is running"
+        else
+            echo "There is a script update available"
+        fi
     fi
 
     # Check if the latest release is installed
