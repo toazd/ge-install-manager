@@ -341,6 +341,7 @@ CheckForScriptUpdate() {
         fi
     else
         ((g_verbose)) && vMsg "CheckAccessTime returned failure"
+        return 0
     fi
 
     return $(( ($(stat -c '%s' "$(realpath "$0")") != $(stat -c '%s' "$(realpath "$g_file_script_raw")")) ? 1 : 0 ))
