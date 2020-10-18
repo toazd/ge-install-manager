@@ -121,9 +121,9 @@ ShowHelp() {
 
     cat <<HELP_HEREDOC
 
-    ${SCRIPT_FULL_NAME}  v${SCRIPT_VERSION} "${SCRIPT_CODENAME}"
+    $SCRIPT_FULL_NAME  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
-    Configuration file: ${g_script_config_path}/${SCRIPT_FULL_NAME}.conf
+    Configuration file: $g_script_config_path/$SCRIPT_FULL_NAME.conf
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc, touch
     Optional:       date, du, pgrep, sort, cmp, envsubst, trash
@@ -181,29 +181,29 @@ Usage:
   - Most parameters can be combined with other unique parameters.
     > NOTE: arguments must directly follow parameters that require arguments
       Example (both produce the same result):
-        ./${SCRIPT_FULL_NAME} -Hh
-        ./${SCRIPT_FULL_NAME} -h -H
+        ./$SCRIPT_FULL_NAME -Hh
+        ./$SCRIPT_FULL_NAME -h -H
           Result: Show help and then show usage
       Example (both produce the same result):
-        ./${SCRIPT_FULL_NAME} -lSui 5.9-GE-3-ST
-        ./${SCRIPT_FULL_NAME} -lS -i 5.9-GE-3-ST -u
+        ./$SCRIPT_FULL_NAME -lSui 5.9-GE-3-ST
+        ./$SCRIPT_FULL_NAME -lS -i 5.9-GE-3-ST -u
           Result: Check for the latest version and install it,
            install version 5.9-GE-3-ST, list installed versions, then
            report file and disk usage for the install path
       Example: (assume the latest version is 5.9-GE-3-ST)
-        ./${SCRIPT_FULL_NAME} -z -u -i Proton-5.11-GE-1-MF -Xf
+        ./$SCRIPT_FULL_NAME -z -u -i Proton-5.11-GE-1-MF -Xf
           Result: enable debug mode, remove the installation path,
            update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
       Example (both produce the same result):
-        ./${SCRIPT_FULL_NAME} -s 5.6-GE-3-ST -S
-        ./${SCRIPT_FULL_NAME} -Ss 5.6-GE-3-ST
+        ./$SCRIPT_FULL_NAME -s 5.6-GE-3-ST -S
+        ./$SCRIPT_FULL_NAME -Ss 5.6-GE-3-ST
           Result: report disk usage and file count for the install path,
            and then report disk usage and file count for version 5.6-GE-3-ST
 
   - The order of parameters is not significant except:
     > If during invocation multiple identical parameters are supplied.
       Example:
-        ./${SCRIPT_FULL_NAME} -s 5.11-GE-1-MF -s 5.9-GE-3-ST
+        ./$SCRIPT_FULL_NAME -s 5.11-GE-1-MF -s 5.9-GE-3-ST
           Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
   - Order of operations if multiple unique parameters are supplied:
@@ -394,7 +394,7 @@ CleanUp() {
             if ((g_verbose)); then
                 vMsg "Debug enabled, temporary path not removed" y
             else
-                if rm -fr -- "$node" &>/dev/null; then
+                if rm -fr -- "$node" > /dev/null; then
                     ((g_verbose)) && vMsg "Temporary path removed" g
                 else
                     vMsg "Failed to remove temporary path: $node" r
@@ -408,7 +408,7 @@ CleanUp() {
             if ((g_verbose)); then
                 vMsg "Debug enabled, temporary file not removed" y
             else
-                if rm -f -- "$node" &>/dev/null; then
+                if rm -f -- "$node" > /dev/null; then
                     ((g_verbose)) && vMsg "Temporary file removed" g
                 else
                     vMsg "Failed to remove temporary file: $node" r
@@ -507,7 +507,7 @@ CreateBackup() {
     # If a relative file/path was given
     [[ ${backup_target:0:1} != "/" || ${backup_target:0:2} == "./" ]] && {
         ((g_verbose)) && vMsg "Resolving relative path"
-        backup_target=$(realpath -- "$backup_target" 2>/dev/null)
+        backup_target=$(realpath -- "$backup_target" 2> /dev/null)
     }
 
     # If backup_target is a file, get the path to it
@@ -515,7 +515,7 @@ CreateBackup() {
         backup_target_path=${backup_target%/*}
     else
         # If its a path, get the parent path of backup_target
-        backup_target_path=$(realpath -- "$(dirname -- "$backup_target" 2>/dev/null)" 2>/dev/null)
+        backup_target_path=$(realpath -- "$(dirname -- "$backup_target" 2> /dev/null)" 2> /dev/null)
     fi
 
     backup_target_basename=${backup_target##*/}
@@ -648,7 +648,7 @@ tmp_path=/tmp
 DEFAULT_CONFIG
 
     # If trash is found, use it instead of rm
-    if command -v trash >/dev/null; then
+    if command -v trash > /dev/null; then
         rm_command='trash'
     else
         rm_command='rm'
@@ -1042,7 +1042,7 @@ ExtractGEPackage() {
 
     # Display "Extracting" with trailing dots indicating the extraction progress
     printf '%s' "Extracting $extract_file to $extract_path"
-    if tar --checkpoint=.10000 -C "$extract_path" -xzf "$extract_file" 2>/dev/null; then
+    if tar --checkpoint=.10000 -C "$extract_path" -xzf "$extract_file" 2> /dev/null; then
 
         # Return to the beginning of the line, erase from that position to the end of the line
         printf '\r\033[0K%s\n' "Package extracted successfully"
@@ -1550,7 +1550,7 @@ MkTempPath() {
     ((g_verbose)) && vMsg "Created temp path at: $create_temp_path" g
 
     # Create the path
-    mkdir -p "$create_temp_path" &>/dev/null
+    mkdir -p "$create_temp_path" &> /dev/null
 
     # "Return" the path and filename,
     printf '%s' "$create_temp_path"
@@ -1574,7 +1574,7 @@ ParseConfigFile() {
     local config_key config_value
     local -i existing_config_file_lines=0 counter_config_line=0 flag_failed=0 flag_update_install_path=0
 
-    existing_config_file_lines=$(wc -l 2>/dev/null < "$g_file_script_config") # NOTE: do not || return 1 here
+    existing_config_file_lines=$(wc -l 2> /dev/null < "$g_file_script_config") # NOTE: do not || return 1 here
 
     ((g_verbose)) && vMsg "existing_config_file_lines: $existing_config_file_lines"
 
@@ -1666,7 +1666,7 @@ ParseConfigFile() {
                 config_value=$(eval printf '%s' "$config_value")
                 ((g_verbose)) && vMsg "config_value expanded to: $config_value"
             else
-                if command -v envsubst &>/dev/null; then
+                if command -v envsubst > /dev/null; then
                     ((g_verbose)) && vMsg "Using 'envsubst' to expand config_value: $config_value"
                     config_value=$(envsubst <<< "$config_value")
 
@@ -1714,7 +1714,7 @@ ParseConfigFile() {
                     flag_update_install_path=1
                 else
                     ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
-                    if mkdir -p -- "$config_value" &>/dev/null; then
+                    if mkdir -p -- "$config_value" > /dev/null; then
                         if [[ -w $config_value ]]; then
                             ((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_install_path=$config_value
@@ -1743,7 +1743,7 @@ ParseConfigFile() {
                     g_script_cache_path=$config_value
                 else
                     ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
-                    if mkdir -p -- "$config_value" &>/dev/null; then
+                    if mkdir -p -- "$config_value" > /dev/null; then
                         if [[ -w $config_value ]]; then
                             ((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_script_cache_path=$config_value
@@ -1768,7 +1768,7 @@ ParseConfigFile() {
                     g_temp_base_path=$config_value
                 else
                     ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
-                    if mkdir -p -- "$config_value" &>/dev/null; then
+                    if mkdir -p -- "$config_value" > /dev/null; then
                         if [[ -w $config_value ]]; then
                             ((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_temp_base_path=$config_value
@@ -1783,7 +1783,7 @@ ParseConfigFile() {
                 fi
             ;;
             (rm_command)
-                if (command -v -- "$config_value" &>/dev/null); then
+                if (command -v -- "$config_value" > /dev/null); then
                     g_command_rm=$config_value
                     ((g_verbose)) && vMsg "g_command_rm set to: $g_command_rm" g
                 else
@@ -1794,7 +1794,7 @@ ParseConfigFile() {
                 fi
             ;;
             (latest_version_url)
-                if curl -sLI -- "$config_value" &>/dev/null; then
+                if curl -sLI -- "$config_value" > /dev/null; then
                     g_latest_version_url=$config_value
                     ((g_verbose)) && vMsg "g_latest_version_url set to: $g_latest_version_url" g
                 else
@@ -1803,7 +1803,7 @@ ParseConfigFile() {
                 fi
             ;;
             (releases_url)
-                if curl -sLI -- "$config_value" &>/dev/null; then
+                if curl -sLI -- "$config_value" > /dev/null; then
                     g_releases_url=$config_value
                     ((g_verbose)) && vMsg "g_releases_url set to: $g_releases_url" g
                 else
@@ -2253,7 +2253,7 @@ RemoveGEInstallPath() {
 
     local disk_usage="?"
 
-    if command -v du &>/dev/null; then
+    if command -v du > /dev/null; then
         disk_usage=$(du -sh -- "$g_install_path")
     else
         ((g_verbose)) && vMsg "Command 'du' not found" r
@@ -2265,7 +2265,7 @@ RemoveGEInstallPath() {
         ((g_verbose)) && vMsg "Recreating install path at $g_install_path"
 
         # Re-create the g_install_path in case a requested subsequent script function needs it
-        if mkdir -p -- "$g_install_path" &>/dev/null; then
+        if mkdir -p -- "$g_install_path" > /dev/null; then
             ((g_verbose)) && vMsg "mkdir -p $g_install_path succeeded" g
         else
             if ((g_verbose)); then
@@ -2307,9 +2307,9 @@ RemoveGEVersion() {
     if [[ -d $remove_path ]]; then
         if ! IsSteamRunning; then
             # Get the disk usage in human readable format
-            disk_usage=$(du -sh -- "$remove_path" 2>/dev/null)
+            disk_usage=$(du -sh -- "$remove_path" 2> /dev/null)
             disk_usage=${disk_usage%[[:space:]]*}
-            if ($g_command_rm -rf -- "$remove_path" &>/dev/null); then
+            if ($g_command_rm -rf -- "$remove_path" > /dev/null); then
                 echo "Removed path $remove_path (${disk_usage:-'error'})"
             else
                 echo "Failed to remove $remove_path"
@@ -2433,12 +2433,12 @@ ReportGEDiskUsage() {
     # NOTE: do not return 1 if version is NULL, functionality below depends on it
 
     # Optional commands that are required for this function
-    if ! command -v du &>/dev/null; then
+    if ! command -v du > /dev/null; then
         echo "Command 'du' not found"
         flag_missing_command=1
     fi
 
-    if ! command -v find &>/dev/null; then
+    if ! command -v find > /dev/null; then
         echo "Command 'find' not found"
         flag_missing_command=1
     fi
@@ -2523,7 +2523,7 @@ RequestURL() {
             -H "$CURL_HEADER_CONTENT_TYPE" \
             -H "$CURL_HEADER_GITHUB_MEDIATYPE" \
             -L "$requested_url" \
-            -o "$file_temp" 2>/dev/null; then
+            -o "$file_temp" 2> /dev/null; then
 
         # Force an update to the access time of file_local
         if touch -ac -- "$file_local"; then
@@ -2634,7 +2634,7 @@ SetupEnvironment() {
         fi
     elif [[ ! -d $g_install_path ]]; then
         ((g_verbose)) && vMsg "g_install_path not found. Creating at $g_install_path" y
-        if mkdir -p -- "$g_install_path" &>/dev/null; then
+        if mkdir -p -- "$g_install_path" > /dev/null; then
             ((g_verbose)) && vMsg "Create install path succeeded" g
         else
             vMsg "Failed to create: $g_install_path" r
@@ -2653,7 +2653,7 @@ SetupEnvironment() {
         fi
     elif [[ ! -d $g_script_config_path ]]; then
         ((g_verbose)) && vMsg "Config path not found, creating at $g_script_config_path" y
-        if mkdir -p -- "$g_script_config_path" &>/dev/null; then
+        if mkdir -p -- "$g_script_config_path" > /dev/null; then
             ((g_verbose)) && vMsg "Create config path succeeded" g
         else
             vMsg "Failed to create: $g_script_config_path" r
@@ -2672,7 +2672,7 @@ SetupEnvironment() {
         fi
     elif [[ ! -d $g_script_cache_path ]]; then
         ((g_verbose)) && vMsg "Cache path not found, creating at $g_script_cache_path" y
-        if mkdir -p -- "$g_script_cache_path" &>/dev/null; then
+        if mkdir -p -- "$g_script_cache_path" > /dev/null; then
             ((g_verbose)) && vMsg "Create cache path succeeded" g
         else
             vMsg "Failed to create: $g_script_cache_path" r
@@ -2716,7 +2716,7 @@ SetupEnvironment() {
         fi
     elif [[ ! -d $g_temp_base_path ]]; then
         ((g_verbose)) && vMsg "Temp base path not found, creating at $g_temp_base_path" y
-        if mkdir -p -- "$g_temp_base_path" &>/dev/null; then
+        if mkdir -p -- "$g_temp_base_path" > /dev/null; then
             ((g_verbose)) && vMsg "Create cache path succeeded" g
         else
             vMsg "Failed to create: $g_temp_base_path" r
@@ -2726,7 +2726,7 @@ SetupEnvironment() {
 
     # Remove 0 size g_file_latest_json
     [[ -f $g_file_latest_json ]] && {
-        (( $(stat -c '%s' -- "$g_file_latest_json" 2>/dev/null) == 0 )) && {
+        (( $(stat -c '%s' -- "$g_file_latest_json" 2> /dev/null) == 0 )) && {
             ((g_verbose)) && vMsg "g_file_latest_json is size 0, removing" y
             if ! rm -f -- "$g_file_latest_json"; then
                 flag_failed=1
@@ -2736,7 +2736,7 @@ SetupEnvironment() {
 
     # Remove 0 size g_file_releases_json
     [[ -f $g_file_releases_json ]] && {
-        (( $(stat -c '%s' -- "$g_file_releases_json" 2>/dev/null) == 0 )) && {
+        (( $(stat -c '%s' -- "$g_file_releases_json" 2> /dev/null) == 0 )) && {
             ((g_verbose)) && vMsg "g_file_releases_json is size 0, removing" y
             if ! rm -f -- "$g_file_releases_json"; then
                 flag_failed=1
@@ -3036,15 +3036,15 @@ VerifyGEInstall() {
     }
 
     # Required external commands
-    if ! command -v cmp &>/dev/null; then
+    if ! command -v cmp > /dev/null; then
         echo "Command 'cmp' is required to use this function"
         flag_missing_command=1
     fi
-    if ! command -v sort &>/dev/null; then
+    if ! command -v sort > /dev/null; then
         echo "Command 'sort' is required to use this function"
         flag_missing_command=1
     fi
-    if ! command -v date &>/dev/null; then
+    if ! command -v date > /dev/null; then
         echo "Command 'date' is required to use this function"
         flag_missing_command=1
     fi
@@ -3123,12 +3123,12 @@ VerifyGEInstall() {
                 # Array of extracted files
                 while IFS= read -r file_extracted; do
                     [[ -n $file_extracted ]] && files_extracted+=("$file_extracted")
-                done < <(find "$temp_path/Proton-${version}/" -type f ! -iwholename '*__pycache__*' 2>/dev/null | LC_ALL=C sort)
+                done < <(find "$temp_path/Proton-${version}/" -type f ! -iwholename '*__pycache__*' 2> /dev/null | LC_ALL=C sort)
 
                 # Array of installed files
                 while IFS= read -r file_installed; do
                     [[ -n $file_installed ]] && files_installed+=("$file_installed")
-                done < <(find "$g_install_path/Proton-${version}/" -type f ! -iwholename '*__pycache__*' 2>/dev/null | LC_ALL=C sort)
+                done < <(find "$g_install_path/Proton-${version}/" -type f ! -iwholename '*__pycache__*' 2> /dev/null | LC_ALL=C sort)
 
                 # Report the number of files found in each path
                 echo "Found ${#files_extracted[@]} (extracted) and ${#files_installed[@]} (installed) files"
