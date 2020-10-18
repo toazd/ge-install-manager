@@ -38,6 +38,7 @@ set -huo pipefail
 declare -gr SCRIPT_VERSION="0.7.6"
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr SCRIPT_CODENAME="Cochrane Bonaventure"
+declare -gr PROJECT_URL="https://github.com/toazd/ge-install-manager"
 declare -gr CURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
 declare -gr CURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
 declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
@@ -91,9 +92,8 @@ declare -gi g_show_usage=0
 declare -gi g_size_bytes_sed_unminify_script=824
 declare -gi g_update=0
 declare -gi g_verify=0
-# NOTE: Minimum interval in seconds that checks for a newer remote version of latest/releases will be allowed (60 minutes)
-declare -gi g_releases_update_interval=3600
-declare -gi g_script_update_interval=604800 # 7 days
+declare -gi g_releases_update_interval=3600 # (seconds) 60 minutes
+declare -gi g_script_update_interval=604800 # (seconds) 7 days
 declare -gi g_list_available_versions=0
 declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
@@ -121,9 +121,9 @@ ShowHelp() {
 
     cat <<HELP_HEREDOC
 
-    ${0##*/}  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
+    ${SCRIPT_FULL_NAME}  v${SCRIPT_VERSION} "${SCRIPT_CODENAME}"
 
-    Configuration file: $g_script_config_path/${0##*/}.conf
+    Configuration file: ${g_script_config_path}/${SCRIPT_FULL_NAME}.conf
 
     Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc, touch
     Optional:       date, du, pgrep, sort, cmp, envsubst, trash
@@ -328,12 +328,16 @@ CheckRequirements() {
     local -i flag_failed=0 flag_apt=0 flag_pacman=0 flag_dnf=0
     local -a required_commands=(curl sed tar gzip stat wc touch)
 
+    # Detect package managers for basic missing command advice
     command -v pacman > /dev/null && flag_pacman=1
     command -v apt > /dev/null && flag_apt=1
     command -v dnf > /dev/null && flag_dnf=1
 
     while IFS= read -r --; do
+        # Report the command path if it is found
         [[ ${REPLY,,} == *'is'* ]] && { ((g_verbose)) && vMsg "$REPLY"; continue; }
+
+        # Report if a command is not found
         [[ ${REPLY,,} == *'not found'* ]] && {
             REPLY=${REPLY#*:} # remove script_name:
             REPLY=${REPLY#*:} # remove lineno:
@@ -344,6 +348,7 @@ CheckRequirements() {
             cur_cmd=${REPLY#*": "}
             cur_cmd=${cur_cmd%": "*}
 
+            # Give basic install advice depending on which package manager is found
             if (( flag_apt == 1 && flag_pacman == 0 && flag_dnf == 0 )); then
                 echo "Required $REPLY (sudo apt install $cur_cmd -y)"
             elif (( flag_apt == 0 && flag_pacman == 0 && flag_dnf == 1 )); then
@@ -432,6 +437,7 @@ CleanUp() {
 # Input:   None
 # Output:  None
 # Return:  0 (Success) Always
+# NOTE: This function takes advantage of Bash's dynamic scoping
 CleanUpVersion() {
 
     local -i length_characters=0
@@ -594,7 +600,7 @@ CreateDefaultConfigFile() {
 
     cat <<DEFAULT_CONFIG > "$g_file_script_config" # This section is subject to variable expansion
 #
-# $SCRIPT_FULL_NAME v$SCRIPT_VERSION Default configuration file
+# ${SCRIPT_FULL_NAME} v${SCRIPT_VERSION} Default configuration file
 #
 # Quick start format:
 # #comment
@@ -643,9 +649,9 @@ DEFAULT_CONFIG
 
     # If trash is found, use it instead of rm
     if command -v trash >/dev/null; then
-        rm_command="trash"
+        rm_command='trash'
     else
-        rm_command="rm"
+        rm_command='rm'
     fi
 
     cat <<DEFAULT_CONFIG >> "$g_file_script_config" # This section is subject to variable expansion
@@ -666,7 +672,9 @@ DEFAULT_CONFIG
 CreateSedUnminifyJSONscript() {
 
     if [[ ! -f $g_file_sed_unminify_script ]] || (($(stat -c '%s' -- "$g_file_sed_unminify_script") != g_size_bytes_sed_unminify_script)); then
+
         ((g_verbose)) && vMsg "sed script at $g_file_sed_unminify_script does not exist or is not the expected size ($g_size_bytes_sed_unminify_script)" y
+
         cat <<"END_OF_SED_SCRIPT" > "$g_file_sed_unminify_script"
 #### begin minimum required for ge-install-manager
 # replace: ","
@@ -731,7 +739,8 @@ END_OF_SED_SCRIPT
 #          is then read by ParseConfigFile to set g_install_path in the config
 #          file. If multiple potential install paths are detected the user will
 #          be prompted to choose one of them. If none/exit is chosen or an abort
-#          occurs install_path will remain set to auto.
+#          occurs install_path will remain set to auto (which triggers this function
+#          being called from ParseConfigFile).
 # Input:   None
 # Output:  None
 # Return:  0 (Success) Always
@@ -3290,7 +3299,7 @@ Main() {
     (( $(id -u) )) || { echo "This script requires non-root effective permissions"; exit 1; }
 
     # Parse script parameters and arguments, set global variables
-    ParseParameters "$@" || exit 1
+    ParseParameters "$@" || { ((g_verbose)) && vMsg "ParseParameters returned failure status"; exit 1; }
 
     # Report if debug mode is enabled
     ((g_verbose)) && {
@@ -3302,7 +3311,7 @@ Main() {
     # If -z was supplied report some basic information
     # Enables invoking the script with only -z (eg. "ge-install-manager -z") to check
     # basic requirements and report if any are not found
-    if [[ ${1-unset} = "unset" || $1 = "" ]] || [[ ${#1} -eq 2 && $1 = "-z" ]]; then
+    if [[ ${1-unset} = 'unset' || -z $1 ]] || [[ ${#1} -eq 2 && $1 = '-z' ]]; then
 
         ((g_verbose)) && {
             if IsSteamRunning; then
@@ -3326,6 +3335,7 @@ Main() {
     # If either ShowHelp or ShowUsage was invoked, exit
     ((g_show_help || g_show_usage)) && exit 0
 
+    # Check command requirements and set global variables
     if CheckRequirements; then
         if ParseConfigFile; then
             if ! SetupEnvironment; then
@@ -3338,11 +3348,12 @@ Main() {
         exit 1
     fi
 
-    if ((g_check_update == 1 || g_update == 1)); then
+    # If -u and/or -U are used, check for a script update and report
+    if ((g_check_update || g_update)); then
         if CheckForScriptUpdate; then
             ((g_verbose)) && vMsg "The latest version of the script is running"
         else
-            echo "There is a script update available (https://github.com/toazd/ge-install-manager)"
+            echo "There is a script update available ($PROJECT_URL)"
         fi
     fi
 
@@ -3438,7 +3449,7 @@ Main() {
     # TODO: add support to verify even if remove saved packages and/or remove install path was invoked
     #       so long as some sort of install was also requested. Additionally, maybe support installing a version
     #       that is not installed when verify is called and force mode is active.
-    if (( g_verify && ! g_remove_install_path && ! g_remove_all_saved_packages )); then
+    if ((g_verify && ! g_remove_install_path && ! g_remove_all_saved_packages)); then
         VerifyGEInstall "${g_verify_version-}"
     fi
 
