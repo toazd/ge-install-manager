@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2243/3457 SLOC (64%) [SLOC/Comment:2.85], 788 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 460 empty (13%)
+# 2246/3465 SLOC (64%) [SLOC/Comment:2.84], 791 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 462 empty (13%)
 
 ###############################################################################
 #                                                                             #
