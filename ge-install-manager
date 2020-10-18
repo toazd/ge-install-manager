@@ -1332,11 +1332,31 @@ IsJSONminified() {
 #          1 (No/False) A Steam process was not detected.
 IsSteamRunning() {
 
+    local steam_pids='' steamwebhelper_pids=''
     local -i flag_found_steam=0
 
-    (( $(pgrep steam | wc -l) > 0 )) && flag_found_steam=1
+    # This feature requires pgrep
+    command -v pgrep > /dev/null || { ((g_verbose)) && vMsg "pgrep not found" r; return 1; }
 
-    ((g_verbose)) && { ((flag_found_steam)) || vMsg "Steam process not found"; }
+    (( $(pgrep -i steam | wc -l) > 0 )) && {
+        ((g_verbose)) && {
+
+            # steam
+            steam_pids=$(pgrep -ix steam)
+            [[ -n $steam_pids ]] && {
+                flag_found_steam=1
+                vMsg "steam process found at PID(s): ${steam_pids//$'\n'/' '}"
+            }
+
+            # steamwebhelper
+            steamwebhelper_pids=$(pgrep -ix steamwebhelper)
+            [[ -n $steamwebhelper_pids ]] && {
+                vMsg "steamwebhelper process found at PID(s): ${steamwebhelper_pids//$'\n'/' '}"
+            }
+        }
+    }
+
+    ((g_verbose)) && { ((flag_found_steam)) || vMsg "steam process not found"; }
 
     return $(( flag_found_steam ? 0 : 1 ))
 }
