@@ -92,7 +92,7 @@ declare -gi g_update=0
 declare -gi g_verify=0
 # NOTE: Minimum interval in seconds that checks for a newer remote version of latest/releases will be allowed (60 minutes)
 declare -gi g_releases_update_interval=3600
-declare -gi g_script_update_interval=30 #604800 # 7 days
+declare -gi g_script_update_interval=604800 # 7 days
 declare -gi g_list_available_versions=0
 declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
