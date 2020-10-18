@@ -1736,9 +1736,7 @@ ReformatJSONUsingSed() {
 }
 
 ###############################################################################
-# Purpose: Detect if a specified JSON file is minified or not. Used for debug
-#          reporting only because the unminify script is run on the JSON
-#          regardless of the result of this function.
+# Purpose: Detect if a specified JSON file is minified or not.
 # Input:   1 (required) A JSON file
 # Output:  None
 # Return:  0 Yes/True
@@ -1943,23 +1941,23 @@ RequestURL() {
                     return 1
                 fi
 
-                # NOTE: Only the status is checked, unminify is run regardless of the result
-                IsJSONminified "$file_temp"
-
-                if ReformatJSONUsingSed "$file_temp"; then
-                    ((g_verbose)) && vMsg "ReformatJSONUsingSed returned success" g
-
-                    # If the local file already exists, create a backup first
-                    [[ -f $file_local ]] && CreateBackup "$file_local"
-                    if cp -f -- "$file_temp" "$file_local"; then
-                        ((g_verbose)) && vMsg "Copied $file_temp to $file_local" g
-                        return 0
+                # TODO: Better handling of different file types
+                if IsJSONminified "$file_temp"; then
+                    if ReformatJSONUsingSed "$file_temp"; then
+                        ((g_verbose)) && vMsg "ReformatJSONUsingSed returned success" g
                     else
-                        ((g_verbose)) && vMsg "Failed to copy $file_temp to $file_local" r
+                        ((g_verbose)) && vMsg "ReformatJSONUsingSed returned failure" r
                         return 1
                     fi
+                fi
+
+                # If the local file already exists, create a backup first
+                [[ -f $file_local ]] && CreateBackup "$file_local"
+                if cp -f -- "$file_temp" "$file_local"; then
+                    ((g_verbose)) && vMsg "Copied $file_temp to $file_local" g
+                    return 0
                 else
-                    ((g_verbose)) && vMsg "ReformatJSONUsingSed returned failure" r
+                    ((g_verbose)) && vMsg "Failed to copy $file_temp to $file_local" r
                     return 1
                 fi
             else
