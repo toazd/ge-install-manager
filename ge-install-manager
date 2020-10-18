@@ -92,7 +92,7 @@ declare -gi g_update=0
 declare -gi g_verify=0
 # NOTE: Minimum interval in seconds that checks for a newer remote version of latest/releases will be allowed (60 minutes)
 declare -gi g_releases_update_interval=3600
-declare -gi g_script_update_interval=604800 # 7 days
+declare -gi g_script_update_interval=30 #604800 # 7 days
 declare -gi g_list_available_versions=0
 declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
@@ -328,24 +328,32 @@ UpdateCachedGEReleases() {
 }
 
 ###############################################################################
-# Purpose:
-# Input:
-# Output:
-# Return:
+# Purpose: Compare and report if the size of the remote version of this script
+#          does not match the size of the local version of this script.
+# Input:   None
+# Output:  None
+# Return:  0 (local and remote sizes are equal) Update not available
+#          1 (local and remote sizes do not match) Update available
 CheckForScriptUpdate() {
 
     ((g_verbose)) && vMsg "Checking $g_file_script_raw"
     if CheckAccessTime "$g_file_script_raw" "$g_script_update_interval"; then
         if RequestURL "$g_script_raw_url" "$g_file_script_raw"; then
             ((g_verbose)) && vMsg "RequestURL returned success" g
-            return 0
         else
             ((g_verbose)) && vMsg "RequestURL returned failure" r
         fi
     else
         ((g_verbose)) && vMsg "CheckAccessTime returned failure" y
-        return 0
     fi
+
+    ((g_verbose)) && {
+        vMsg "Local script size bytes : $(stat -c '%s' "$(realpath "$0")")"
+        vMsg "Remote script size bytes: $(stat -c '%s' "$(realpath "$g_file_script_raw")")"
+    }
+
+    # Even if CheckAccessTime or RequestURL fail, check the local cached copy if it exists otherwise return 0 (update not available)
+    [[ ! -f $g_file_script_raw ]] && return 0
 
     return $(( ($(stat -c '%s' "$(realpath "$0")") != $(stat -c '%s' "$(realpath "$g_file_script_raw")")) ? 1 : 0 ))
 }
@@ -983,13 +991,13 @@ ListInstalledGEVersions() {
         fi
     done
 
-    # Report total disk usage for saved packages if one or more were found
-    if ((i >= 1)); then
+    # Report total disk usage for saved packages if two or more were found
+    if ((i >= 2)); then
         while IFS=$'\t' read -r -- size path; do
             [[ $path = "total" ]] && saved_packages_total_disk_usage=$size
         done < <(du -csh -- "$g_install_path/"*.tar.gz)
         echo "Saved packages total: $saved_packages_total_disk_usage"
-    else
+    elif ((i == 0)); then
         echo "  None found"
     fi
 
@@ -3336,9 +3344,9 @@ Main() {
 
     if ((g_check_update == 1 || g_update == 1)); then
         if CheckForScriptUpdate; then
-            echo "The latest version of the script is running"
+            ((g_verbose)) && vMsg "The latest version of the script is running"
         else
-            echo "There is a script update available"
+            echo "There is a script update available (https://github.com/toazd/ge-install-manager)"
         fi
     fi
 
@@ -3346,9 +3354,9 @@ Main() {
     if ((g_check_update && ! g_update)); then
         if GetLatestGEVersion; then
             if IsInstalled "$g_latest_version"; then
-                echo "The latest version $g_latest_version is installed"
+                echo "The latest version Proton-$g_latest_version is installed"
             else
-                echo "The latest version $g_latest_version is not installed"
+                echo "The latest version Proton-$g_latest_version is not installed"
             fi
         fi
     fi
