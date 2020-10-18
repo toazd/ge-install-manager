@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2246/3465 SLOC (64%) [SLOC/Comment:2.84], 791 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 462 empty (13%)
+# 2245/3461 SLOC (64%) [SLOC/Comment:2.84], 791 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 459 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -26,7 +26,8 @@ set -huo pipefail
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
 #
-# TODO: Install parameter (-I?) / -f erases cache and config?
+# TODO: Install function (currently automatic if any main function is used)
+# TODO: Uninstall function
 # TODO: Replace getopts with a custom parser
 # TODO: support for using jq in addition to sed
 #
