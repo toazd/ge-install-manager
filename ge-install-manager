@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2400/3664 SLOC (65%) [SLOC/Comment:2.97], 808 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.34], 498 empty (13%)
+# 2400/3665 SLOC (65%) [SLOC/Comment:2.97], 809 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.34], 498 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -87,7 +87,7 @@ declare -gi g_size_bytes_sed_unminify_script=824
 declare -gi g_update=0
 declare -gi g_verify=0
 declare -gi g_releases_update_interval=3600 # (seconds) 60 minutes
-declare -gi g_script_update_interval=604800 # (seconds) 7 days
+declare -gi g_script_update_interval=43200 # (seconds) 12 hours
 declare -gi g_list_available_versions=0
 declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
@@ -270,6 +270,7 @@ CheckAccessTime() {
         return 0
     fi
 
+    # verbose reporting
     ((g_verbose)) && {
         vMsg "Returning default value of 0" y
         vMsg "file: $file" y
