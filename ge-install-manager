@@ -1277,11 +1277,11 @@ InstallGEVersion() {
                 fi
             else
                 if ExtractGEPackage "$version"; then
-                    echo "Installation of version $version was successful"
+                    echo "Installation of version Proton-$version was successful"
                     IsSteamRunning && echo "Restart steam to use the new version"
                     return 0
                 else
-                    echo "Installation of version $version failed"
+                    echo "Installation of version Proton-$version failed"
                     return 1
                 fi
             fi
@@ -1291,13 +1291,13 @@ InstallGEVersion() {
     # Download a new package and extract it.
     if DownloadGEPackage "$version"; then
         if ExtractGEPackage "$version"; then
-            echo "Installation of version $version was successful"
+            echo "Installation of version Proton-$version was successful"
             if IsSteamRunning; then
-                echo "You must restart Steam to use the new version"
+                echo "Restart steam to use the new version"
             fi
             return 0
         else
-            echo "Installation of version $version failed"
+            echo "Installation of version Proton-$version failed"
             return 1
         fi
     else
