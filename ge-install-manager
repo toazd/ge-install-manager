@@ -435,7 +435,7 @@ CleanUp() {
         # If the kill fails
         if ! kill -s SIGINT $$; then
             # Try the external command
-            if ! $(which --skip-alias --skip-functions -- kill) -2 0; then
+            if ! kill -2 0; then
                 kill -2 0
                 exit
             fi
