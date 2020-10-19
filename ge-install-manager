@@ -1100,9 +1100,6 @@ ExtractGEPackage() {
                 echo "Removed failed extraction path at $extract_path/Proton-${version}"
             else
                 echo "Failed to remove partial extraction path: $extract_path/Proton-${version}"
-
-                # TODO: update/remove message when install verification is updated
-                echo "This script may interpret it as a valid g_install until it is removed"
             fi
         }
         return 1
@@ -1292,9 +1289,7 @@ InstallGEVersion() {
     if DownloadGEPackage "$version"; then
         if ExtractGEPackage "$version"; then
             echo "Installation of version Proton-$version was successful"
-            if IsSteamRunning; then
-                echo "Restart steam to use the new version"
-            fi
+            IsSteamRunning && echo "Restart steam to use the new version"
             return 0
         else
             echo "Installation of version Proton-$version failed"
@@ -2380,7 +2375,7 @@ RemoveGEInstallPath() {
         disk_usage="error"
     fi
 
-    if ($g_command_rm -- "$g_install_path"); then
+    if ($g_command_rm -r -- "$g_install_path"); then
         echo "Remove install path succeeded ( ${disk_usage%%[[:blank:]]*} removed )"
         ((g_verbose)) && vMsg "Recreating install path at $g_install_path"
 
