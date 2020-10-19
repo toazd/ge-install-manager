@@ -2105,16 +2105,15 @@ QueryGEAttribute() {
         return 1
     }
 
-    version=${1-}
     CleanUpVersion
 
     if ! UpdateCachedGEReleases; then
         ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" r
         [[ ! -f $g_file_latest_json ]] && {
-            ((g_verbose)) && vMsg "g_file_latest_json: $g_file_latest_json" w
+            ((g_verbose)) && vMsg "g_file_latest_json: $g_file_latest_json" y
         }
         [[ ! -f $g_file_releases_json ]] && {
-            ((g_verbose)) && vMsg "g_file_releases_json: $g_file_releases_json" w
+            ((g_verbose)) && vMsg "g_file_releases_json: $g_file_releases_json" y
         }
 
         return 1

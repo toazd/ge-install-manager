@@ -43,8 +43,8 @@ NOTE: The script currently does not have an uninstall function to completely rem
         ${XDG_CONFIG_HOME:-"$HOME"/.cache}/ge-install-manager
           default: ~/.cache/ge-install-manager
 
-Distributions tested so far: Arch, Fedora Workstation, Manjaro, Ubuntu
-Shells tested so far: GNU Bash 5.0.18, Zsh 5.8
+Distributions tested so far: Arch, Artix, Fedora Workstation, Manjaro, Linux Mint, Ubuntu
+Shells tested so far: GNU Bash v5.0.18, v5.0.17, Zsh v5.8
 
 Help:
 
