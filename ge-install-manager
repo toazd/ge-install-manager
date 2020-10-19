@@ -1233,7 +1233,7 @@ InstallGEVersion() {
             else
                 echo "Forcing re-install of version $version"
                 echo "Removing install at $g_install_path/Proton-${version}"
-                if ($g_command_rm -- "$g_install_path/Proton-${version}"); then
+                if ($g_command_rm -r -- "$g_install_path/Proton-${version}"); then
                     echo "Install removed"
                 else
                     echo "Remove failed"
@@ -1242,7 +1242,7 @@ InstallGEVersion() {
             fi
         # If force mode is off, nothing else to do
         else
-            echo "Version $version is already installed"
+            echo "Version Proton-$version is already installed"
             return 0
         fi
     fi
@@ -1395,20 +1395,17 @@ IsSteamRunning() {
     command -v pgrep > /dev/null || { ((g_verbose)) && vMsg "pgrep not found" r; return 1; }
 
     (( $(pgrep -i steam | wc -l) > 0 )) && {
-        ((g_verbose)) && {
+        # steam
+        steam_pids=$(pgrep -ix steam)
+        [[ -n $steam_pids ]] && {
+            flag_found_steam=1
+            ((g_verbose)) && vMsg "steam process found at PID(s): ${steam_pids//$'\n'/' '}"
+        }
 
-            # steam
-            steam_pids=$(pgrep -ix steam)
-            [[ -n $steam_pids ]] && {
-                flag_found_steam=1
-                vMsg "steam process found at PID(s): ${steam_pids//$'\n'/' '}"
-            }
-
-            # steamwebhelper
-            steamwebhelper_pids=$(pgrep -ix steamwebhelper)
-            [[ -n $steamwebhelper_pids ]] && {
-                vMsg "steamwebhelper process found at PID(s): ${steamwebhelper_pids//$'\n'/' '}"
-            }
+        # steamwebhelper
+        steamwebhelper_pids=$(pgrep -ix steamwebhelper)
+        [[ -n $steamwebhelper_pids ]] && {
+            ((g_verbose)) && vMsg "steamwebhelper process found at PID(s): ${steamwebhelper_pids//$'\n'/' '}"
         }
     }
 
