@@ -87,8 +87,8 @@ Usage:
 
   Default config path:        ${XDG_CONFIG_HOME:-"$HOME"/.config}/ge-install-manager
 
-  - Acceptable formats for <version>:
-      5.9-GE-3-ST, Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz (case-insensitive)
+  - Acceptable formats for <version> (case-insensitive):
+      5.9-GE-3-ST, Proton-5.9-GE-3-ST, Proton-5.9-GE-3-ST.tar.gz
 
   - Most parameters can be combined with other unique parameters.
     > NOTE: arguments must directly follow parameters that require arguments
@@ -116,18 +116,15 @@ Usage:
     > If during invocation multiple identical parameters are supplied.
       Example:
         ./ge-install-manager -s 5.11-GE-1-MF -s 5.9-GE-3-ST
-          Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
+          Result: Only the right-most parameter and argument will be processed (-s 5.9-GE-3-ST).
 
   - Order of operations if multiple unique parameters are supplied:
-    > NOTE: -h and/or -H, and -fzZ will exit irrespective of other parameters
-      Force toggle,
-      Report environment info (-fzZ),
+    > NOTE: -h and/or -H, and -fzZ/-fzT will exit irrespective of other parameters
       Show help,
       Show usage,
-      Verbose toggle,
       Check for latest release,
       Show all releases available,
-      Show all release notes,
+      Show release notes for all versions,
       Show release notes for a version,
       Remove install path,
       Remove saved packages (if remove install path is not active),
@@ -137,8 +134,8 @@ Usage:
       Update,
       Install,
       List installed,
-      Report install path usage,
-      Report specific version usage
+      Report install path disk usage,
+      Report specific version disk usage
       Verify
 
 Version history:

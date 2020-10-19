@@ -200,16 +200,19 @@ Usage:
         ./$SCRIPT_FULL_NAME -s 5.11-GE-1-MF -s 5.9-GE-3-ST
           Result: Only the right-most parameter will be processed (-s 5.9-GE-3-ST).
 
+  - The order of parameters is not significant except:
+    > If during invocation multiple identical parameters are supplied.
+      Example:
+        ./ge-install-manager -s 5.11-GE-1-MF -s 5.9-GE-3-ST
+          Result: Only the right-most parameter and argument will be processed (-s 5.9-GE-3-ST).
+
   - Order of operations if multiple unique parameters are supplied:
-    > NOTE: -h and/or -H, and -fzZ will exit irrespective of other parameters
-      Force toggle,
-      Report environment info (-fzZ),
+    > NOTE: -h and/or -H, and -fzZ/-fzT will exit irrespective of other parameters
       Show help,
       Show usage,
-      Verbose toggle,
       Check for latest release,
       Show all releases available,
-      Show all release notes,
+      Show release notes for all versions,
       Show release notes for a version,
       Remove install path,
       Remove saved packages (if remove install path is not active),
@@ -219,8 +222,8 @@ Usage:
       Update,
       Install,
       List installed,
-      Report install path usage,
-      Report specific version usage
+      Report install path disk usage,
+      Report specific version disk usage
       Verify
 
 USAGE_HEREDOC
@@ -3531,7 +3534,7 @@ Main() {
     # Print usage
     ((g_show_usage)) && { CheckRequirements; ShowUsage; }
 
-    # If either ShowHelp or ShowUsage was invoked, exit
+    # If ShowHelp and/or ShowUsage was invoked, exit
     ((g_show_help || g_show_usage)) && exit 0
 
     # Check command requirements and set global variables
