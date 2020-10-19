@@ -32,10 +32,19 @@ NOTE: The script will check for an updated version of itself when either update
       function is used (-u and/or -U). Auto-update of the script is currently
       not supported.
 
+NOTE: The script currently does not have an uninstall function to completely remove itself and any
+      files it created. To remove the script entirely using default settings (without removing any
+      proton-ge-custom installations) you will want to remove the following files/folders:
+        Move/Remove any saved proton-ge-custom packages that you don't want to keep in compatibilitytools.d
+          default ~/.steam/root/compatibilitytools.d/Proton-*.tar.gz
+          Optionally, run ge-install-manager -xf to remove all saved packages automatically
+        ${XDG_CONFIG_HOME:-"$HOME"/.config}/ge-install-manager
+          default ~/.config/ge-install-manager
+        ${XDG_CONFIG_HOME:-"$HOME"/.cache}/ge-install-manager
+          default: ~/.cache/ge-install-manager
+
 Distributions tested so far: Arch, Fedora Workstation, Manjaro, Ubuntu
 Shells tested so far: GNU Bash 5.0.18, Zsh 5.8
-
-Version 0.7.6
 
 Help:
 
