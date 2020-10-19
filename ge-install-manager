@@ -588,7 +588,7 @@ CreateBackup() {
             fi
         done
     else
-        ((g_verbose)) && vMsg "Index 1 not found, no need to rename existing backups" y
+        ((g_verbose)) && vMsg "Index 1 not found, no need to rename existing backups"
     fi
 
     if tar -C "$backup_target_path" -cf "$backup_target_path/${backup_target_basename}_1.tar.gz" -z "$backup_target_basename"; then
@@ -749,6 +749,15 @@ s|"}|"|g
 # with:     "
 s|\["|"|g
 END_OF_SED_SCRIPT
+
+        sync "$g_file_sed_unminify_script"
+
+        # Report that the file was created successfuly if it is the correct size
+        [[ -f $g_file_sed_unminify_script ]] && {
+            (($(stat -c '%s' -- "$g_file_sed_unminify_script") == g_size_bytes_sed_unminify_script)) && {
+                ((g_verbose)) && vMsg "sed script created successfully"
+            }
+        }
     else
         ((g_verbose)) && vMsg "sed script already exists at g_file_sed_unminify_script and is the expected size ($g_size_bytes_sed_unminify_script bytes)" g
     fi
@@ -2300,10 +2309,10 @@ ReformatJSONUsingSed() {
 
     if [[ -w $file_json ]]; then
         if sed -i --file="$g_file_sed_unminify_script" "$file_json"; then
-            ((g_verbose)) && vMsg "'sed' returned success" g
+            ((g_verbose)) && vMsg "sed returned success" g
             return 0
         else
-            ((g_verbose)) && vMsg "'sed' returned failure" r
+            ((g_verbose)) && vMsg "sed returned failure" r
             return 1
         fi
     else
@@ -3114,16 +3123,6 @@ UpdateGEVersion() {
         # Latest version is installed and force mode is not active
         if IsInstalled "$g_latest_version" && ((! g_force)); then
             echo "The latest version $g_latest_version is already installed"
-        # Latest version is not installed
-        elif ! IsInstalled "$g_latest_version"; then
-            echo "The latest version $g_latest_version is not installed"
-            if InstallGEVersion "$g_latest_version"; then
-                echo "Update succeeded"
-                IsSteamRunning && echo "Restart Steam to use the new version"
-            else
-                echo "Update failed"
-                return 1
-            fi
         # Latest version is installed and force mode is active
         elif ((g_force)); then
             # NOTE: InstallGEVersion also verifys that force mode is active
@@ -3133,9 +3132,16 @@ UpdateGEVersion() {
                 echo "Update failed"
                 return 1
             fi
+        # Latest version is not installed
         else
-            ((g_verbose)) && vMsg "Error determining install status and force mode" r
-            return 1
+            echo "The latest version $g_latest_version is not installed"
+            if InstallGEVersion "$g_latest_version"; then
+                echo "Update succeeded"
+                IsSteamRunning && echo "Restart Steam to use the new version"
+            else
+                echo "Update failed"
+                return 1
+            fi
         fi
     else
         # GetLatestGEVersionInfo failed
