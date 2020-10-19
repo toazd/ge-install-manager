@@ -32,6 +32,8 @@ NOTE: The script will check for an updated version of itself when either update
       function is used (-u and/or -U). Auto-update of the script is currently
       not supported.
 
+Distributions tested so far: Arch, Fedora Workstation, Manjaro, Ubuntu
+
 Version 0.7.6
 
 Help:
