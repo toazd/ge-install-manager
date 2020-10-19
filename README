@@ -29,7 +29,7 @@ NOTE: If you have less than 3GB of system RAM you may need to edit tmp_path
       if any are not found.
 
 NOTE: The script will check for an updated version of itself when either update
-      function is used (-u and/or -U). Auto-update of the script is currently
+      function is used (-u or -U). Auto-update of the script is currently
       not supported.
 
 NOTE: The script currently does not have an uninstall function to completely remove itself and any

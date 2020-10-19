@@ -436,14 +436,7 @@ CleanUp() {
 
     # Handle the received SIGINT properly by terminating the script/process group with SIGINT
     ((g_flag_sigint_caught)) && {
-        # If the kill fails
-        if ! kill -s SIGINT $$; then
-            # Try the external command
-            if ! kill -2 0; then
-                kill -2 0
-                exit
-            fi
-        fi
+        kill -s SIGINT $$ || kill -2 0
     }
 
     return 0
@@ -613,18 +606,19 @@ CreateBackup() {
 #          1 (Failure) mkdir returned failure status.
 CreateDefaultConfigFile() {
 
-    local rm_command path
+    local rm_command \
+          path
 
     # If the config path doesn't exist, create it
     path=$(dirname "$g_file_script_config")
     [[ ! -d $path ]] && {
         if ! mkdir -p -- "$path"; then
-            vMsg "Failed to create path: $path" r
+            vMsg "Failed to create config file path: $path" r
             return 1
         fi
     }
 
-    cat <<DEFAULT_CONFIG > "$g_file_script_config" # This section is subject to variable expansion
+    cat <<DEFAULT_CONFIG > "$g_file_script_config" # This section is subject to expansion
 #
 # ${SCRIPT_FULL_NAME} v${SCRIPT_VERSION} Default configuration file
 #
@@ -673,7 +667,7 @@ tmp_path=/tmp
 
 DEFAULT_CONFIG
 
-    # If trash is found, use it instead of rm
+    # If trash is found (trash-cli), use it instead of rm
     if command -v trash > /dev/null; then
         rm_command='trash'
     else
@@ -694,7 +688,8 @@ DEFAULT_CONFIG
 #          in bytes does not match an expected value, create/overwrite it
 # Input:   None
 # Output:  None
-# Return:  0 (Success) Always
+# Return:  0 (Success) sed script was created successfully or already exists
+#          1 (Failure) Failed to create the sed script at g_file_sed_unminify_script
 CreateSedUnminifyJSONscript() {
 
     if [[ ! -f $g_file_sed_unminify_script ]] || (($(stat -c '%s' -- "$g_file_sed_unminify_script") != g_size_bytes_sed_unminify_script)); then
@@ -756,11 +751,14 @@ END_OF_SED_SCRIPT
         sync "$g_file_sed_unminify_script"
 
         # Report that the file was created successfuly if it is the correct size
-        [[ -f $g_file_sed_unminify_script ]] && {
+        if [[ -f $g_file_sed_unminify_script ]]; then
             (($(stat -c '%s' -- "$g_file_sed_unminify_script") == g_size_bytes_sed_unminify_script)) && {
                 ((g_verbose)) && vMsg "sed script created successfully"
             }
-        }
+        else
+            vMsg "Failed to create sed script at $g_file_sed_unminify_script" r
+            return 1
+        fi
     else
         ((g_verbose)) && vMsg "sed script already exists at g_file_sed_unminify_script and is the expected size ($g_size_bytes_sed_unminify_script bytes)" g
     fi
@@ -789,8 +787,8 @@ END_OF_SED_SCRIPT
 #       ~/.var/app/com.valvesoftware.Steam/.steam
 #       ~/.steam/root/compatibilitytools.d (steam install folder symlink) || ~/.local/share/Steam/compatibilitytools.d
 # TODO: Colon-separated global paths in $STEAM_EXTRA_COMPAT_TOOLS_PATHS
-# BUG: The script needs write access to the installation path (eg. /usr/share/steam). If you have
-#      a "non-standard" (outside of ~) installation path this will cause issues.
+# BUG: The script needs write access to the installation path (eg. /usr/share/steam) and the script
+#      will not run as root.
 DetectSteamInstallPath () {
 
     local check_path
@@ -937,7 +935,7 @@ DetectSteamInstallPath () {
 #                        path failed, or curl returned failure.
 DownloadGEPackage() {
 
-    local version \
+    local version=${1-} \
           temp_path \
           temp_package \
           package_download_url
@@ -947,7 +945,6 @@ DownloadGEPackage() {
              expected_size_bytes=0 \
              downloaded_package_size_bytes=0
 
-    version=${1-}
     CleanUpVersion
 
     [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
@@ -1079,11 +1076,10 @@ DownloadGEPackage() {
 #          1 = Failure
 ExtractGEPackage() {
 
-    local version \
+    local version=${1-} \
           extract_file \
           extract_path
 
-    version=${1-}
     CleanUpVersion
 
     [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
@@ -1134,7 +1130,8 @@ GenerateRandomAlphaNumericString() {
           character \
           result='' # NOTE: Must be initialized as NULL
 
-    local -i length=${1:-10} i
+    local -i length=${1:-10} \
+             i=1
 
     list=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
 
@@ -1244,7 +1241,7 @@ InstallGEVersion() {
             # If Steam is not running, remove the install
             # NOTE: The re-install is handled below
             else
-                echo "Forcing re-install of version $version"
+                echo "Forcing re-install of version Proton-$version"
                 echo "Removing install at $g_install_path/Proton-${version}"
                 if ($g_command_rm -r -- "$g_install_path/Proton-${version}"); then
                     echo "Install removed"
@@ -1326,12 +1323,9 @@ InstallGEVersion() {
 # TODO: Find a better way that is reliable
 IsInstalled() {
 
-    local version
+    local version=${1-}
 
-    [[ -z $1 ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
-
-    version=${1-}
-    #CleanUpVersion
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
 
@@ -1759,7 +1753,7 @@ ParseConfigFile() {
                     }
                     ((g_verbose)) && vMsg "config_value expanded to: $config_value"
                 else
-                    ((g_verbose)) && vMsg "Command 'envsubst' not available, using 'eval' to expand config_value: $config_value" y
+                    ((g_verbose)) && vMsg "Command envsubst not available, using eval to expand config_value: $config_value" y
                     config_value=$(eval printf '%s' "$config_value")
                     ((g_verbose)) && vMsg "config_value expanded to: $config_value"
                 fi
@@ -1958,9 +1952,9 @@ ParseConfigFile() {
 ###############################################################################
 # Purpose: Parse command line parameters using getopts and set global variables
 #          according to what was requested.
-# Input:   1 (required) "$@" (all command line positional parameters)
+# Input:   1 (required) "$@" (all script positional parameters)
 # Output:  None
-# Return:  getopts exist status
+# Return:  getopts exit status
 #          0  (An option, specified or unspecified by optstring, was found.)
 #          >0 (The end of options was encountered or an error occurred.)
 ParseParameters() {
@@ -1983,6 +1977,7 @@ ParseParameters() {
                 if [[ $g_force -eq 1 ]] && [[ $g_verbose -eq 1 ]]; then
                     g_integration_testing=1
                     ProvingGrounds
+                    exit $?
                 fi
             ;;
             (Z)
@@ -2082,7 +2077,6 @@ ProvingGrounds() {
 
     # Tests
 
-    exit 0
 }
 
 ###############################################################################
@@ -2097,8 +2091,8 @@ ProvingGrounds() {
 QueryGEAttribute() {
 
     local version=${1-} \
-          value \
-          key=${2-}
+          key=${2-} \
+          value
 
     [[ -z $version || -z $key || $# -ne 2 ]] && {
         ((g_verbose)) && vMsg "Parameter error 1: $version 2: $key \$#: $#" r
@@ -2380,7 +2374,7 @@ RemoveGEInstallPath() {
     if command -v du > /dev/null; then
         disk_usage=$(du -sh -- "$g_install_path")
     else
-        ((g_verbose)) && vMsg "Command 'du' not found" r
+        ((g_verbose)) && vMsg "Command du not found" r
         disk_usage="error"
     fi
 
@@ -2568,12 +2562,12 @@ ReportGEDiskUsage() {
 
     # Optional commands that are required for this function
     if ! command -v du > /dev/null; then
-        echo "Command 'du' not found"
+        echo "Command du not found"
         flag_missing_command=1
     fi
 
     if ! command -v find > /dev/null; then
-        echo "Command 'find' not found"
+        echo "Command find not found"
         flag_missing_command=1
     fi
 
@@ -3056,7 +3050,7 @@ SpaceRemaining() {
 
     ((g_verbose)) && vMsg "Checking $file_system"
 
-    # --cached=never not available on Ubuntu 20.04.1 LTS
+    # NOTE: stat --cached=never not available on Ubuntu 20.04.1 LTS
     printf '%s' "$(( ($(stat -L -c '%s' -f -- "$file_system") * $(stat -L -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"
 
     return
@@ -3202,21 +3196,21 @@ VerifyGEInstall() {
     #          this function to overwrite installed versions and then attempt
     #          to compare those extracted files (and any others already there) to themselves.
     [[ $g_temp_base_path -ef $g_install_path ]] && {
-        vMsg "Setting tmp_path and install_path to the same path is not supported"
+        vMsg "Setting tmp_path and install_path to the same path is not supported" r
         return 1
     }
 
     # Required external commands
     if ! command -v cmp > /dev/null; then
-        echo "Command 'cmp' is required to use this function"
+        echo "Command cmp is required to use this function"
         flag_missing_command=1
     fi
     if ! command -v sort > /dev/null; then
-        echo "Command 'sort' is required to use this function"
+        echo "Command sort is required to use this function"
         flag_missing_command=1
     fi
     if ! command -v date > /dev/null; then
-        echo "Command 'date' is required to use this function"
+        echo "Command date is required to use this function"
         flag_missing_command=1
     fi
 
@@ -3431,7 +3425,7 @@ VerifyGEInstall() {
 ###############################################################################
 # Purpose: Print a supplied message to stderr and prefix that message with the
 #          line number that called this function followed by a function trace
-#          that excludes "main". Similar to the caller built-in.
+#          that excludes "main". Similar to the caller Bash built-in.
 # Input:   1 (required) A string (the message to output)
 #          2 (optional) Message type (color) [g]reen (success), [y]ellow (warning),
 #                       [r]ed (Failure), [b]lue (info)
