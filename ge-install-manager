@@ -1278,6 +1278,7 @@ InstallGEVersion() {
             else
                 if ExtractGEPackage "$version"; then
                     echo "Installation of version $version was successful"
+                    IsSteamRunning && echo "Restart steam to use the new version"
                     return 0
                 else
                     echo "Installation of version $version failed"
