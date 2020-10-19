@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2404/3671 SLOC (65%) [SLOC/Comment:2.97], 809 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.34], 500 empty (13%)
+# 2400/3664 SLOC (65%) [SLOC/Comment:2.97], 808 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.34], 498 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -186,7 +186,7 @@ Usage:
            report file and disk usage for the install path
       Example: (assume the latest version is 5.9-GE-3-ST)
         ./$SCRIPT_FULL_NAME -z -u -i Proton-5.11-GE-1-MF -Xf
-          Result: enable debug mode, remove the installation path,
+          Result: enable verbose mode, remove the installation path,
            update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
       Example (both produce the same result):
         ./$SCRIPT_FULL_NAME -s 5.6-GE-3-ST -S
@@ -206,7 +206,7 @@ Usage:
       Report environment info (-fzZ),
       Show help,
       Show usage,
-      Debug toggle,
+      Verbose toggle,
       Check for latest release,
       Show all releases available,
       Show all release notes,
@@ -405,7 +405,7 @@ CleanUp() {
         [[ -d $node ]] && {
             ((g_verbose)) && vMsg "Temporary path found at $node" g
             if ((g_verbose)); then
-                vMsg "Debug enabled, temporary path not removed" y
+                vMsg "Verbose mode enabled, temporary path not removed" y
             else
                 if rm -fr -- "$node" > /dev/null; then
                     ((g_verbose)) && vMsg "Temporary path removed" g
@@ -419,7 +419,7 @@ CleanUp() {
         [[ -f $node ]] && {
             ((g_verbose)) && vMsg "Temp file found at $node" g
             if ((g_verbose)); then
-                vMsg "Debug enabled, temporary file not removed" y
+                vMsg "Verbose mode enabled, temporary file not removed" y
             else
                 if rm -f -- "$node" > /dev/null; then
                     ((g_verbose)) && vMsg "Temporary file removed" g
@@ -1920,7 +1920,7 @@ ParseConfigFile() {
 
 
 
-    # Debug report
+    # Verbose report
     ((g_verbose)) && vMsg "Install path set to: $g_install_path" g
     ((g_verbose)) && vMsg "Temp path set to: $g_temp_base_path" g
     ((g_verbose)) && vMsg "Config path set to: $g_script_config_path" g # NOTE: config_path is currently not configurable
@@ -2238,7 +2238,7 @@ QueryJSONAttribute() {
         }
     done < "$file_json"
 
-    # Debug messages
+    # Verbose messages
     ((g_verbose)) && {
         if ((flag_version_found)); then
             vMsg "Version match found at line $line_version_found" g
@@ -3459,19 +3459,19 @@ vMsg() {
 
     # Message with color based on type (default: blue/info)
     case ${type,,} in
-        b|blue|i|info)
+        (b|blue|i|info)
             # Blue / Info
             printf "${g_color_blue}%s${g_color_reset}\n" "$msg" 1>&2
         ;;
-        g|green|s|success)
+        (g|green|s|success)
             # Green / Success
             printf "${g_color_green}%s${g_color_reset}\n" "$msg" 1>&2
         ;;
-        y|yellow|w|warning)
+        (y|yellow|w|warning)
             # Yellow / Warning
             printf "${g_color_yellow}%s${g_color_reset}\n" "$msg" 1>&2
         ;;
-        r|red|e|error|f|failure)
+        (r|red|e|error|f|failure)
             # Red / Error
             printf "${g_color_red}%s${g_color_reset}\n" "$msg" 1>&2
         ;;
@@ -3493,7 +3493,7 @@ Main() {
     # Parse script parameters and arguments, set global variables
     ParseParameters "$@" || { ((g_verbose)) && vMsg "ParseParameters returned failure status"; exit 1; }
 
-    # Report if debug mode is enabled
+    # Report if verbose mode is enabled
     ((g_verbose)) && {
         vMsg "Verbose mode enabled" g
         vMsg "$SCRIPT_FULL_NAME version $SCRIPT_VERSION" y

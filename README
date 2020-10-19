@@ -33,6 +33,7 @@ NOTE: The script will check for an updated version of itself when either update
       not supported.
 
 Distributions tested so far: Arch, Fedora Workstation, Manjaro, Ubuntu
+Shells tested so far: GNU Bash 5.0.18, Zsh 5.8
 
 Version 0.7.6
 
@@ -94,7 +95,7 @@ Usage:
            report file and disk usage for the install path
       Example: (assume the latest version is 5.9-GE-3-ST)
         ./ge-install-manager -z -u -i Proton-5.11-GE-1-MF -Xf
-          Result: enable debug mode, remove the installation path,
+          Result: enable verbose mode, remove the installation path,
            update to the latest version 5.9-GE-3-ST, and then install version 5.11-GE-1-MF.
       Example (both produce the same result):
         ./ge-install-manager -s 5.6-GE-3-ST -S
@@ -114,7 +115,7 @@ Usage:
       Report environment info (-fzZ),
       Show help,
       Show usage,
-      Debug toggle,
+      Verbose toggle,
       Check for latest release,
       Show all releases available,
       Show all release notes,
