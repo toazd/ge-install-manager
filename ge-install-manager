@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2245/3461 SLOC (64%) [SLOC/Comment:2.84], 791 comments (22%) [S:95%,I:4%] [Comment/SLOC:0.35], 459 empty (13%)
+# 2404/3671 SLOC (65%) [SLOC/Comment:2.97], 809 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.34], 500 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -35,41 +35,35 @@ set -huo pipefail
 
 # Initialize global variables
 # NOTE: Script constants (read only variables) are all upper-case
-declare -gr SCRIPT_VERSION="0.7.6"
+declare -gr SCRIPT_VERSION='0.7.6'
 declare -gr SCRIPT_FULL_NAME=${0##*/}
-declare -gr SCRIPT_CODENAME="Cochrane Bonaventure"
-declare -gr PROJECT_URL="https://github.com/toazd/ge-install-manager"
-declare -gr CURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
-declare -gr CURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
+declare -gr SCRIPT_CODENAME='Cochrane Bonaventure'
+declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager'
+declare -gr CURL_HEADER_CONTENT_TYPE='Content-Type: application/json'
+declare -gr CURL_HEADER_GITHUB_MEDIATYPE='Accept: application/vnd.github.v3.text+json'
 declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
-declare -gr TEMP_PREFIX=$SCRIPT_FULL_NAME.tmp.
+declare -gr TEMP_PREFIX=${SCRIPT_FULL_NAME}.tmp.
 # NOTE: Script global variables are all prefixed with g_
-# Configuration file: rm_command
-declare -g g_command_rm
+declare -g g_command_rm # Configuration file: rm_command
 declare -g g_download_version
 declare -g g_file_latest_json
 declare -g g_file_releases_json
-declare -g g_script_raw_url="https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager"
+declare -g g_script_raw_url='https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager'
 declare -g g_file_script_raw=''
 declare -g g_script_config_path=${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME
 declare -g g_file_script_config=$g_script_config_path/$SCRIPT_FULL_NAME.conf
 declare -g g_file_sed_unminify_script=$g_script_config_path/unminify-JSON.sed
-# Configuration file: install_path
-declare -g g_install_path
+declare -g g_install_path # Configuration file: install_path
 declare -g g_install_version
 declare -g g_latest_version
-# Configuration file: latest_version_url
-declare -g g_latest_version_url
+declare -g g_latest_version_url # Configuration file: latest_version_url
 declare -g g_override_default_install_path=''
-# Configuration file: releases_url
-declare -g g_releases_url
+declare -g g_releases_url # Configuration file: releases_url
 declare -g g_remove_version
 declare -g g_remove_saved_version
 declare -g g_report_version
-# Configuration file: cache_path
-declare -g g_script_cache_path
-# Configuration file: temp_path
-declare -g g_temp_base_path=/tmp
+declare -g g_script_cache_path # Configuration file: cache_path
+declare -g g_temp_base_path='/tmp' # Configuration file: temp_path
 declare -g g_verify_version
 declare -g g_show_release_notes_version
 declare -gi g_check_update=0
@@ -244,7 +238,10 @@ USAGE_HEREDOC
 #          1 (The specified interval has not elapsed since the last access)
 CheckAccessTime() {
 
-    local -i current_seconds=0 last_check_seconds=0 interval=${2:-0}
+    local -i current_seconds=0 \
+             last_check_seconds=0 \
+             interval=${2:-0}
+
     local file=${1-}
 
     # If the file doesn't exist, return success (it needs to be created)
@@ -258,7 +255,7 @@ CheckAccessTime() {
     # NOTE: RequestURL forcibly updates access times using touch
     current_seconds=$(date +%s)
     last_check_seconds=$(stat -c '%X' -- "$file") # --cached=never not available on Ubuntu 20.04.1 LTS
-    if (( (current_seconds - last_check_seconds) < interval )); then
+    if (( (current_seconds - last_check_seconds) <= interval )); then
         ((g_verbose)) && {
             vMsg "Access denied, last access is less than the required interval"
             vMsg "$(( current_seconds - last_check_seconds )) out of $interval seconds have elapsed since the last access"
@@ -293,6 +290,9 @@ CheckAccessTime() {
 #          1 (local and remote sizes do not match) Update available
 CheckForScriptUpdate() {
 
+    local -i local_script_size_bytes=0 \
+             remote_script_size_bytes=0
+
     ((g_verbose)) && vMsg "Checking $g_file_script_raw"
     if CheckAccessTime "$g_file_script_raw" "$g_script_update_interval"; then
         if RequestURL "$g_script_raw_url" "$g_file_script_raw"; then
@@ -301,18 +301,21 @@ CheckForScriptUpdate() {
             ((g_verbose)) && vMsg "RequestURL returned failure" r
         fi
     else
-        ((g_verbose)) && vMsg "CheckAccessTime returned failure" y
+        ((g_verbose)) && vMsg "CheckAccessTime returned failure"
     fi
 
+    local_script_size_bytes=$(stat -c '%s' "$(realpath "$0" 2> /dev/null)" 2> /dev/null)
+    remote_script_size_bytes=$(stat -c '%s' "$(realpath "$g_file_script_raw" 2> /dev/null)" 2> /dev/null)
+
     ((g_verbose)) && {
-        vMsg "Local script size bytes : $(stat -c '%s' "$(realpath "$0")")"
-        vMsg "Remote script size bytes: $(stat -c '%s' "$(realpath "$g_file_script_raw")")"
+        vMsg "Local script size bytes : $local_script_size_bytes"
+        vMsg "Remote script size bytes: $remote_script_size_bytes"
     }
 
     # Even if CheckAccessTime or RequestURL fail, check the local cached copy if it exists otherwise return 0 (update not available)
     [[ ! -f $g_file_script_raw ]] && return 0
 
-    return $(( ($(stat -c '%s' "$(realpath "$0")") != $(stat -c '%s' "$(realpath "$g_file_script_raw")")) ? 1 : 0 ))
+    return $(( (local_script_size_bytes != remote_script_size_bytes) ? 1 : 0 ))
 }
 
 ###############################################################################
@@ -322,10 +325,17 @@ CheckForScriptUpdate() {
 # Output:  None
 # Return:  0 (Success) All required commands were found
 #          1 (Failure) Any one required command was not found
+# TODO Add checks for optional commands and report features that won't work if
+#      any are not found.
 CheckRequirements() {
 
     local cur_cmd=''
-    local -i flag_failed=0 flag_apt=0 flag_pacman=0 flag_dnf=0
+
+    local -i flag_failed=0 \
+             flag_apt=0 \
+             flag_pacman=0 \
+             flag_dnf=0
+
     local -a required_commands=(curl sed tar gzip stat wc touch)
 
     # Detect package managers for basic missing command advice
@@ -335,7 +345,10 @@ CheckRequirements() {
 
     while IFS= read -r --; do
         # Report the command path if it is found
-        [[ ${REPLY,,} == *'is'* ]] && { ((g_verbose)) && vMsg "$REPLY"; continue; }
+        [[ ${REPLY,,} == *'is'* ]] && {
+            ((g_verbose)) && vMsg "$REPLY"
+            continue
+        }
 
         # Report if a command is not found
         [[ ${REPLY,,} == *'not found'* ]] && {
@@ -442,6 +455,7 @@ CleanUpVersion() {
 
     local -i length_characters=0
 
+    # $version must be set in the calling function
     [[ -z $version ]] && { ((g_verbose)) && vMsg "version is NULL" r; printf ''; return 1; }
 
     ((g_verbose)) && {
@@ -481,13 +495,21 @@ CleanUpVersion() {
 #          1 Failure
 CreateBackup() {
 
-    local backup_target=${1-} backup_target_basename backup_target_path file backup_index
-    local -i max_backups=3 backups_counter=0 flag_rename_backups=0
+    local backup_target=${1-} \
+          backup_target_basename \
+          backup_target_path \
+          backup_index \
+          file
+
+    local -i max_backups=3 \
+             backups_counter=0 \
+             flag_rename_backups=0
+
     local -a files_existing_backups
 
     shopt -s nullglob dotglob
 
-    [[ -z $backup_target ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)"; return 1; }
+    [[ -z $backup_target ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     ((g_verbose)) && vMsg "Backup requested for: $backup_target"
 
@@ -754,17 +776,22 @@ END_OF_SED_SCRIPT
 #       ~/.var/app/com.valvesoftware.Steam/.steam
 #       ~/.steam/root/compatibilitytools.d (steam install folder symlink) || ~/.local/share/Steam/compatibilitytools.d
 # TODO: Colon-separated global paths in $STEAM_EXTRA_COMPAT_TOOLS_PATHS
+# BUG: The script needs write access to the installation path (eg. /usr/share/steam). If you have
+#      a "non-standard" (outside of ~) installation path this will cause issues.
 DetectSteamInstallPath () {
 
     local check_path
+
     local -i i=0
-    local -a valid_paths=() search_paths=("$HOME/.steam/root" \
-                                          "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
-                                          "/usr/share/steam" \
-                                          "/usr/local/share/steam" \
-                                          "$HOME/.var/app/com.valvesoftware.Steam/data/Steam" \
-                                          "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
-                                          "$HOME/.var/app/com.valvesoftware.Steam/.steam")
+
+    local -a valid_paths=() \
+             search_paths=("$HOME/.steam/root" \
+                           "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
+                           "/usr/share/steam" \
+                           "/usr/local/share/steam" \
+                           "$HOME/.var/app/com.valvesoftware.Steam/data/Steam" \
+                           "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam" \
+                           "$HOME/.var/app/com.valvesoftware.Steam/.steam")
 
     # Report the set status of XDG vars
     # XDG_DATA_HOME
@@ -819,8 +846,8 @@ DetectSteamInstallPath () {
     ((g_verbose)) && vMsg "valid_paths[*]: ${valid_paths[*]}"
 
     if ((${#valid_paths[@]} == 0)); then
-        printf '%s\n%s\n%s\n' \
-               "ERROR: Unable to detect Steam installation path" \
+        vMsg "ERROR: Unable to detect Steam installation path" r
+        printf '%s\n%s\n' \
                "You will need to configure install_path manually in the configuration file" \
                "(default: ${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
         g_override_default_install_path='auto'
@@ -864,7 +891,9 @@ DetectSteamInstallPath () {
                         break
                     fi
                 ;;
-                (*) echo "Invalid choice" ;;
+                (*)
+                    echo "Invalid choice"
+                ;;
             esac
         done
 
@@ -895,18 +924,20 @@ DetectSteamInstallPath () {
 #                        path failed, or curl returned failure.
 DownloadGEPackage() {
 
-    # Declare local variables
-    local version temp_path temp_package package_download_url
-    local -i temp_base_path_remaining_bytes=0
-    local -i install_path_remaining_bytes=0
-    local -i expected_size_bytes=0
-    local -i downloaded_package_size_bytes=0
+    local version \
+          temp_path \
+          temp_package \
+          package_download_url
 
-    # Set local variables, checking return values and reporting as needed
+    local -i temp_base_path_remaining_bytes=0 \
+             install_path_remaining_bytes=0 \
+             expected_size_bytes=0 \
+             downloaded_package_size_bytes=0
+
     version=${1-}
     CleanUpVersion
 
-    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" failure; return 1; }
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     # Get the download URL from the saved latest/releases JSON
     package_download_url=$(QueryGEAttribute "$version" "browser_download_url") || {
@@ -915,13 +946,22 @@ DownloadGEPackage() {
     }
 
     # If QueryGEAttribute returned success but the URL is NULL, abort
-    [[ -z $package_download_url ]] && { ((g_verbose)) && vMsg "package_download_url is NULL" r; return 1; }
+    [[ -z $package_download_url ]] && {
+        ((g_verbose)) && vMsg "package_download_url is NULL" r
+        return 1
+    }
 
     # Get the expected package size in bytes from the saved latest/releases JSON
-    expected_size_bytes=$(QueryGEAttribute "$version" "size") || { ((g_verbose)) && vMsg "QueryGEAttribute size returned failure" r; return 1; }
+    expected_size_bytes=$(QueryGEAttribute "$version" "size") || {
+        ((g_verbose)) && vMsg "QueryGEAttribute size returned failure" r
+        return 1
+    }
 
     # If QueryGEAttribute returned success and size is not only one or more digits, abort
-    [[ $expected_size_bytes =~ ^[[:digit:]]+$ ]] || { ((g_verbose)) && vMsg "size is not all digits: $expected_size_bytes" r; return 1; }
+    [[ $expected_size_bytes =~ ^[[:digit:]]+$ ]] || {
+        ((g_verbose)) && vMsg "size is not all digits: $expected_size_bytes" r
+        return 1
+    }
 
     # Create a temporary path for the package
     temp_path=$(MkTempPath)
@@ -1026,7 +1066,9 @@ DownloadGEPackage() {
 #          1 = Failure
 ExtractGEPackage() {
 
-    local version extract_file extract_path
+    local version \
+          extract_file \
+          extract_path
 
     version=${1-}
     CleanUpVersion
@@ -1078,7 +1120,10 @@ ExtractGEPackage() {
 # NOTE: Valid input length range 1-32767 (default: 10)
 GenerateRandomAlphaNumericString() {
 
-    local list character result='' # NOTE: Must be initialized as NULL
+    local list \
+          character \
+          result='' # NOTE: Must be initialized as NULL
+
     local -i length=${1:-10} i
 
     list=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
@@ -1119,10 +1164,10 @@ GenerateRandomAlphaNumericString() {
 #          1 = (Failure) UpdateCachedGEReleases returned 1, or a match was not
 #                        found in g_file_latest_json.
 #
-# TODO: Might want to check releases if latest fails
 GetLatestGEVersion() {
 
     local version
+
     g_latest_version=''
 
     if UpdateCachedGEReleases; then
@@ -1170,7 +1215,7 @@ InstallGEVersion() {
 
     local version=${1-}
 
-    [[ -z $version ]] && ((g_verbose)) && { vMsg "Parameter error (NULL)" r; return 1; }
+    [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     CleanUpVersion
 
@@ -1282,8 +1327,19 @@ IsInstalled() {
     ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
 
     if [[ -d $g_install_path/Proton-${version} ]]; then
-        ((g_verbose)) && vMsg "Version $version found" g
-        return 0
+
+        while IFS= read -r -- || [[ -n $REPLY ]]; do
+            if [[ $REPLY == *"$version"* ]]; then
+                ((g_verbose)) && vMsg "$g_install_path/Proton-${version}/version contains $version" g
+                return 0
+            else
+                ((g_verbose)) && vMsg "$g_install_path/Proton-${version}/version does not contain $version" r
+
+                vMsg "version file not found for Proton-${version} at $g_install_path/Proton-${version}/version" r
+                return 1
+            fi
+        done < "$g_install_path/Proton-${version}/version"
+
     else
         ((g_verbose)) && vMsg "Version $version not found" w
         return 1
@@ -1301,9 +1357,11 @@ IsInstalled() {
 IsJSONminified() {
 
     local file_json=${1-}
+
     local -i counter_lines=0
 
     [[ -z $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
+
     [[ ! -f $file_json || ! -r $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (not a file and/or not readable)" r; return 1; }
 
     # Get the number of newlines in the file
@@ -1332,7 +1390,9 @@ IsJSONminified() {
 #          1 (No/False) A Steam process was not detected.
 IsSteamRunning() {
 
-    local steam_pids='' steamwebhelper_pids=''
+    local steam_pids='' \
+          steamwebhelper_pids=''
+
     local -i flag_found_steam=0
 
     # This feature requires pgrep
@@ -1372,9 +1432,13 @@ IsSteamRunning() {
 #                      occurred.
 ListAvailableGEVersions() {
 
-    local -i flag_url_found=0 flag_version_found=0
-    local line_releases value_release_notes_url=''
-    local -i line_counter=0 version_counter=0
+    local line_releases \
+          value_release_notes_url=''
+
+    local -i flag_url_found=0 \
+             flag_version_found=0 \
+             line_counter=0 \
+             version_counter=0
 
     if UpdateCachedGEReleases; then
 
@@ -1457,7 +1521,13 @@ ListAvailableGEVersions() {
 # Return:  0 (Success) Always
 ListInstalledGEVersions() {
 
-    local node installed_version_disk_usage saved_package_disk_usage saved_packages_total_disk_usage size_bytes expected_size_bytes
+    local node \
+          installed_version_disk_usage \
+          saved_package_disk_usage \
+          saved_packages_total_disk_usage \
+          size_bytes \
+          expected_size_bytes
+
     local -i i=0
 
     ((g_verbose)) && vMsg "Install path: $g_install_path"
@@ -1510,22 +1580,22 @@ ListInstalledGEVersions() {
 #          1 (Failure) g_temp_base_path does not exist or is not writeable.
 MkTempFile() {
 
-    local create_temp_file
+    local temp_file
 
     [[ -d $g_temp_base_path && -w $g_temp_base_path ]] || {
         ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: $g_temp_base_path" r
         return 1
     }
 
-    create_temp_file=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
+    temp_file=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
 
-    ((g_verbose)) && vMsg "Created temp file at: $create_temp_file" g
+    ((g_verbose)) && vMsg "Created temp file at: $temp_file" g
 
     # Create the empty temp file
-    : > "$create_temp_file"
+    : > "$temp_file"
 
     # "Return" the path and filename,
-    printf '%s' "$create_temp_file"
+    printf '%s' "$temp_file"
 
     return 0
 }
@@ -1538,22 +1608,22 @@ MkTempFile() {
 #          1 (Failure) g_temp_base_path does not exist or is not writeable.
 MkTempPath() {
 
-    local create_temp_path
+    local temp_path
 
     [[ -d $g_temp_base_path && -w $g_temp_base_path ]] || {
         ((g_verbose)) && vMsg "g_temp_base_path is not a valid path or no write access: $g_temp_base_path" r
         return 1
     }
 
-    create_temp_path=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
+    temp_path=$g_temp_base_path/$TEMP_PREFIX$(GenerateRandomAlphaNumericString 16) || return 1
 
-    ((g_verbose)) && vMsg "Created temp path at: $create_temp_path" g
+    ((g_verbose)) && vMsg "Created temp path at: $temp_path" g
 
     # Create the path
-    mkdir -p "$create_temp_path" &> /dev/null
+    mkdir -p "$temp_path" &> /dev/null
 
     # "Return" the path and filename,
-    printf '%s' "$create_temp_path"
+    printf '%s' "$temp_path"
 
     return 0
 }
@@ -1571,8 +1641,13 @@ MkTempPath() {
 # NOTE: Runs DetectSteamInstallPath if g_install_path is set to the special value "auto"
 ParseConfigFile() {
 
-    local config_key config_value
-    local -i existing_config_file_lines=0 counter_config_line=0 flag_failed=0 flag_update_install_path=0
+    local config_key \
+          config_value
+
+    local -i existing_config_file_lines=0 \
+             counter_config_line=0 \
+             flag_failed=0 \
+             flag_update_install_path=0
 
     existing_config_file_lines=$(wc -l 2> /dev/null < "$g_file_script_config") # NOTE: do not || return 1 here
 
@@ -1589,21 +1664,21 @@ ParseConfigFile() {
                 while :; do
                     read -rp "Would you like to open it with ${EDITOR}? " </dev/tty
                     case ${REPLY,,} in
-                        ("y"|"yes")
+                        (y|yes)
                             $EDITOR "$g_file_script_config"
                             echo "Configuration file location: $g_file_script_config"
                             break
                         ;;
-                        ("n"|"no")
+                        (n|no)
                             break
                         ;;
-                        ("*")
+                        (*)
                             echo "Enter (y)es or (n)o"
                         ;;
                     esac
                 done
             else
-                echo "EDITOR not set, default configuration created at $g_file_script_config"
+                ((g_verbose)) && vMsg "EDITOR not set, default configuration created at $g_file_script_config"
             fi
         else
             vMsg "Failed to create default config file at: $g_file_script_config" r
@@ -1886,18 +1961,27 @@ ParseParameters() {
     OPTERR=1 # make sure it's on
     while getopts 'zZThHflLn:NSs:i:d:R:r:xuUXv:V' sOPT; do
         case "$sOPT" in
-            (h) g_show_help=1 ;;
-            (H) g_show_usage=1 ;;
-            (f) g_force=1 ;;
-            (z) g_verbose=1 ;;
-            (T) if [[ $g_force -eq 1 ]] && [[ $g_verbose -eq 1 ]]; then
+            (h)
+                g_show_help=1
+            ;;
+            (H)
+                g_show_usage=1
+            ;;
+            (f)
+                g_force=1
+            ;;
+            (z)
+                g_verbose=1
+            ;;
+            (T)
+                if [[ $g_force -eq 1 ]] && [[ $g_verbose -eq 1 ]]; then
                     g_integration_testing=1
                     ProvingGrounds
                 fi
             ;;
             (Z)
                 if [[ $g_force -eq 1 ]] && [[ $g_verbose -eq 1 ]]; then
-                    (ReportEnvironmentInfo)
+                    ReportEnvironmentInfo
                 elif [[ $g_force -eq 0 ]] && [[ $g_verbose -eq 1 ]]; then # -zZ
                     printf "%s: illegal option -- Z (did you mean -fzZ?)\n" "$0"
                     exit 0
@@ -1906,9 +1990,15 @@ ParseParameters() {
                     exit 0
                 fi
             ;;
-            (u) g_check_update=1 ;;
-            (X) g_remove_install_path=1 ;;
-            (x) g_remove_all_saved_packages=1 ;;
+            (u)
+                g_check_update=1
+            ;;
+            (X)
+                g_remove_install_path=1
+            ;;
+            (x)
+                g_remove_all_saved_packages=1
+            ;;
             (R)
                 g_remove_installed_version=1
                 g_remove_version=$OPTARG
@@ -1917,18 +2007,26 @@ ParseParameters() {
                 g_remove_saved_package=1
                 g_remove_saved_version=$OPTARG
             ;;
-            (l) g_list_installed_versions=1 ;;
-            (L) g_list_available_versions=1 ;;
+            (l)
+                g_list_installed_versions=1
+            ;;
+            (L)
+                g_list_available_versions=1
+            ;;
             (n)
                 g_show_release_notes=1
                 g_show_release_notes_version=$OPTARG
             ;;
-            (N) g_show_all_release_notes=1 ;;
+            (N)
+                g_show_all_release_notes=1
+            ;;
             (s)
                 g_report_version_usage=1
                 g_report_version=$OPTARG
             ;;
-            (S) g_report_install_path_usage=1 ;;
+            (S)
+                g_report_install_path_usage=1
+            ;;
             (d)
                 g_download=1
                 g_download_version=$OPTARG
@@ -1937,8 +2035,12 @@ ParseParameters() {
                 g_install=1
                 g_install_version=$OPTARG
             ;;
-            (U) g_update=1 ;;
-            (V) g_verify=1 ;;
+            (U)
+                g_update=1
+            ;;
+            (V)
+                g_verify=1
+            ;;
             (v)
                 g_verify=1
                 g_verify_version=$OPTARG
@@ -1988,9 +2090,14 @@ ProvingGrounds() {
 #          1 (Failure) A value was not found for the requested attribute or an error occured.
 QueryGEAttribute() {
 
-    [[ -z $1 || -z $2 || $# -ne 2 ]] && { ((g_verbose)) && vMsg "Parameter error 1: $1 2: $2 \$#: $#"; return 1; }
+    local version=${1-} \
+          value \
+          key=${2-}
 
-    local version value key=${2-}
+    [[ -z $version || -z $key || $# -ne 2 ]] && {
+        ((g_verbose)) && vMsg "Parameter error 1: $version 2: $key \$#: $#" r
+        return 1
+    }
 
     version=${1-}
     CleanUpVersion
@@ -2060,25 +2167,35 @@ QueryGEAttribute() {
 #       choices were made to more easily support (eventually) showing release notes.
 QueryJSONAttribute() {
 
+    local file_json=${1-} \
+          version=${2-} \
+          key=${3-} \
+          value_browser_url=''
+
+    local -i counter_lines=0 \
+             line_version_found=0 \
+             line_size_found=0 \
+             line_browserurl_found=0 \
+             flag_version_found=0 \
+             flag_size_found=0 \
+             value_size_bytes=0
+    #local -i flag_browserurl_found=0
+
     # If the number of parameters is not exactly three, the second parameter is not a regular file, or any of the three parameters are empty
-    if [[ $# -ne 3 ]] || [[ ! -f $1 ]] || [[ -z $1 || -z $2 || -z $3 ]]; then
+    if [[ $# -ne 3 ]] || [[ ! -f $file_json ]] || [[ -z $file_json || -z $version || -z $key ]]; then
         ((g_verbose)) && vMsg "Parameter error 1: $1 2: $2 3: $3 \$#: $#" r
         return 1
     fi
 
-    # Check if the attribute requested is currently supported
-    [[ ${3,,} != @(size|browser_download_url) ]] && { ((g_verbose)) && vMsg "Parameter error (unsupported attribute requested)" r; return 1; }
+    # Check if the key/attribute requested is currently supported
+    [[ ${key,,} != @(size|browser_download_url) ]] && {
+        ((g_verbose)) && vMsg "Parameter error (unsupported key requested)" r
+        return 1
+    }
 
-    local version file_json=${1-} value_browser_url='' key
-    local -i counter_lines=0 line_version_found=0 line_size_found=0 line_browserurl_found=0 flag_version_found=0 flag_size_found=0 value_size_bytes=0
-    #local flag_browserurl_found=0
-
-    version=$2
     CleanUpVersion
 
     [[ -z $version ]] && { ((g_verbose)) && vMsg "version is NULL" r; return 1; }
-
-    key=${3,,}
 
     ((g_verbose)) && vMsg "Searching in $file_json"
 
@@ -2150,7 +2267,7 @@ QueryJSONAttribute() {
 
     # Print the value of the requested attribute to stdout
     if [[ -n $value_size_bytes && -n $value_browser_url ]]; then
-        case $key in
+        case ${key,,} in
             (size)
                 printf '%s' "$value_size_bytes"
             ;;
@@ -2212,7 +2329,9 @@ ReformatJSONUsingSed() {
 RemoveAllSavedPackages() {
 
     local package
-    local -i success_counter=0 failure_counter=0
+
+    local -i success_counter=0 \
+             failure_counter=0
 
     ((g_verbose)) && vMsg "Install path: $g_install_path"
 
@@ -2251,13 +2370,13 @@ RemoveAllSavedPackages() {
 #                      mkdir returned failure re-creating the install path failed.
 RemoveGEInstallPath() {
 
-    local disk_usage="?"
+    local disk_usage="error"
 
     if command -v du > /dev/null; then
         disk_usage=$(du -sh -- "$g_install_path")
     else
         ((g_verbose)) && vMsg "Command 'du' not found" r
-        disk_usage="unknown"
+        disk_usage="error"
     fi
 
     if ($g_command_rm -- "$g_install_path"); then
@@ -2291,9 +2410,10 @@ RemoveGEInstallPath() {
 #          1 = Failure
 RemoveGEVersion() {
 
-    local version remove_path disk_usage
+    local version=${1-} \
+          remove_path \
+          disk_usage
 
-    version=${1-}
     CleanUpVersion
 
     [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
@@ -2336,9 +2456,9 @@ RemoveGEVersion() {
 #                      version does not exist.
 RemoveSavedPackage() {
 
-    local version package
+    local version=${1-} \
+          package
 
-    version=${1-}
     CleanUpVersion
 
     [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
@@ -2375,39 +2495,45 @@ RemoveSavedPackage() {
 # NOTE: Exactly -fzZ invokes this function
 ReportEnvironmentInfo() {
 
-    echo "###############################################################################"
-
-    if ! stty -a; then echo "stty -a failed"; fi
+    vMsg "Script version: $SCRIPT_VERSION" y
 
     echo "###############################################################################"
 
-    if ! env -v --list-signal-handling 2>&1; then echo "env -v --list-signal-handling failed"; fi
+    declare -p --
+
+    echo "###############################################################################"
+
+    stty -a
+
+    echo "###############################################################################"
+
+    env -v --list-signal-handling
 
     echo "###############################################################################"
 
     # report found/not found status of commands used
-    command -V du find wc curl tar gzip pgrep stat sed cmp sort envsubst printf
+    command -V -- du find wc curl tar gzip pgrep stat sed cmp sort envsubst printf
 
     echo "###############################################################################"
 
-    if ! shopt -p; then echo "shopt -p failed"; fi
+    shopt -p
 
     echo "###############################################################################"
 
-    echo "PWD: $PWD"
-    echo "SHELL: $SHELL"
-    echo "SHELLOPTS: $SHELLOPTS"
-    echo "SHLVL: $SHLVL"
-    echo "BASH_VERSINFO: ${BASH_VERSINFO[*]}"
-    echo "BASH_VERSION: $BASH_VERSION"
-    echo "MACHTYPE: $MACHTYPE"
-    echo "OSTYPE: $OSTYPE"
-    echo "PROMPT_COMMAND: $PROMPT_COMMAND"
-    echo "LANG: $LANG"
+    echo "PWD: ${PWD-}"
+    echo "SHELL: ${SHELL-}"
+    echo "SHELLOPTS: ${SHELLOPTS-}"
+    echo "SHLVL: ${SHLVL-}"
+    echo "BASH_VERSINFO: ${BASH_VERSINFO[*]-}"
+    echo "BASH_VERSION: ${BASH_VERSION-}"
+    echo "MACHTYPE: ${MACHTYPE-}"
+    echo "OSTYPE: ${OSTYPE-}"
+    echo "PROMPT_COMMAND: ${PROMPT_COMMAND:-}"
+    echo "LANG: ${LANG-}"
     echo "LC_MESSAGES: $LC_MESSAGES"
-    echo "LC_ALL: $LC_ALL"
-    echo "EUID: $EUID"
-    echo "GROUPS: ${GROUPS[*]}"
+    echo "LC_ALL: ${LC_ALL-}"
+    echo "EUID: ${EUID-}"
+    echo "GROUPS: ${GROUPS[*]-}"
 
     echo "###############################################################################"
 
@@ -2424,10 +2550,13 @@ ReportEnvironmentInfo() {
 #                      requested was not found.
 ReportGEDiskUsage() {
 
-    local version file_counter path disk_usage="0"
+    local version=${1-} \
+          file_counter \
+          path \
+          disk_usage="0"
+
     local -i flag_missing_command=0
 
-    version=${1-}
     CleanUpVersion
 
     # NOTE: do not return 1 if version is NULL, functionality below depends on it
@@ -2498,7 +2627,8 @@ ReportGEDiskUsage() {
 #          newer than the specified file, write the response to a temporary file.
 #          Check the temporary file for basic response errors and if none are found
 #          copy the temporary file to the specified file. Used to update
-#          g_file_latest_json and g_file_releases_json only if the remote file is newer.
+#          g_file_latest_json and g_file_releases_json only if the remote file
+#          has been modified.
 # Input:   1 (required) A URL (g_latest_version_url or g_releases_url)
 #          2 (required) A file (does not have to exist)
 # Output:  None
@@ -2506,14 +2636,20 @@ ReportGEDiskUsage() {
 #          1 (Failure) Curl returned failure, the server responded "Not Found" or
 #                      Github API request rate limit exceeded, or a failure occured
 #                      trying to copy the temporary file to the specified file.
+# BUG: If you request a URL that returns data with <=1 newline and it is not JSON
+#      formatted the output may be mangled by ReformatJSONUsingSed.
 RequestURL() {
 
-    local requested_url=${1-} file_local=${2-} file_temp
+    local requested_url=${1-} \
+          file_local=${2-} \
+          file_temp
+
     local -i downloaded_package_size_bytes=0
 
     file_temp=$(MkTempFile)
 
     [[ -z $requested_url || -z $file_local || $# -ne 2 ]] && ((g_verbose)) && vMsg "Parameter error (NULL or not exactly two)" r
+
     [[ ! -f $file_temp || ! -w $file_temp ]] && ((g_verbose)) && vMsg "Parameter error (temp file not a file or not writeable)" r
 
     ((g_verbose)) && vMsg "Checking remote file against $file_local"
@@ -2600,7 +2736,10 @@ RequestURL() {
 #          1 (Failure) Any one check failed
 SetupEnvironment() {
 
-    local -i flag_failed=0 count_success=0 count_failed=0
+    local -i flag_failed=0 \
+             count_success=0 \
+             count_failed=0
+
     local -a check_alias_commands=(curl sed tar gzip stat wc date du pgrep sort cmp envsubst trash) # fallocate
 
     # Check for and unset existing aliases for commands used in the script
@@ -2759,8 +2898,18 @@ SetupEnvironment() {
 #                      matches occurred, or UpdateCachedGEReleases returned failure
 ShowGEReleaseNotes() {
 
-    local -i flag_version_found=0 flag_title=0 flag_content=0 flag_show_all_versions=1 flag_url_found=0 line_counter=0 version_counter=0
-    local version=${1-} line_releases='' value_release_notes_url=''
+    local version=${1-} \
+          line_releases='' \
+          value_release_notes_url=''
+
+    local -i flag_version_found=0 \
+             flag_title=0 \
+             flag_content=0 \
+             flag_show_all_versions=1 \
+             flag_url_found=0 \
+             line_counter=0 \
+             version_counter=0
+
 
     # Determine whether to show all versions or a specified version
     if [[ -n $version ]]; then
@@ -2881,7 +3030,9 @@ ShowGEReleaseNotes() {
 # TODO: Add a third, optional parameter to request calculations using bc
 SpaceRemaining() {
 
-    local file_system=${1-} binary_prefix=${2-}
+    local file_system=${1-} \
+          binary_prefix=${2-}
+
     local -i power_of=0
 
     [[ -z $file_system || -z $binary_prefix ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
@@ -3016,14 +3167,32 @@ UpdateGEVersion() {
 # NOTE: bash 4.2+ is required for printf $()T
 VerifyGEInstall() {
 
-    local version node path temp_path file_extracted file_installed saved_cmp_alias=''
-    local -i expected_size_bytes=0 temp_base_path_remaining_bytes=0 match_counter=0 \
-             missing_counter=0 mismatch_counter=0 files_arrays_count_match=0 total_files=0 \
-             counter_extracted=0 counter_installed=0 start_time_seconds=0 end_time_seconds=0 \
-             progress_percent=0 prev_progress=1 flag_missing_command=0
-    local -a files_extracted files_installed
+    local version=${1-} \
+          node \
+          path \
+          temp_path \
+          file_extracted \
+          file_installed \
+          saved_cmp_alias=''
 
-    version=${1-}
+    local -i expected_size_bytes=0 \
+             temp_base_path_remaining_bytes=0 \
+             match_counter=0 \
+             missing_counter=0 \
+             mismatch_counter=0 \
+             files_arrays_count_match=0 \
+             total_files=0 \
+             counter_extracted=0 \
+             counter_installed=0 \
+             start_time_seconds=0 \
+             end_time_seconds=0 \
+             progress_percent=0 \
+             prev_progress=1 \
+             flag_missing_command=0
+
+    local -a files_extracted \
+             files_installed
+
     CleanUpVersion
 
     # If g_temp_base_path = g_install_path
@@ -3230,11 +3399,11 @@ VerifyGEInstall() {
                 fi
 
                 # Restore saved cmp alias
-                # TODO: do other shells alias command output in a reusable format?
+                # TODO: do other shells alias command (if supported) output in a reusable format?
                 [[ -n $saved_cmp_alias ]] && {
                     echo "Restoring saved alias for command cmp"
                     if ! $saved_cmp_alias; then
-                        echo "Failed to restore alias for 'cmp'"
+                        vMsg "Failed to restore alias for 'cmp'" r
                     fi
                 }
 
@@ -3262,46 +3431,56 @@ VerifyGEInstall() {
 #          line number that called this function followed by a function trace
 #          that excludes "main". Similar to the caller built-in.
 # Input:   1 (required) A string (the message to output)
-#          2 (optional) Message type [g]reen (success), [y]ellow (warning), [r]ed (Failure), [b]lue (info)
+#          2 (optional) Message type (color) [g]reen (success), [y]ellow (warning),
+#                       [r]ed (Failure), [b]lue (info)
 # Output:  None
 # Return:  0 (Success) Always
 vMsg() {
 
-    [[ -z ${1-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" r 1>&2; return 1; }
+    local msg=${1-} \
+          type=${2:-b} # default color: blue/info
 
     local -i i=0
-    local type=${2:-info}
+
+    [[ -z ${msg-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" 1>&2; return 1; }
 
     # Calling line number
-    printf "${g_color_cyan}%s${g_color_green}%s${g_color_cyan}%s${g_color_reset}" "(" "${BASH_LINENO[0]}" ")[" 1>&2
+    printf "${g_color_cyan}%s${g_color_green}%s${g_color_cyan}%s${g_color_reset}" \
+           "(" \
+           "${BASH_LINENO[0]}" \
+           ")[" 1>&2
 
     # Count backwards iterating through the elements of the FUNCNAME array, skipping the 'last' two.
     for (( i=$(( ${#FUNCNAME[@]} - 2 )); i>1; i-- )); do
 
-        # Print the function name from the 'stack' with a comma suffix
-        printf "${g_color_magenta}%s${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "," 1>&2
+        # Print the function name from the array with a comma suffix
+        printf "${g_color_magenta}%s${g_color_cyan}%s${g_color_reset}" \
+               "${FUNCNAME[i]}" \
+               "," 1>&2
     done
 
-    # Don't place a comma as a suffix for the last function printed
-    printf "${g_color_magenta}%s${g_color_cyan}%s${g_color_reset}" "${FUNCNAME[i]}" "]: " 1>&2
+    # Don't print a comma at the end of the last function
+    printf "${g_color_magenta}%s${g_color_cyan}%s${g_color_reset}" \
+           "${FUNCNAME[i]}" \
+           "]: " 1>&2
 
-    # Message with color based on type (default: info)
+    # Message with color based on type (default: blue/info)
     case ${type,,} in
-        info|i|blue|b)
+        b|blue|i|info)
             # Blue / Info
-            printf "${g_color_blue}%s${g_color_reset}\n" "$1" 1>&2
+            printf "${g_color_blue}%s${g_color_reset}\n" "$msg" 1>&2
         ;;
-        success|s|green|g)
+        g|green|s|success)
             # Green / Success
-            printf "${g_color_green}%s${g_color_reset}\n" "$1" 1>&2
+            printf "${g_color_green}%s${g_color_reset}\n" "$msg" 1>&2
         ;;
-        warning|w|yellow|y)
+        y|yellow|w|warning)
             # Yellow / Warning
-            printf "${g_color_yellow}%s${g_color_reset}\n" "$1" 1>&2
+            printf "${g_color_yellow}%s${g_color_reset}\n" "$msg" 1>&2
         ;;
-        failure|f|red|r|error|e)
-            # Red / Failure / Error
-            printf "${g_color_red}%s${g_color_reset}\n" "$1" 1>&2
+        r|red|e|error|f|failure)
+            # Red / Error
+            printf "${g_color_red}%s${g_color_reset}\n" "$msg" 1>&2
         ;;
     esac
 
@@ -3488,6 +3667,6 @@ trap 'g_real_exit_status=$?; CleanUp; exit $g_real_exit_status' EXIT
 trap 'g_flag_sigint_caught=1; CleanUp' INT
 
 ###############################################################################
-# Wait...the end is just a new beginning? Always has been.
+# Call the function Main and pass it all of the positional parameters
 
 Main "$@"
