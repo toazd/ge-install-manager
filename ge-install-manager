@@ -119,7 +119,7 @@ ShowHelp() {
 
     Configuration file: $g_script_config_path/$SCRIPT_FULL_NAME.conf
 
-    Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc, touch
+    Required:       Bash 3.2+, curl, sed, tar, gzip, stat, wc, touch, file
     Optional:       date, du, pgrep, sort, cmp, envsubst, trash
 
     -h            - Show this help
@@ -340,7 +340,7 @@ CheckRequirements() {
              flag_pacman=0 \
              flag_dnf=0
 
-    local -a required_commands=(curl sed tar gzip stat wc touch)
+    local -a required_commands=(curl sed tar gzip stat wc touch file)
 
     # Detect package managers for basic missing command advice
     command -v pacman > /dev/null && flag_pacman=1
@@ -2295,13 +2295,23 @@ QueryJSONAttribute() {
 #          1 Failure
 ReformatJSONUsingSed() {
 
-    local file_json=${1-}
+    local file_json=${1-} \
+          file_type=''
 
     [[ -z $file_json ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
     [[ -f $file_json ]] || { ((g_verbose)) && vMsg "Parameter error (not a file)" r; return 1; }
 
-    ((g_verbose)) && vMsg "file_json: $file_json"
-    ((g_verbose)) && vMsg "g_file_sed_unminify_script: $g_file_sed_unminify_script"
+    # Try to avoid running the unminify script on non-JSON data
+    file_type=$(file -b "$file_temp" 2> /dev/null)
+
+    ((g_verbose)) && {
+        vMsg "file_json: $file_json"
+        vMsg "file_type: $file_type"
+        vMsg "g_file_sed_unminify_script: $g_file_sed_unminify_script"
+    }
+
+    # If the file type is not json, don't run the script on it
+    [[ ${file_type,,} == *'json'* ]] || { ((g_verbose)) && vMsg "File type is not JSON"; return 0; }
 
     if [[ -w $file_json ]]; then
         if sed -i --file="$g_file_sed_unminify_script" "$file_json"; then
@@ -2641,7 +2651,8 @@ RequestURL() {
 
     local requested_url=${1-} \
           file_local=${2-} \
-          file_temp
+          file_temp \
+          data_type=''
 
     local -i downloaded_package_size_bytes=0
 
@@ -2667,7 +2678,15 @@ RequestURL() {
             ((g_verbose)) && vMsg "Failed to update access time for $file_local" r
         fi
 
-        ((g_verbose)) && vMsg "curl returned success" g
+        # Use file -b to help determine the type of data received
+        data_type=$(file -b "$file_temp" 2> /dev/null)
+
+        ((g_verbose)) && {
+            vMsg "curl returned success" g
+            vMsg "Received: $data_type"
+        }
+
+
         if (($(stat -c '%s' -- "$file_temp"))); then
             if [[ -f $file_temp && -r $file_temp ]]; then
 
@@ -2687,8 +2706,9 @@ RequestURL() {
                     return 1
                 fi
 
-                # TODO: Better handling of different file types
-                if IsJSONminified "$file_temp"; then
+                # If IsJSONminified returns success and the data type is json, run the
+                # unminify script on the file.
+                if IsJSONminified "$file_temp" && [[ ${data_type,,} == *'json'* ]]; then
                     if ReformatJSONUsingSed "$file_temp"; then
                         ((g_verbose)) && vMsg "ReformatJSONUsingSed returned success" g
                     else
@@ -2739,7 +2759,7 @@ SetupEnvironment() {
              count_success=0 \
              count_failed=0
 
-    local -a check_alias_commands=(curl sed tar gzip stat wc date du pgrep sort cmp envsubst trash) # fallocate
+    local -a check_alias_commands=(curl sed tar gzip stat wc date du pgrep sort cmp envsubst trash file)
 
     # Check for and unset existing aliases for commands used in the script
     # that could cause undefined behavior

@@ -48,7 +48,7 @@ Shells tested so far: GNU Bash v5.0.18, v5.0.17, Zsh v5.8
 
 Help:
 
-    Required:       Bash 3.2+(TBD), curl, sed, tar, gzip, stat, wc, touch
+    Required:       Bash 3.2+, curl, sed, tar, gzip, stat, wc, touch, file
     Optional:       date, du, pgrep, sort, cmp, envsubst, trash
 
     -h            - Show this help
