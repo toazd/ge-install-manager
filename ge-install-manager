@@ -91,6 +91,7 @@ declare -gi g_script_update_interval=43200 # (seconds) 12 hours
 declare -gi g_list_available_versions=0
 declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
+declare -gi g_uninstall_script=0
 # Bash escape sequences
 # NOTE: Currently, not all escape sequences are used
 # https://www.shellcheck.net/wiki/SC2034
@@ -139,15 +140,15 @@ ShowHelp() {
     -R <version>  - Remove installed <version>
     -r <version>  - Remove saved package <version>
     -V            - Verify each installation using its saved package
-                      Combined with -v, -V will be skipped
-                      Saved packages will be downloaded as needed
+                      Combined with -v, -V will be ignored
     -v <version>  - Verify <version> using its saved package
     -d <version>  - Download and save the package for <version>
+    -D            - Remove all files created by this script excluding saved packages
+                      and proton-ge-custom installations (uninstall)
+                      For a complete uninstall, use -fXD.
     -x            - Remove all saved packages
-                      Also requires -f
     -X            - Remove the entire install path
                       NOTE: Saved packages are currently stored in the installation path
-                      Also requires -f
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable verbose output mode (to stderr)
@@ -973,6 +974,23 @@ DownloadGEPackage() {
         return 1
     }
 
+    # If a saved package already exists for this version and it is the expected size
+    [[ -f $g_install_path/Proton-$version.tar.gz ]] && {
+        if (( $(stat -c '%s' "$g_install_path/Proton-$version.tar.gz") == expected_size_bytes )) && ((! g_force)); then
+            echo "A saved package for Proton-$version already exists and it is the expected size ($expected_size_bytes bytes)"
+            return 0
+        elif (( $(stat -c '%s' "$g_install_path/Proton-$version.tar.gz") != expected_size_bytes )) || ((g_force)); then
+            echo "Force mode is enabled. Existing saved package for Proton-$version will be replaced with a new copy"
+            if ($g_command_rm -- "$g_install_path/Proton-$version.tar.gz"); then
+                ((g_verbose)) && vMsg "Saved package removed: $g_install_path/Proton-$version.tar.gz"
+            else
+                ((g_verbose)) && vMsg "Failed to remove saved package: $g_install_path/Proton-$version.tar.gz"
+                return 1
+            fi
+        fi
+
+    }
+
     # Create a temporary path for the package
     temp_path=$(MkTempPath)
 
@@ -1020,14 +1038,14 @@ DownloadGEPackage() {
 
         # Not found
         if ((downloaded_package_size_bytes == 9)); then
-            echo "Server responded \"Not Found\" for version $version"
+            vMsg "Server responded \"Not Found\" for version $version" r
             CleanUp
             return 1
         fi
 
         # Github API request rate limit exceeded
         if ((downloaded_package_size_bytes == 248)); then
-            echo "Github API request rate limit exceeded. Try again later."
+            vMsg "Github API request rate limit exceeded. Try again later." r
             CleanUp
             return 1
         fi
@@ -1959,7 +1977,7 @@ ParseConfigFile() {
 #          >0 (The end of options was encountered or an error occurred.)
 ParseParameters() {
     OPTERR=1 # make sure it's on
-    while getopts 'zZThHflLn:NSs:i:d:R:r:xuUXv:V' sOPT; do
+    while getopts 'zZThHflLn:NSs:i:d:DR:r:xuUXv:V' sOPT; do
         case "$sOPT" in
             (h)
                 g_show_help=1
@@ -1993,6 +2011,9 @@ ParseParameters() {
             ;;
             (u)
                 g_check_update=1
+            ;;
+            (D)
+                g_uninstall_script=1
             ;;
             (X)
                 g_remove_install_path=1
@@ -2076,6 +2097,7 @@ ProvingGrounds() {
     fi
 
     # Tests
+    UninstallScript
 
 }
 
@@ -2389,7 +2411,7 @@ RemoveGEInstallPath() {
     fi
 
     if ($g_command_rm -r -- "$g_install_path"); then
-        echo "Remove install path succeeded ( ${disk_usage%%[[:blank:]]*} removed )"
+        echo "Removed $g_install_path (${disk_usage%%[[:blank:]]*})"
         ((g_verbose)) && vMsg "Recreating install path at $g_install_path"
 
         # Re-create the g_install_path in case a requested subsequent script function needs it
@@ -2694,14 +2716,14 @@ RequestURL() {
                 # Not found
                 downloaded_package_size_bytes=$(stat -c '%s' -- "$file_temp")
                 if ((downloaded_package_size_bytes == 9)); then
-                    ((g_verbose)) && vMsg "Server responded Not Found" r
+                    vMsg "Server responded 'Not Found'" r
                     CleanUp
                     return 1
                 fi
 
                 # Github API request rate limit exceeded
                 if ((downloaded_package_size_bytes == 248)); then
-                    ((g_verbose)) && vMsg "Github API request rate limit exceeded. Unable to retrieve remote file." r
+                    vMsg "Github API request rate limit exceeded. Try again later." r
                     CleanUp
                     return 1
                 fi
@@ -3077,6 +3099,47 @@ SpaceRemaining() {
 }
 
 ###############################################################################
+# Purpose: Remove g_script_cache_path g_script_config_path
+# Input:   None
+# Output:  None
+# Return:  0 (Success) Both paths were successfully removed
+#          1 (Failure) Failed to remove either path
+UninstallScript() {
+
+    local cache_size='error' \
+          config_size='error'
+
+    local -i flag_failed=0
+
+    cache_size=$(du -sh -- "$g_script_cache_path" 2> /dev/null)
+    config_size=$(du -sh -- "$g_script_config_path" 2> /dev/null)
+
+    if ((g_force)); then
+        # g_script_cache_path
+        if ($g_command_rm -rf -- "$g_script_cache_path"); then
+            echo "Removed $g_script_cache_path (${cache_size%[[:blank:]]*})"
+        else
+            vMsg "Failed to remove $g_script_cache_path" r
+            flag_failed=1
+        fi
+
+        # g_script_config_path
+        if ($g_command_rm -rf -- "$g_script_config_path"); then
+            echo "Removed $g_script_config_path (${config_size%[[:blank:]]*})"
+        else
+            vMsg "Failed to remove $g_script_config_path" r
+            flag_failed=1
+        fi
+    else
+        vMsg "Force mode must be enabled for this feature" y
+    fi
+
+    return $(( flag_failed ? 1 : 0 ))
+
+}
+
+
+###############################################################################
 # Purpose: Call the RequestURL function to update both g_file_latest_json and
 #          g_file_releases_json if the remote versions are newer and a
 #          configurable interval has passed.
@@ -3116,7 +3179,7 @@ UpdateCachedGEReleases() {
     fi
 
     ((flag_requesturl_failure)) && {
-        vMsg "RequestURL returned failure status" error
+        ((g_verbose)) && vMsg "RequestURL returned failure status" error
         return 1
     }
 
@@ -3619,6 +3682,13 @@ Main() {
         RemoveAllSavedPackages
     elif ((g_remove_all_saved_packages && ! g_remove_install_path && ! g_force)); then
         echo "-f must be combined with -x to confirm that you are sure"
+    fi
+
+    # Uninstall the script (remove all files created by it, excluding
+    if ((g_uninstall_script && g_force)); then
+        UninstallScript
+    elif ((g_uninstall_script && ! g_force)); then
+        echo "-f must be combined with -D to confirm that you are sure"
     fi
 
     # Remove an installed version if remove install path was not requested

@@ -32,17 +32,6 @@ NOTE: The script will check for an updated version of itself when either update
       function is used (-u or -U). Auto-update of the script is currently
       not supported.
 
-NOTE: The script currently does not have an uninstall function to completely remove itself and any
-      files it created. To remove the script entirely using default settings (without removing any
-      proton-ge-custom installations) you will want to remove the following files/folders:
-        Move/Remove any saved proton-ge-custom packages that you don't want to keep in compatibilitytools.d
-          default ~/.steam/root/compatibilitytools.d/Proton-*.tar.gz
-          Optionally, run ge-install-manager -xf to remove all saved packages automatically
-        ${XDG_CONFIG_HOME:-"$HOME"/.config}/ge-install-manager
-          default ~/.config/ge-install-manager
-        ${XDG_CONFIG_HOME:-"$HOME"/.cache}/ge-install-manager
-          default: ~/.cache/ge-install-manager
-
 Distributions tested so far: Arch, Artix, Fedora Workstation, Manjaro, Linux Mint, Ubuntu
 Shells tested so far: GNU Bash v5.0.18, v5.0.17, Zsh v5.8
 
@@ -68,15 +57,15 @@ Help:
     -R <version>  - Remove installed <version>
     -r <version>  - Remove saved package <version>
     -V            - Verify each installation using its saved package
-                      Combined with -v, -V will be skipped
-                      Saved packages will be downloaded as needed
+                      Combined with -v, -V will be ignored
     -v <version>  - Verify <version> using its saved package
     -d <version>  - Download and save the package for <version>
+    -D            - Remove all files created by this script excluding saved packages
+                      and proton-ge-custom installations (uninstall)
+                      For a complete uninstall, use -fXD.
     -x            - Remove all saved packages
-                      Also requires -f
     -X            - Remove the entire install path
                       NOTE: Saved packages are currently stored in the installation path
-                      Also requires -f
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable verbose output mode (to stderr)
