@@ -38,7 +38,7 @@ set -huo pipefail
 declare -gr SCRIPT_VERSION='0.7.6'
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr SCRIPT_CODENAME='Cochrane Bonaventure'
-declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager'
+declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager' # CheckForScriptUpdate
 declare -gr CURL_HEADER_CONTENT_TYPE='Content-Type: application/json'
 declare -gr CURL_HEADER_GITHUB_MEDIATYPE='Accept: application/vnd.github.v3.text+json'
 declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
@@ -294,6 +294,9 @@ CheckAccessTime() {
 # Return:  0 (local and remote sizes are equal) Update not available
 #          1 (local and remote sizes do not match) Update available
 CheckForScriptUpdate() {
+
+    # Temporarily disabled
+    return 0
 
     local -i local_script_size_bytes=0 \
              remote_script_size_bytes=0
@@ -974,13 +977,13 @@ DownloadGEPackage() {
         return 1
     }
 
-    # If a saved package already exists for this version and it is the expected size
+    # If a saved package already exists for the requested version
     [[ -f $g_install_path/Proton-$version.tar.gz ]] && {
         if (( $(stat -c '%s' "$g_install_path/Proton-$version.tar.gz") == expected_size_bytes )) && ((! g_force)); then
             echo "A saved package for Proton-$version already exists and it is the expected size ($expected_size_bytes bytes)"
             return 0
         elif (( $(stat -c '%s' "$g_install_path/Proton-$version.tar.gz") != expected_size_bytes )) || ((g_force)); then
-            echo "Force mode is enabled. Existing saved package for Proton-$version will be replaced with a new copy"
+            echo "Force mode is enabled. Existing saved package for Proton-$version will be replaced"
             if ($g_command_rm -- "$g_install_path/Proton-$version.tar.gz"); then
                 ((g_verbose)) && vMsg "Saved package removed: $g_install_path/Proton-$version.tar.gz"
             else
@@ -3627,13 +3630,13 @@ Main() {
     fi
 
     # If -u and/or -U are used, check for a script update and report
-    if ((g_check_update || g_update)); then
-        if CheckForScriptUpdate; then
-            ((g_verbose)) && vMsg "The latest version of the script is running"
-        else
-            echo "There is a script update available ($PROJECT_URL)"
-        fi
-    fi
+    ##if ((g_check_update || g_update)); then
+    ##    if CheckForScriptUpdate; then
+    ##        ((g_verbose)) && vMsg "The latest version of the script is running"
+    ##    else
+    ##        echo "There is a script update available ($PROJECT_URL)"
+    ##    fi
+    ##fi
 
     # Check if the latest release is installed
     if ((g_check_update && ! g_update)); then
