@@ -2925,6 +2925,16 @@ SetupEnvironment() {
         }
     }
 
+    # Remove 0 size g_file_script_raw
+    [[ -f $g_file_script_raw ]] && {
+        (( $(stat -c '%s' -- "$g_file_script_raw" 2> /dev/null) == 0 )) && {
+            ((g_verbose)) && vMsg "g_file_script_raw is size 0, removing" y
+            if ! rm -f -- "$g_file_script_raw"; then
+                flag_failed=1
+            fi
+        }
+    }
+
     # Create the sed script used to unminify JSON responses if it is not present
     CreateSedUnminifyJSONscript
 
