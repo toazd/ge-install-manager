@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2400/3665 SLOC (65%) [SLOC/Comment:2.97], 809 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.34], 498 empty (13%)
+# 2462/3758 SLOC (65%) [SLOC/Comment:2.99], 822 comments (21%) [S:94%,I:5%] [Comment/SLOC:0.33], 516 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -295,9 +295,6 @@ CheckAccessTime() {
 #          1 (local and remote sizes do not match) Update available
 CheckForScriptUpdate() {
 
-    # Temporarily disabled
-    return 0
-
     local -i local_script_size_bytes=0 \
              remote_script_size_bytes=0
 
@@ -307,10 +304,14 @@ CheckForScriptUpdate() {
             ((g_verbose)) && vMsg "RequestURL returned success" g
         else
             ((g_verbose)) && vMsg "RequestURL returned failure" r
+            return 0
         fi
     else
         ((g_verbose)) && vMsg "CheckAccessTime returned failure"
     fi
+
+    # If RequestURL failed, skip the checks
+    [[ ! -f $g_file_script_raw ]] && return 0
 
     local_script_size_bytes=$(stat -c '%s' "$(realpath "$0" 2> /dev/null)" 2> /dev/null)
     remote_script_size_bytes=$(stat -c '%s' "$(realpath "$g_file_script_raw" 2> /dev/null)" 2> /dev/null)
@@ -319,9 +320,6 @@ CheckForScriptUpdate() {
         vMsg "Local script size bytes : $local_script_size_bytes"
         vMsg "Remote script size bytes: $remote_script_size_bytes"
     }
-
-    # Even if CheckAccessTime or RequestURL fail, check the local cached copy if it exists otherwise return 0 (update not available)
-    [[ ! -f $g_file_script_raw ]] && return 0
 
     return $(( (local_script_size_bytes != remote_script_size_bytes) ? 1 : 0 ))
 }
@@ -3630,13 +3628,13 @@ Main() {
     fi
 
     # If -u and/or -U are used, check for a script update and report
-    ##if ((g_check_update || g_update)); then
-    ##    if CheckForScriptUpdate; then
-    ##        ((g_verbose)) && vMsg "The latest version of the script is running"
-    ##    else
-    ##        echo "There is a script update available ($PROJECT_URL)"
-    ##    fi
-    ##fi
+    if ((g_check_update || g_update)); then
+        if CheckForScriptUpdate; then
+            ((g_verbose)) && vMsg "The latest version of the script is running"
+        else
+            echo "There is a script update available ($PROJECT_URL)"
+        fi
+    fi
 
     # Check if the latest release is installed
     if ((g_check_update && ! g_update)); then
