@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+tmp_file=/tmp/geimTests.proton-ge-custom.releases
+log_file=geimLog_$(date '+%F_%T').log
+
+rm -vf "$tmp_file" "$log_file"
+
+touch "$tmp_file" "$log_file" || exit 1
+
+CleanUp () {
+    rm -vf "$tmp_file"
+    unset GEIM_TESTS
+}
+
+trap 'CleanUp' EXIT
+
+# Disable color escape codes in script stderr verbose output
+export GEIM_TESTS=1
+
+# Log the output of ReportEnvironmentInfo()
+ge-install-manager -fzZ > "$log_file"
+
+# Get a list of the available releases
+# Parse ge-install-manager -l output into a tmp file
+while IFS= read -r; do
+    REPLY=${REPLY%%[[:blank:]]*}
+    REPLY=${REPLY//Proton-}
+    printf '%s\n' "$REPLY"
+done < <(ge-install-manager -L) > "$tmp_file"
+
+wait && sync
+
+# Download each available release version
+while IFS= read -r; do
+    ge-install-manager -zd "$REPLY" 2>>"$log_file"
+done < "$tmp_file"
+
+wait && sync
+
+# Install each available release version
+while IFS= read -r; do
+    ge-install-manager -zi "$REPLY" 2>>"$log_file"
+done < "$tmp_file"
+
+wait && sync
+
+# Verify all installations
+##ge-install-manager -zV 2>>"$log_file"
