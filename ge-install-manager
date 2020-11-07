@@ -466,6 +466,9 @@ CleanUpVersion() {
     # Replace -NO-MOUSE-COORD with lower-case
     version=${version//-NO-MOUSE-COORD/-no-mouse-coord}
 
+    # Remove any :
+    version=${version//:}
+
     ((g_verbose)) && {
         vMsg "After: \"$version\""
         ((length_characters != ${#version})) && vMsg "Removed $(( length_characters - ${#version} )) characters"
@@ -1482,22 +1485,26 @@ ListAvailableGEVersions() {
                 line_releases=${line_releases#*Proton-}
                 if ((flag_url_found)); then
                     if [[ -n $value_release_notes_url ]]; then
-                        # If there are enough columns
-                        if (( ${COLUMNS:-0} > 112 )); then
-                            # Add whitespace to make things easier to read
-                            while (( ${#line_releases} <= (30-7) )); do # minus the length of Proton-
-                                line_releases="${line_releases} " # "pad" with a space
-                            done
-                            echo "Proton-${line_releases} $value_release_notes_url"
+                        if (( ${GEIM_TESTS-0} )); then
+                            echo "Proton-${line_releases}"
                         else
-                            # Don't print the URL if there isn't enough room or if COLUMNS was unset/NULL
-                            if (( ${COLUMNS:-0} < 80 )); then
-                                echo "Proton-${line_releases}"
+                            # If there are enough columns
+                            if (( ${COLUMNS:-0} > 112 )); then
+                                # Add whitespace to make things easier to read
+                                while (( ${#line_releases} <= (30-7) )); do # minus the length of Proton-
+                                    line_releases="${line_releases} " # "pad" with a space
+                                done
+                                echo "Proton-${line_releases} $value_release_notes_url"
                             else
-                                # Columns between 81 and 112
-                                # Use an alternative format that prints the version and the
-                                # release URL on seperate lines
-                                printf "%s:\n%s\n" "Proton-${line_releases}" "$value_release_notes_url"
+                                # Don't print the URL if there isn't enough room or if COLUMNS was unset/NULL
+                                if (( ${COLUMNS:-0} < 80 )); then
+                                    echo "Proton-${line_releases}"
+                                else
+                                    # Columns between 81 and 112
+                                    # Use an alternative format that prints the version and the
+                                    # release URL on seperate lines
+                                    printf "%s:\n%s\n" "Proton-${line_releases}" "$value_release_notes_url"
+                                fi
                             fi
                         fi
                     else
@@ -2141,17 +2148,19 @@ QueryGEAttribute() {
         fi
     }
 
-    # If value is still empty/NULL check g_file_latest_json
-    if [[ -z $value ]] && [[ -f $g_file_latest_json ]]; then
-        ((g_verbose)) && vMsg "value is NULL" y
-        ((g_verbose)) && vMsg "Checking $g_file_latest_json"
-        # Search g_file_latest_json
-        if value=$(QueryJSONAttribute "$g_file_latest_json" "$version" "$key"); then
-            ((g_verbose)) && vMsg "QueryJSONAttribute returned success" g
-        else
-            ((g_verbose)) && vMsg "QueryJSONAttribute returned failure. value: $value" r
+    ((${CHECK_LATEST:-0})) && {
+        # If value is still empty/NULL check g_file_latest_json
+        if [[ -z $value ]] && [[ -f $g_file_latest_json ]]; then
+            ((g_verbose)) && vMsg "value is NULL" y
+            ((g_verbose)) && vMsg "Checking $g_file_latest_json"
+            # Search g_file_latest_json
+            if value=$(QueryJSONAttribute "$g_file_latest_json" "$version" "$key"); then
+                ((g_verbose)) && vMsg "QueryJSONAttribute returned success" g
+            else
+                ((g_verbose)) && vMsg "QueryJSONAttribute returned failure. value: $value" r
+            fi
         fi
-    fi
+    }
 
     if [[ -n $value ]]; then
         printf '%s' "$value"
