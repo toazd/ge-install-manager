@@ -19,9 +19,14 @@ export GEIM_TESTS=1
 
 # Nuke all previously installed files
 ##ge-install-manager -fXD
+# Nuke all but packages
+##ge-install-manager -fD
 
 # Log the output of ReportEnvironmentInfo()
 ge-install-manager -fzZ > "$log_file"
+
+# Log the output of ShowHelp and ShowUsage
+ge-install-manager -hH >> "$log_file"
 
 # Get a list of the available releases
 # Parse ge-install-manager -l output into a tmp file
@@ -31,6 +36,8 @@ while IFS= read -r; do
     printf '%s\n' "$REPLY"
 done < <(ge-install-manager -L) >>"$tmp_file"
 
+printf '\n%s\n%s\n' "Releases found:" "$(cat "$tmp_file")" >> "$log_file"
+
 # Download each available release version
 while IFS= read -r; do
     ge-install-manager -zd "$REPLY" 2>>"$log_file"
@@ -39,6 +46,11 @@ done <"$tmp_file"
 # Install each available release version
 while IFS= read -r; do
     ge-install-manager -zi "$REPLY" 2>>"$log_file"
+done <"$tmp_file"
+
+# Report disk usage
+while IFS= read -r; do
+    ge-install-manager -zSl "$REPLY" 2>>"$log_file"
 done <"$tmp_file"
 
 # Verify all installations
@@ -52,4 +64,9 @@ done <"$tmp_file"
 # Update and install each
 while IFS= read -r; do
     ge-install-manager -zUi "$REPLY" 2>>"$log_file"
+done <"$tmp_file"
+
+# Report disk usage
+while IFS= read -r; do
+    ge-install-manager -zSl "$REPLY" 2>>"$log_file"
 done <"$tmp_file"
