@@ -31,41 +31,25 @@ while IFS= read -r; do
     printf '%s\n' "$REPLY"
 done < <(ge-install-manager -L) >>"$tmp_file"
 
-wait && sync
-
 # Download each available release version
 while IFS= read -r; do
     ge-install-manager -zd "$REPLY" 2>>"$log_file"
 done < "$tmp_file"
-
-wait && sync
 
 # Install each available release version
 while IFS= read -r; do
     ge-install-manager -zi "$REPLY" 2>>"$log_file"
 done < "$tmp_file"
 
-wait && sync
-
 # Verify all installations
 ##ge-install-manager -zV 2>>"$log_file"
-
-wait && sync
 
 # Remove only installs
 while IFS= read -r; do
     ge-install-manager -zR "$REPLY" 2>>"$log_file"
 done < "$tmp_file"
 
-wait && sync
-
 # Update and install each
 while IFS= read -r; do
     ge-install-manager -zUi "$REPLY" 2>>"$log_file"
 done < "$tmp_file"
-
-##wait && sync
-
-##wait && sync
-
-##wait && sync
