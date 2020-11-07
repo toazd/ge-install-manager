@@ -6,3 +6,4 @@ checkbashisms*
 *.tar.gz
 *.tar.xz
 *.xz
+*.log
