@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2470/3768 SLOC (65%) [SLOC/Comment:3.00], 823 comments (21%) [S:94%,I:5%] [Comment/SLOC:0.33], 517 empty (13%)
+# 2477/3780 SLOC (65%) [SLOC/Comment:3.00], 825 comments (21%) [S:94%,I:5%] [Comment/SLOC:0.33], 520 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -150,7 +150,6 @@ ShowHelp() {
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable verbose output mode (to stderr)
-                      Also preserves any temporary files created
                       Format: (calling line)[function trace]: message
 
 HELP_HEREDOC
@@ -408,28 +407,20 @@ CleanUp() {
         # Paths
         [[ -d $node ]] && {
             ((g_verbose)) && vMsg "Temporary path found at $node" g
-            if ((g_verbose)); then
-                vMsg "Verbose mode enabled, temporary path not removed" y
+            if rm -fr -- "$node" > /dev/null; then
+                ((g_verbose)) && vMsg "Temporary path removed" g
             else
-                if rm -fr -- "$node" > /dev/null; then
-                    ((g_verbose)) && vMsg "Temporary path removed" g
-                else
-                    vMsg "Failed to remove temporary path: $node" r
-                fi
+                vMsg "Failed to remove temporary path: $node" r
             fi
         }
 
         # Files
         [[ -f $node ]] && {
             ((g_verbose)) && vMsg "Temp file found at $node" g
-            if ((g_verbose)); then
-                vMsg "Verbose mode enabled, temporary file not removed" y
+            if rm -f -- "$node" > /dev/null; then
+                ((g_verbose)) && vMsg "Temporary file removed" g
             else
-                if rm -f -- "$node" > /dev/null; then
-                    ((g_verbose)) && vMsg "Temporary file removed" g
-                else
-                    vMsg "Failed to remove temporary file: $node" r
-                fi
+                vMsg "Failed to remove temporary file: $node" r
             fi
         }
     done
@@ -1032,7 +1023,7 @@ DownloadGEPackage() {
 
     # Attempt to retrieve the package with curl
     echo "Downloading $package_download_url"
-    if curl -# -L "$package_download_url" -o "$temp_package"; then
+    if curl -# -L "$package_download_url" -o "$temp_package" 2>&1; then
 
         # Get the downloaded file size in bytes
         downloaded_package_size_bytes=$(stat -c '%s' -- "$temp_package")
@@ -1349,10 +1340,13 @@ IsInstalled() {
 
     ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
 
+    # Fix for Proton-5.0-GE-1-no-mouse-coord.tar.gz
+    version=${version//-no-mouse-coord}
+
     if [[ -d $g_install_path/Proton-${version} ]]; then
 
         while IFS= read -r -- || [[ -n $REPLY ]]; do
-            if [[ $REPLY == *"$version"* ]]; then
+            if [[ -n $REPLY ]]; then
                 ((g_verbose)) && vMsg "$g_install_path/Proton-${version}/version contains $version" g
                 return 0
             else
@@ -1363,7 +1357,6 @@ IsInstalled() {
                 }
             fi
         done < "$g_install_path/Proton-${version}/version"
-
     else
         ((g_verbose)) && vMsg "Version $version not found" w
         return 1
@@ -2568,7 +2561,7 @@ ReportEnvironmentInfo() {
     echo "OSTYPE: ${OSTYPE-}"
     echo "PROMPT_COMMAND: ${PROMPT_COMMAND:-}"
     echo "LANG: ${LANG-}"
-    echo "LC_MESSAGES: $LC_MESSAGES"
+    echo "LC_MESSAGES: ${LC_MESSAGES-}"
     echo "LC_ALL: ${LC_ALL-}"
     echo "EUID: ${EUID-}"
     echo "GROUPS: ${GROUPS[*]-}"

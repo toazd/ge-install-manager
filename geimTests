@@ -17,6 +17,9 @@ trap 'CleanUp' EXIT
 # Disable color escape codes in script stderr verbose output
 export GEIM_TESTS=1
 
+# Nuke all previously installed files
+##ge-install-manager -fXD
+
 # Log the output of ReportEnvironmentInfo()
 ge-install-manager -fzZ > "$log_file"
 
@@ -26,7 +29,7 @@ while IFS= read -r; do
     REPLY=${REPLY%%[[:blank:]]*}
     REPLY=${REPLY//Proton-}
     printf '%s\n' "$REPLY"
-done < <(ge-install-manager -L) > "$tmp_file"
+done < <(ge-install-manager -L) >>"$tmp_file"
 
 wait && sync
 

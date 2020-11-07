@@ -69,7 +69,6 @@ Help:
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
     -z            - Enable verbose output mode (to stderr)
-                      Also preserves any temporary files created
                       Format: (calling line)[function trace]: message
 
 Usage:
