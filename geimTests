@@ -34,12 +34,12 @@ done < <(ge-install-manager -L) >>"$tmp_file"
 # Download each available release version
 while IFS= read -r; do
     ge-install-manager -zd "$REPLY" 2>>"$log_file"
-done < "$tmp_file"
+done <"$tmp_file"
 
 # Install each available release version
 while IFS= read -r; do
     ge-install-manager -zi "$REPLY" 2>>"$log_file"
-done < "$tmp_file"
+done <"$tmp_file"
 
 # Verify all installations
 ##ge-install-manager -zV 2>>"$log_file"
@@ -47,9 +47,9 @@ done < "$tmp_file"
 # Remove only installs
 while IFS= read -r; do
     ge-install-manager -zR "$REPLY" 2>>"$log_file"
-done < "$tmp_file"
+done <"$tmp_file"
 
 # Update and install each
 while IFS= read -r; do
     ge-install-manager -zUi "$REPLY" 2>>"$log_file"
-done < "$tmp_file"
+done <"$tmp_file"

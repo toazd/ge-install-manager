@@ -32,7 +32,8 @@ NOTE: The script will check for an updated version of itself when either update
       function is used (-u or -U). Auto-update of the script is currently
       not supported.
 
-Distributions tested so far: Arch, Artix, Fedora Workstation, Manjaro, Linux Mint, Ubuntu
+Distributions tested so far: Arch, Artix, Fedora Workstation, Manjaro, Manjaro XFCE, MX Linux,
+                             Linux Mint, Linux Mint Debian Edition, Pop OS, Ubuntu
 Shells tested so far: GNU Bash v5.0.18, v5.0.17, Zsh v5.8
 
 Help:

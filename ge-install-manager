@@ -2559,7 +2559,7 @@ ReportEnvironmentInfo() {
     echo "BASH_VERSION: ${BASH_VERSION-}"
     echo "MACHTYPE: ${MACHTYPE-}"
     echo "OSTYPE: ${OSTYPE-}"
-    echo "PROMPT_COMMAND: ${PROMPT_COMMAND:-}"
+    echo "PROMPT_COMMAND: ${PROMPT_COMMAND-}"
     echo "LANG: ${LANG-}"
     echo "LC_MESSAGES: ${LC_MESSAGES-}"
     echo "LC_ALL: ${LC_ALL-}"
