@@ -49,3 +49,23 @@ wait && sync
 
 # Verify all installations
 ##ge-install-manager -zV 2>>"$log_file"
+
+wait && sync
+
+# Remove only installs
+while IFS= read -r; do
+    ge-install-manager -zR "$REPLY" 2>>"$log_file"
+done < "$tmp_file"
+
+wait && sync
+
+# Update and install each
+while IFS= read -r; do
+    ge-install-manager -zUi "$REPLY" 2>>"$log_file"
+done < "$tmp_file"
+
+##wait && sync
+
+##wait && sync
+
+##wait && sync
