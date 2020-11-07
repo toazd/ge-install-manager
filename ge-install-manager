@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2477/3780 SLOC (65%) [SLOC/Comment:3.00], 825 comments (21%) [S:94%,I:5%] [Comment/SLOC:0.33], 520 empty (13%)
+# 2477/3780 SLOC (65%) [SLOC/Comment:3.00], 825 comments (21%) [S:94%,I:5%] [Comment/SLOC:0.33], 520 empty (13
 
 ###############################################################################
 #                                                                             #
@@ -34,7 +34,7 @@ set -huo pipefail
 
 # Initialize global variables
 # NOTE: Script constants (read only variables) are all upper-case
-declare -gr SCRIPT_VERSION='0.7.6'
+declare -gr SCRIPT_VERSION='0.7.7'
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr SCRIPT_CODENAME='Cochrane Bonaventure'
 declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager' # CheckForScriptUpdate
