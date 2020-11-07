@@ -49,9 +49,7 @@ while IFS= read -r; do
 done <"$tmp_file"
 
 # Report disk usage
-while IFS= read -r; do
-    ge-install-manager -zSl "$REPLY" 2>>"$log_file"
-done <"$tmp_file"
+ge-install-manager -zSl "$REPLY" 2>>"$log_file"
 
 # Verify all installations
 ##ge-install-manager -zV 2>>"$log_file"
@@ -67,6 +65,4 @@ while IFS= read -r; do
 done <"$tmp_file"
 
 # Report disk usage
-while IFS= read -r; do
-    ge-install-manager -zSl "$REPLY" 2>>"$log_file"
-done <"$tmp_file"
+ge-install-manager -zSl "$REPLY" 2>>"$log_file"
