@@ -3740,7 +3740,7 @@ Main() {
     ((g_update)) && UpdateGEVersion
 
     # Install a package
-    if ((g_install && ! g_update)); then
+    if ((g_install)); then
         InstallGEVersion "$g_install_version" # NOTE: g_install_version is set in getops
     fi
 
