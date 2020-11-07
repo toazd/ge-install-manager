@@ -27,7 +27,6 @@ set -huo pipefail
 # "Things that would be nice, but aren't required for main features" list
 #
 # TODO: Install function (currently automatic if any main function is used)
-# TODO: Uninstall function
 # TODO: Replace getopts with a custom parser
 # TODO: support for using jq in addition to sed
 #
@@ -93,9 +92,8 @@ declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
 declare -gi g_uninstall_script=0
 # Bash escape sequences
-# NOTE: Currently, not all escape sequences are used
 # https://www.shellcheck.net/wiki/SC2034
-#shellcheck disable=SC2034
+# shellcheck disable=SC2034
 {
 declare -g g_color_red='\033[1;31m'
 declare -g g_color_green='\033[1;32m'
@@ -473,6 +471,9 @@ CleanUpVersion() {
 
     # anchored right, remove a single ".TAR.GZ" and anything to the right of it
     version=${version%'.TAR.GZ'*}
+
+    # Replace -NO-MOUSE-COORD with lower-case
+    version=${version//-NO-MOUSE-COORD/-no-mouse-coord}
 
     ((g_verbose)) && {
         vMsg "After: \"$version\""
@@ -1355,10 +1356,11 @@ IsInstalled() {
                 ((g_verbose)) && vMsg "$g_install_path/Proton-${version}/version contains $version" g
                 return 0
             else
-                ((g_verbose)) && vMsg "$g_install_path/Proton-${version}/version does not contain $version" r
-
-                vMsg "version file not found for Proton-${version} at $g_install_path/Proton-${version}/version" r
-                return 1
+                ((g_verbose)) && {
+                    vMsg "$g_install_path/Proton-${version}/version does not contain $version" r
+                    vMsg "version file not found for Proton-${version} at $g_install_path/Proton-${version}/version" r
+                    return 1
+                }
             fi
         done < "$g_install_path/Proton-${version}/version"
 
@@ -2531,6 +2533,10 @@ ReportEnvironmentInfo() {
 
     echo "###############################################################################"
 
+    uname -a
+
+    echo "###############################################################################"
+
     declare -p --
 
     echo "###############################################################################"
@@ -3533,6 +3539,19 @@ vMsg() {
     local -i i=0
 
     [[ -z ${msg-} ]] && { echo "($LINENO)[vMsg]: Parameter error (NULL)" 1>&2; return 1; }
+
+    # Disable color output for test script (stderr is redirected to a log file)
+    # shellcheck disable=SC2034
+    (( ${GEIM_TESTS-0} )) && {
+        g_color_red=''
+        g_color_green=''
+        g_color_yellow=''
+        g_color_blue=''
+        g_color_magenta=''
+        g_color_cyan=''
+        g_color_white=''
+        g_color_reset=''
+    }
 
     # Calling line number
     printf "${g_color_cyan}%s${g_color_green}%s${g_color_cyan}%s${g_color_reset}" \
