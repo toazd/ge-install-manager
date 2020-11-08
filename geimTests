@@ -52,24 +52,19 @@ Test1_UninstallDownloadInstallVerifyRemove () {
 
     # Download each available release version
     while IFS= read -r; do
-        ge-install-manager -zd "$REPLY"
+        ge-install-manager -zd "$REPLY" 1>/dev/null
     done <"$tmp_file"
 
     # Install each available release version
     while IFS= read -r; do
-        ge-install-manager -zi "$REPLY"
+        ge-install-manager -zi "$REPLY" 1>/dev/null
     done <"$tmp_file"
+
+    # Verify the installs
+    Test2_Verify
 
     # Report disk usage
     ge-install-manager -zSl "$REPLY"
-
-    # Verify all installations at once
-    ge-install-manager -zV
-
-    # Verify all installations one at a time
-    while IFS= read -r; do
-        ge-install-manager -zv "$REPLY"
-    done <"$tmp_file"
 
     # Remove only installs
     while IFS= read -r; do
@@ -89,11 +84,11 @@ Test1_UninstallDownloadInstallVerifyRemove () {
 Test2_Verify () {
 
     # Verify all installations at once
-    ge-install-manager -zV
+    ge-install-manager -zV 1>/dev/null
 
     # Verify all installations one at a time
     while IFS= read -r; do
-        ge-install-manager -zv "$REPLY"
+        ge-install-manager -zv "$REPLY" 1>/dev/null
     done <"$tmp_file"
 
 } 1>>"$log_file" 2>>"$debug_log"
@@ -122,9 +117,7 @@ Test4_FileCountDiskUsage () {
 
 } 1>>"$log_file" 2>>"$debug_log"
 
-##Test1_UninstallDownloadInstallVerifyRemove
-
-##Test2_Verify
+##Test1_UninstallDownloadInstallVerifyRemove # Test1 runs Test2_Verify
 
 Test3_ReleaseNotes
 
