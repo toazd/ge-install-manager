@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2477/3780 SLOC (65%) [SLOC/Comment:3.00], 825 comments (21%) [S:94%,I:5%] [Comment/SLOC:0.33], 520 empty (13
+# 2484/3789 SLOC (65%) [SLOC/Comment:3.01], 826 comments (21%) [S:94%,I:5%] [Comment/SLOC:0.33], 521 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -1333,8 +1333,6 @@ InstallGEVersion() {
 # Output:  None
 # Return:  0 Yes/True
 #          1 No/False
-# NOTE: Currently only checks if a path for the version exists
-# TODO: Find a better way that is reliable
 IsInstalled() {
 
     local version=${1-}
@@ -1348,6 +1346,7 @@ IsInstalled() {
 
     if [[ -d $g_install_path/Proton-${version} ]]; then
 
+        # NOTE: versioning within the file version (inside an installed package path) is not consistent
         while IFS= read -r -- || [[ -n $REPLY ]]; do
             if [[ -n $REPLY ]]; then
                 ((g_verbose)) && vMsg "$g_install_path/Proton-${version}/version contains $version" g
