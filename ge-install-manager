@@ -3219,7 +3219,7 @@ UpdateGEVersion() {
 
         # Latest version is installed and force mode is not active
         if IsInstalled "$g_latest_version" && ((! g_force)); then
-            echo "The latest version $g_latest_version is already installed"
+            echo "The latest version Proton-${g_latest_version} is installed"
         # Latest version is installed and force mode is active
         elif ((g_force)); then
             # NOTE: InstallGEVersion also verifys that force mode is active
@@ -3670,9 +3670,9 @@ Main() {
     if ((g_check_update && ! g_update)); then
         if GetLatestGEVersion; then
             if IsInstalled "$g_latest_version"; then
-                echo "The latest version Proton-$g_latest_version is installed"
+                echo "The latest version Proton-${g_latest_version} is installed"
             else
-                echo "The latest version Proton-$g_latest_version is not installed"
+                echo "The latest version Proton-${g_latest_version} is not installed"
             fi
         fi
     fi
