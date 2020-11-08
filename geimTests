@@ -2,10 +2,11 @@
 
 tmp_file=/tmp/geimTests.proton-ge-custom.releases
 log_file=geimLog_$(date '+%F_%T').log
+debug_log=geimDebugLog_$(date '+%F_%T').log
 
-rm -vf "$tmp_file" "$log_file"
+rm -vf "$tmp_file" "$log_file" "$debug_log"
 
-touch "$tmp_file" "$log_file" || exit 1
+touch "$tmp_file" "$log_file" "$debug_log" || exit 1
 
 CleanUp () {
     rm -vf "$tmp_file"
@@ -18,10 +19,16 @@ trap 'CleanUp' EXIT
 export GEIM_TESTS=1
 
 # Log the output of ReportEnvironmentInfo()
-ge-install-manager -fzZ > "$log_file"
+ge-install-manager -fzZ 1>"$log_file" 2>>"$debug_log"
 
 # Log the output of ShowHelp and ShowUsage
 ##ge-install-manager -hH >> "$log_file"
+
+# Log the output of checkforupdate
+ge-install-manager -zu 1>>"$log_file" 2>>"$debug_log"
+
+# File count and disk usage and list installed versions
+ge-install-manager -lS 1>>"$log_file" 2>>"$debug_log"
 
 # Get a list of the available releases
 # Parse ge-install-manager -l output into a tmp file
@@ -29,86 +36,91 @@ while IFS= read -r; do
     REPLY=${REPLY%%[[:blank:]]*}
     REPLY=${REPLY//Proton-}
     printf '%s\n' "$REPLY"
-done < <(ge-install-manager -zL) >>"$tmp_file"
+done < <(ge-install-manager -L) >>"$tmp_file"
 
-printf '\n%s\n%s\n' "Releases available:" "$(cat "$tmp_file")" >> "$log_file"
-
-printf '%s\n%s\n' "Installed releases:" "$(ge-install-manager -zl 2>&1)" >> "$log_file"
+# shellcheck disable=SC2129
+printf '\n%s\n%s\n%s\n%s\n' \
+       "Releases available:" "$(cat "$tmp_file")" \
+       "Installed releases:" "$(ge-install-manager -zl)" 1>>"$log_file" 2>>"$debug_log"
 
 Test1_UninstallDownloadInstallVerifyRemove () {
 
-    # Nuke all previously installed files
+    # Remove all previously installed files
     ##ge-install-manager -fXD
-    # Nuke all but packages
+    # Remove all but saved packages
     ##ge-install-manager -fD
 
     # Download each available release version
     while IFS= read -r; do
-        ge-install-manager -zd "$REPLY" 2>>"$log_file"
+        ge-install-manager -zd "$REPLY"
     done <"$tmp_file"
 
     # Install each available release version
     while IFS= read -r; do
-        ge-install-manager -zi "$REPLY" 2>>"$log_file"
+        ge-install-manager -zi "$REPLY"
     done <"$tmp_file"
 
     # Report disk usage
-    ge-install-manager -zSl "$REPLY" 1>>"$log_file" 2>&1
+    ge-install-manager -zSl "$REPLY"
 
     # Verify all installations at once
-    ge-install-manager -zV 2>>"$log_file"
+    ge-install-manager -zV
 
     # Verify all installations one at a time
     while IFS= read -r; do
-        ge-install-manager -zv "$REPLY" 2>>"$log_file"
+        ge-install-manager -zv "$REPLY"
     done <"$tmp_file"
 
     # Remove only installs
     while IFS= read -r; do
-        ge-install-manager -zR "$REPLY" 1>>"$log_file" 2>&1
+        ge-install-manager -zR "$REPLY"
     done <"$tmp_file"
 
     # Install each
     while IFS= read -r; do
-        ge-install-manager -zi "$REPLY" 2>>"$log_file"
+        ge-install-manager -zi "$REPLY"
     done <"$tmp_file"
 
     # Report disk usage
-    ge-install-manager -zSl "$REPLY" 1>>"$log_file" 2>&1
-}
+    ge-install-manager -zSl "$REPLY"
+
+} 1>>"$log_file" 2>>"$debug_log"
 
 Test2_Verify () {
 
     # Verify all installations at once
-    ge-install-manager -zV 2>>"$log_file"
+    ge-install-manager -zV
 
     # Verify all installations one at a time
     while IFS= read -r; do
-        ge-install-manager -zv "$REPLY" 2>>"$log_file"
+        ge-install-manager -zv "$REPLY"
     done <"$tmp_file"
-}
+
+} 1>>"$log_file" 2>>"$debug_log"
 
 Test3_ReleaseNotes () {
 
     # Show release notes one at a time
     while IFS= read -r; do
-        ge-install-manager -zn "$REPLY" 1>>"$log_file" 2>&1
+        ge-install-manager -zn "$REPLY"
     done <"$tmp_file"
 
     # Show release notes all at once
-    ge-install-manager -zN 1>>"$log_file" 2>&1
-}
+    ge-install-manager -zN
+
+} 1>>"$log_file" 2>>"$debug_log"
 
 Test4_FileCountDiskUsage () {
 
     # Report file count and disk usage one at a time
     while IFS= read -r; do
-        ge-install-manager -zs "$REPLY" 1>>"$log_file" 2>&1
+        ge-install-manager -zs "$REPLY"
     done <"$tmp_file"
 
     # Report file count and disk usage all at once
-    ge-install-manager -zS 1>>"$log_file" 2>&1
-}
+    ge-install-manager -zS
+
+} 1>>"$log_file" 2>>"$debug_log"
 
 ##Test1_UninstallDownloadInstallVerifyRemove
 
