@@ -3,10 +3,11 @@
 tmp_file=/tmp/geimTests.proton-ge-custom.releases
 log_file=geimLog_$(date '+%F_%T').log
 debug_log=geimDebugLog_$(date '+%F_%T').log
+notes_log=geimReleaseNotes_$(date '+%F_%T').log
 
-rm -vf "$tmp_file" "$log_file" "$debug_log"
+rm -vf "$tmp_file" "$log_file" "$debug_log" "$notes_log"
 
-touch "$tmp_file" "$log_file" "$debug_log" || exit 1
+touch "$tmp_file" "$log_file" "$debug_log" "$notes_log" || exit 1
 
 CleanUp () {
     rm -vf "$tmp_file"
@@ -103,7 +104,7 @@ Test3_ReleaseNotes () {
     # Show release notes all at once
     ge-install-manager -zN
 
-} 1>>"$log_file" 2>>"$debug_log"
+} 1>>"$notes_log" 2>>"$debug_log"
 
 Test4_FileCountDiskUsage () {
 

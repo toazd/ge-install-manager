@@ -45,6 +45,7 @@ RequestURL	ge-install-manager	/^RequestURL() {$/;"	f
 SetupEnvironment	ge-install-manager	/^SetupEnvironment() {$/;"	f
 ShowGEReleaseNotes	ge-install-manager	/^ShowGEReleaseNotes() {$/;"	f
 SpaceRemaining	ge-install-manager	/^SpaceRemaining() {$/;"	f
+UninstallScript	ge-install-manager	/^UninstallScript() {$/;"	f
 UpdateCachedGEReleases	ge-install-manager	/^UpdateCachedGEReleases() {$/;"	f
 UpdateGEVersion	ge-install-manager	/^UpdateGEVersion() {$/;"	f
 VerifyGEInstall	ge-install-manager	/^VerifyGEInstall() {$/;"	f
