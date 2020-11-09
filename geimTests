@@ -125,11 +125,8 @@ Test4_FileCountDiskUsage () {
     ##if ge-install-manager -zfD; then
         if ge-install-manager -zU; then
             if ge-install-manager -zN; then
-                if ge-install-manager -zSVli Proton-5.0-GE-1-no-mouse-coord; then
-                    :
-                    ##printf '%s\n%s\n' "  Installed releases:" "$(ge-install-manager -zl)"
-                    ##while IFS= read -r; do
-                    ##done < <(ge-install-manager -zl 2>>"$debug_log")
+                if ge-install-manager -zSVli Proton-5.0-GE-1; then
+                    echo "All tests succeeded"
                 fi
             fi
         fi

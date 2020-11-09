@@ -42,8 +42,8 @@ declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager' # CheckFor
 {
 declare -gr CURL_HEADER_CONTENT_TYPE='Content-Type: application/json'
 declare -gr CURL_HEADER_GITHUB_MEDIATYPE='Accept: application/vnd.github.v3.text+json'
-}
 declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
+}
 declare -gr TEMP_PREFIX=${SCRIPT_FULL_NAME}.tmp.
 # NOTE: Script global variables are all prefixed with g_
 declare -g g_command_rm # Configuration file: rm_command
