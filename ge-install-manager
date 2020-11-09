@@ -470,6 +470,9 @@ CleanUpVersion() {
     # Remove any :
     version=${version//':'}
 
+    # Fix for Proton-5.0-GE-1-no-mouse-coord
+    version=${version//-NO-MOUSE-COORD/-no-mouse-coord}
+
     ((g_verbose)) && {
         vMsg "After: \"$version\""
         ((length_characters != ${#version})) && vMsg "Removed $(( length_characters - ${#version} )) characters"
@@ -1341,7 +1344,7 @@ IsInstalled() {
     [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     # Fix for Proton-5.0-GE-1-no-mouse-coord.tar.gz
-    version=${version//'-NO-MOUSE-COORD'}
+    version=${version//'-NO-MOUSE-COORD'/'-no-mouse-coord'}
 
     ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
 
@@ -2100,7 +2103,6 @@ ProvingGrounds() {
     fi
 
     # Tests
-    UninstallScript
 
 }
 
@@ -2981,96 +2983,95 @@ ShowGEReleaseNotes() {
         version=".*"
     fi
 
-    if UpdateCachedGEReleases; then
-        while IFS= read -r -- line_releases || [[ -n $line_releases ]]; do
-            ((line_counter++))
-            [[ -z $line_releases ]] && continue
-            #((g_verbose)) && vMsg "Checking: $line_releases"
+    if ! UpdateCachedGEReleases; then
+        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" r
+    fi
 
-            # Match a release URL and store it in value_release_notes_url
-            # "html_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
-            # "html_url":  "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
-            # "html_url":   "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST",
-            [[ $line_releases =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
-                flag_url_found=1
-                #((g_verbose)) && vMsg "URL match: $line_releases"
-                line_releases=${line_releases%\"*}
-                value_release_notes_url=${line_releases##*\"}
+    while IFS= read -r -- line_releases || [[ -n $line_releases ]]; do
+        ((line_counter++))
+        [[ -z $line_releases ]] && continue
+        #((g_verbose)) && vMsg "Checking: $line_releases"
+
+        # Match a release URL and store it in value_release_notes_url
+        # "html_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
+        # "html_url":  "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
+        # "html_url":   "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST",
+        [[ $line_releases =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
+            flag_url_found=1
+            #((g_verbose)) && vMsg "URL match: $line_releases"
+            line_releases=${line_releases%\"*}
+            value_release_notes_url=${line_releases##*\"}
+            continue
+        }
+
+        # NOTE: The regex must match all 3 of the following potential formats:
+        # "name":"Proton-5.9-GE-5-ST.tar.gz"
+        #         "name": "Proton-5.9-GE-5-ST.tar.gz",
+        # "name": "Proton-5.9-GE-5-ST.tar.gz"
+        ((flag_url_found)) && {
+            #((g_verbose)) && vMsg "Checking regex: ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$"
+            [[ $line_releases =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
+                ((version_counter++))
+                flag_version_found=1
+                #((g_verbose)) && vMsg "Version match: $line_releases"
+                flag_url_found=0
+                line_releases=${line_releases%.tar.gz*}
+                line_releases=${line_releases##*\"}
+                echo "$line_releases  ($value_release_notes_url)"
+                continue
+            }
+        }
+
+        ((flag_version_found)) && {
+            # "body_text":"7-28-2020:
+            # NOTE: does not support "body_text": "
+            [[ $line_releases =~ ^[[:blank:]]*\"body_text\":\".*$ ]] && {
+                flag_title=1
+                flag_content=1
+                line_releases=${line_releases#*'"body_text":"'}
+                # If it is only a one line message (none found yet, but it's possible)
+                [[ $line_releases == *\" ]] && { line_releases=${line_releases/%\"}; flag_title=0; flag_content=0; }
+                printf '%s\n' "$line_releases" # First line of body content
+                flag_title=0
                 continue
             }
 
-            # NOTE: The regex must match all 3 of the following potential formats:
-            # "name":"Proton-5.9-GE-5-ST.tar.gz"
-            #         "name": "Proton-5.9-GE-5-ST.tar.gz",
-            # "name": "Proton-5.9-GE-5-ST.tar.gz"
-            ((flag_url_found)) && {
-                #((g_verbose)) && vMsg "Checking regex: ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$"
-                [[ $line_releases =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
-                    ((version_counter++))
-                    flag_version_found=1
-                    #((g_verbose)) && vMsg "Version match: $line_releases"
-                    flag_url_found=0
-                    line_releases=${line_releases%.tar.gz*}
-                    line_releases=${line_releases##*\"}
-                    echo "$line_releases  ($value_release_notes_url)"
-                    continue
-                }
+            (( flag_content && ! flag_title )) && {
+                # Replace \" with "
+                line_releases=${line_releases//\\\"/\"}
+                if [[ $line_releases == *\" ]]; then
+                    line_releases=${line_releases/%\"}
+                    flag_content=0
+                    flag_version_found=0
+                    # TODO: Reformat output based on line length and columns available
+                    # NOTE: DO NOT attempt to use COLUMNS (even with shopt -s checkwinsize). It won't work.
+                    #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
+                    printf '%s\n' "$line_releases" # Last line of body content
+                else
+                    # TODO: Reformat output based on line length and columns available
+                    #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
+                    printf '%s\n' "$line_releases" # Body content that is not on first or last line
+                fi
+
+                # If only showing a single version, break after all info for it has been printed
+                if ((! flag_show_all_versions && ! flag_content && flag_version_found)); then
+                    break
+                fi
             }
-
-            ((flag_version_found)) && {
-                # "body_text":"7-28-2020:
-                # NOTE: does not support "body_text": "
-                [[ $line_releases =~ ^[[:blank:]]*\"body_text\":\".*$ ]] && {
-                    flag_title=1
-                    flag_content=1
-                    line_releases=${line_releases#*'"body_text":"'}
-                    # If it is only a one line message (none found yet, but it's possible)
-                    [[ $line_releases == *\" ]] && { line_releases=${line_releases/%\"}; flag_title=0; flag_content=0; }
-                    printf '%s\n' "$line_releases" # First line of body content
-                    flag_title=0
-                    continue
-                }
-
-                (( flag_content && ! flag_title )) && {
-                    # Replace \" with "
-                    line_releases=${line_releases//\\\"/\"}
-                    if [[ $line_releases == *\" ]]; then
-                        line_releases=${line_releases/%\"}
-                        flag_content=0
-                        flag_version_found=0
-                        # TODO: Reformat output based on line length and columns available
-                        # NOTE: DO NOT attempt to use COLUMNS (even with shopt -s checkwinsize). It won't work.
-                        #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
-                        printf '%s\n' "$line_releases" # Last line of body content
-                    else
-                        # TODO: Reformat output based on line length and columns available
-                        #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
-                        printf '%s\n' "$line_releases" # Body content that is not on first or last line
-                    fi
-
-                    # If only showing a single version, break after all info for it has been printed
-                    if ((! flag_show_all_versions && ! flag_content && flag_version_found)); then
-                        break
-                    fi
-                }
-            }
-        done < "$g_file_releases_json"
-
-        # Report if read read 0 lines
-        ((line_counter == 0)) && {
-            ((g_verbose)) && vMsg "Zero lines read" r
-            return 1
         }
+    done < "$g_file_releases_json"
 
-        # Report if no matches were found
-        ((version_counter == 0)) && {
-            ((g_verbose)) && vMsg "Zero matches found" r
-            return 1
-        }
-    else
-        ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" r
+    # Report if read read 0 lines
+    ((line_counter == 0)) && {
+        ((g_verbose)) && vMsg "Zero lines read" r
         return 1
-    fi
+    }
+
+    # Report if no matches were found
+    ((version_counter == 0)) && {
+        ((g_verbose)) && vMsg "Zero matches found" r
+        return 1
+    }
 
     return 0
 }
@@ -3685,7 +3686,7 @@ Main() {
 
     # Print release notes for all release versions
     if ((g_show_all_release_notes)); then
-        if ! ShowGEReleaseNotes && [[ -n ${version-} ]]; then
+        if ! ShowGEReleaseNotes && [[ -z ${version-} ]]; then
             echo "Version $version not found"
         else
             echo "Release notes unavailable"
