@@ -38,8 +38,11 @@ declare -gr SCRIPT_VERSION='0.7.7'
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr SCRIPT_CODENAME='Cochrane Bonaventure'
 declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager' # CheckForScriptUpdate
+# shellcheck disable=SC2034
+{
 declare -gr CURL_HEADER_CONTENT_TYPE='Content-Type: application/json'
 declare -gr CURL_HEADER_GITHUB_MEDIATYPE='Accept: application/vnd.github.v3.text+json'
+}
 declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
 declare -gr TEMP_PREFIX=${SCRIPT_FULL_NAME}.tmp.
 # NOTE: Script global variables are all prefixed with g_
@@ -214,6 +217,7 @@ Usage:
       Show release notes for a version,
       Remove install path,
       Remove saved packages (if remove install path is not active),
+      Uninstall script (remove g_script_cache_path g_script_config_path),
       Remove installed version (if remove install path is not active),
       Remove saved package (if remove install path is not active),
       Download,
@@ -458,16 +462,13 @@ CleanUpVersion() {
     version=${version^^}
 
     # anchored left, remove a single "PROTON-" and anything to the left of it
-    version=${version#*'PROTON-'}
+    version=${version//'PROTON-'}
 
     # anchored right, remove a single ".TAR.GZ" and anything to the right of it
-    version=${version%'.TAR.GZ'*}
-
-    # Replace -NO-MOUSE-COORD with lower-case
-    version=${version//-NO-MOUSE-COORD/-no-mouse-coord}
+    version=${version//'.TAR.GZ'*}
 
     # Remove any :
-    version=${version//:}
+    version=${version//':'}
 
     ((g_verbose)) && {
         vMsg "After: \"$version\""
@@ -1339,10 +1340,10 @@ IsInstalled() {
 
     [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
-    ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
-
     # Fix for Proton-5.0-GE-1-no-mouse-coord.tar.gz
-    version=${version//-no-mouse-coord}
+    version=${version//'-NO-MOUSE-COORD'}
+
+    ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
 
     if [[ -d $g_install_path/Proton-${version} ]]; then
 
@@ -1679,7 +1680,7 @@ ParseConfigFile() {
         if CreateDefaultConfigFile; then
             ((g_verbose)) && vMsg "CreateDefaultConfigFile returned success" g
             echo "Default configuration created at $g_file_script_config"
-            if [[ -n ${EDITOR-} ]]; then
+            if [[ -n ${EDITOR-} ]] && ((! ${GEIM_TESTS:-0})); then
                 ((g_verbose)) && vMsg "EDITOR is set to: $EDITOR"
                 while :; do
                     read -rp "Would you like to open it with ${EDITOR}? " </dev/tty
@@ -2694,10 +2695,10 @@ RequestURL() {
 
     ((g_verbose)) && vMsg "Checking remote file against $file_local"
 
+    ##-H "$CURL_HEADER_USER_AGENT" \
+    ##-H "$CURL_HEADER_CONTENT_TYPE" \
+    ##-H "$CURL_HEADER_GITHUB_MEDIATYPE" \
     if curl -sz "$file_local" \
-            -H "$CURL_HEADER_USER_AGENT" \
-            -H "$CURL_HEADER_CONTENT_TYPE" \
-            -H "$CURL_HEADER_GITHUB_MEDIATYPE" \
             -L "$requested_url" \
             -o "$file_temp" 2> /dev/null; then
 
@@ -3684,8 +3685,10 @@ Main() {
 
     # Print release notes for all release versions
     if ((g_show_all_release_notes)); then
-        if ! ShowGEReleaseNotes; then
+        if ! ShowGEReleaseNotes && [[ -n ${version-} ]]; then
             echo "Version $version not found"
+        else
+            echo "Release notes unavailable"
         fi
     fi
 
@@ -3715,7 +3718,7 @@ Main() {
         echo "-f must be combined with -x to confirm that you are sure"
     fi
 
-    # Uninstall the script (remove all files created by it, excluding
+    # Uninstall the script (remove all files created by it, excluding saved packages/installed versions)
     if ((g_uninstall_script && g_force)); then
         UninstallScript
     elif ((g_uninstall_script && ! g_force)); then

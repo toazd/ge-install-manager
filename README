@@ -117,6 +117,7 @@ Usage:
       Show release notes for a version,
       Remove install path,
       Remove saved packages (if remove install path is not active),
+      Uninstall script (remove g_script_cache_path g_script_config_path),
       Remove installed version (if remove install path is not active),
       Remove saved package (if remove install path is not active),
       Download,

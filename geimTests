@@ -7,7 +7,7 @@ notes_log=geimReleaseNotes_$(date '+%F_%T').log
 
 rm -vf "$tmp_file" "$log_file" "$debug_log" "$notes_log"
 
-touch "$tmp_file" "$log_file" "$debug_log" "$notes_log" || exit 1
+##touch "$tmp_file" "$log_file" "$debug_log" "$notes_log" || exit 1
 
 CleanUp () {
     rm -vf "$tmp_file"
@@ -26,13 +26,13 @@ ge-install-manager -fzZ 1>"$log_file" 2>>"$debug_log"
 ##ge-install-manager -hH >> "$log_file"
 
 # Log the output of checkforupdate
-ge-install-manager -zu 1>>"$log_file" 2>>"$debug_log"
+##ge-install-manager -zu 1>>"$log_file" 2>>"$debug_log"
 
 # File count and disk usage and list installed versions
-ge-install-manager -lS 1>>"$log_file" 2>>"$debug_log"
+##ge-install-manager -lS 1>>"$log_file" 2>>"$debug_log"
 
 # Get a list of the available releases
-# Parse ge-install-manager -l output into a tmp file
+# Parse ge-install-manager -L output into a tmp file
 while IFS= read -r; do
     REPLY=${REPLY%%[[:blank:]]*}
     REPLY=${REPLY//Proton-}
@@ -40,9 +40,9 @@ while IFS= read -r; do
 done < <(ge-install-manager -L) >>"$tmp_file"
 
 # shellcheck disable=SC2129
-printf '\n%s\n%s\n%s\n%s\n' \
-       "Releases available:" "$(cat "$tmp_file")" \
-       "Installed releases:" "$(ge-install-manager -zl)" 1>>"$log_file" 2>>"$debug_log"
+printf '\n\n%s\n%s\n\n%s\n%s\n\n' \
+       "  Releases available:" "$(cat "$tmp_file")" \
+       "  Installed releases:" "$(ge-install-manager -zl)" 1>>"$log_file" 2>>"$debug_log"
 
 Test1_UninstallDownloadInstallVerifyRemove () {
 
@@ -119,7 +119,19 @@ Test4_FileCountDiskUsage () {
 } 1>>"$log_file" 2>>"$debug_log"
 
 ##Test1_UninstallDownloadInstallVerifyRemove # Test1 runs Test2_Verify
-
-Test3_ReleaseNotes
-
-Test4_FileCountDiskUsage
+##Test3_ReleaseNotes
+##Test4_FileCountDiskUsage
+{
+    ##if ge-install-manager -zfD; then
+        if ge-install-manager -zU; then
+            if ge-install-manager -zN; then
+                if ge-install-manager -zSVli Proton-5.0-GE-1-no-mouse-coord; then
+                    :
+                    ##printf '%s\n%s\n' "  Installed releases:" "$(ge-install-manager -zl)"
+                    ##while IFS= read -r; do
+                    ##done < <(ge-install-manager -zl 2>>"$debug_log")
+                fi
+            fi
+        fi
+    ##fi
+} 2>>"$debug_log"
