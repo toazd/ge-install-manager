@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2484/3789 SLOC (65%) [SLOC/Comment:3.01], 826 comments (21%) [S:94%,I:5%] [Comment/SLOC:0.33], 521 empty (13%)
+# 2483/3790 SLOC (65%) [SLOC/Comment:3.01], 826 comments (21%) [S:95%,I:4%] [Comment/SLOC:0.33], 522 empty (13%)
 
 ###############################################################################
 #                                                                             #
@@ -85,7 +85,7 @@ declare -gi g_report_install_path_usage=0
 declare -gi g_report_version_usage=0
 declare -gi g_show_help=0
 declare -gi g_show_usage=0
-declare -gi g_size_bytes_sed_unminify_script=824
+declare -gi g_size_bytes_sed_unminify_script=146
 declare -gi g_update=0
 declare -gi g_verify=0
 declare -gi g_releases_update_interval=3600 # (seconds) 60 minutes
@@ -698,55 +698,11 @@ CreateSedUnminifyJSONscript() {
         ((g_verbose)) && vMsg "sed script at $g_file_sed_unminify_script does not exist or is not the expected size ($g_size_bytes_sed_unminify_script)" y
 
         cat <<"END_OF_SED_SCRIPT" > "$g_file_sed_unminify_script"
-#### begin minimum required for ge-install-manager
+## begin minimum required for ge-install-manager
 # replace: ","
 # with:    ",newline"
 s|","|"\n"|g
-#### end minimum required for ge-install-manager
-
-# replace:  "assets": [
-# with:     "assets":newline
-s|"assets":\[|"assets":\n|g
-
-# replace:  :{"
-# with:     :newline"
-s|:{"|:\n"|g
-
-# replace:  "},"
-# with:     "newline"
-s|"},"|"\n"|g
-
-# replace:  },"
-# with:     newline"
-s|},"|\n"|g
-
-# replace:  {"
-# with:     "
-s|{"|"|g
-
-#### Re-format text intended for formating ('\n') in "body_text" when media type
-#### "application/vnd.github.v3.text+json" is requested
-# replace:  \n
-# with:     newline
-s|\\n|\n|g
-
-# replace:  ,"
-# with:     newline"
-s|,"|\n"|g
-
-#### one per release listed
-# replace:  "}]
-# with:     "
-s|"}\]|"|g
-
-# replace:  "}
-# with:     "
-s|"}|"|g
-
-#### very minor
-# replace:  ["
-# with:     "
-s|\["|"|g
+## end minimum required for ge-install-manager
 END_OF_SED_SCRIPT
 
         sync "$g_file_sed_unminify_script"
@@ -2103,6 +2059,7 @@ ProvingGrounds() {
     fi
 
     # Tests
+    ShowGEReleaseNotes "Proton-5.9-GE-8-ST.tar.gz"
 
 }
 
@@ -2965,16 +2922,15 @@ ShowGEReleaseNotes() {
           value_release_notes_url=''
 
     local -i flag_version_found=0 \
-             flag_title=0 \
-             flag_content=0 \
              flag_show_all_versions=1 \
              flag_url_found=0 \
+             flag_end=0 \
              line_counter=0 \
              version_counter=0
 
 
     # Determine whether to show all versions or a specified version
-    if [[ -n $version ]]; then
+    if [[ -n ${version-} ]]; then
         CleanUpVersion
         flag_show_all_versions=0
         ((g_verbose)) && vMsg "Getting release notes for version $version"
@@ -2990,17 +2946,19 @@ ShowGEReleaseNotes() {
     while IFS= read -r -- line_releases || [[ -n $line_releases ]]; do
         ((line_counter++))
         [[ -z $line_releases ]] && continue
+
         #((g_verbose)) && vMsg "Checking: $line_releases"
 
         # Match a release URL and store it in value_release_notes_url
         # "html_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
         # "html_url":  "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
         # "html_url":   "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST",
-        [[ $line_releases =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
+        [[ ${line_releases//[[:blank:]]} =~ ^.*\"html_url\":\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
             flag_url_found=1
-            #((g_verbose)) && vMsg "URL match: $line_releases"
-            line_releases=${line_releases%\"*}
-            value_release_notes_url=${line_releases##*\"}
+            ((g_verbose)) && vMsg "URL match ($line_counter): $line_releases"
+            line_releases=${line_releases//[[:blank:]]}
+            line_releases=${line_releases//'",'}
+            value_release_notes_url=${line_releases/#*'"html_url":"'}
             continue
         }
 
@@ -3010,55 +2968,56 @@ ShowGEReleaseNotes() {
         # "name": "Proton-5.9-GE-5-ST.tar.gz"
         ((flag_url_found)) && {
             #((g_verbose)) && vMsg "Checking regex: ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$"
-            [[ $line_releases =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
+            [[ ${line_releases//[[:blank:]]} =~ ^.*\"name\":\"Proton-${version}\.tar\.gz\".*$ ]] && {
                 ((version_counter++))
                 flag_version_found=1
-                #((g_verbose)) && vMsg "Version match: $line_releases"
+                ((g_verbose)) && vMsg "Version match ($line_counter): $line_releases"
                 flag_url_found=0
-                line_releases=${line_releases%.tar.gz*}
-                line_releases=${line_releases##*\"}
+                line_releases=${line_releases//[[:blank:]]}
+                line_releases=${line_releases/#*'"name":"'}
+                line_releases=${line_releases//'",'}
+                line_releases=${line_releases//'.tar.gz'}
                 echo "$line_releases  ($value_release_notes_url)"
                 continue
             }
         }
 
         ((flag_version_found)) && {
+
             # "body_text":"7-28-2020:
-            # NOTE: does not support "body_text": "
-            [[ $line_releases =~ ^[[:blank:]]*\"body_text\":\".*$ ]] && {
-                flag_title=1
-                flag_content=1
-                line_releases=${line_releases#*'"body_text":"'}
-                # If it is only a one line message (none found yet, but it's possible)
-                [[ $line_releases == *\" ]] && { line_releases=${line_releases/%\"}; flag_title=0; flag_content=0; }
-                printf '%s\n' "$line_releases" # First line of body content
-                flag_title=0
+            [[ ${line_releases//[[:blank:]]} =~ ^.*\"body_text\":\".*$ ]] && {
+
+                [[ ${line_releases//[[:blank:]]} == *\" ]] && { ((g_verbose)) && vMsg "body_text end marker found: $line_counter"; flag_end=1; }
+
+                ((g_verbose)) && vMsg "body_text before ($line_counter): $line_releases"
+
+                # Fix if sed unminify script doesn't run (to process body_text)
+                line_releases=${line_releases/#*'"body_text": "'}
+                line_releases=${line_releases/#*'"body_text":"'}
+                line_releases=${line_releases/#*'"body_text" : "'}
+                line_releases=${line_releases/#*'"body_text" :"'}
+                line_releases=${line_releases//'\n'/$'\n'}
+                line_releases=${line_releases//'\"'/'"'}
+                ((flag_end)) && line_releases=${line_releases%\"*}
+
+                # Remove leading spaces
+                while [[ ${line_releases:0:1} = [[:blank:]] ]]; do
+                    line_releases=${line_releases:1}
+                done
+
+                ((g_verbose)) && vMsg "body_text after ($line_counter): $line_releases"
+
+                printf '%s\n' "$line_releases"
                 continue
             }
-
-            (( flag_content && ! flag_title )) && {
-                # Replace \" with "
-                line_releases=${line_releases//\\\"/\"}
-                if [[ $line_releases == *\" ]]; then
-                    line_releases=${line_releases/%\"}
-                    flag_content=0
-                    flag_version_found=0
-                    # TODO: Reformat output based on line length and columns available
-                    # NOTE: DO NOT attempt to use COLUMNS (even with shopt -s checkwinsize). It won't work.
-                    #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
-                    printf '%s\n' "$line_releases" # Last line of body content
-                else
-                    # TODO: Reformat output based on line length and columns available
-                    #(( ${#line_releases} > ($(tput cols)-4) )) && printf '%s\n' "${#line_releases} $(( ${#line_releases} / ($(tput cols)-4) ))"
-                    printf '%s\n' "$line_releases" # Body content that is not on first or last line
-                fi
-
-                # If only showing a single version, break after all info for it has been printed
-                if ((! flag_show_all_versions && ! flag_content && flag_version_found)); then
-                    break
-                fi
-            }
         }
+
+        # If only showing a single version, break after all info for it has been printed
+        if ((flag_end && ! flag_show_all_versions)); then
+            ((g_verbose)) && vMsg "Breaking out of loop ($line_counter)"
+            flag_end=0
+            break
+        fi
     done < "$g_file_releases_json"
 
     # Report if read read 0 lines

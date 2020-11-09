@@ -10,7 +10,7 @@ rm -vf "$tmp_file" "$log_file" "$debug_log" "$notes_log"
 ##touch "$tmp_file" "$log_file" "$debug_log" "$notes_log" || exit 1
 
 CleanUp () {
-    rm -vf "$tmp_file"
+    rm -f "$tmp_file"
     unset GEIM_TESTS
 }
 
@@ -21,15 +21,6 @@ export GEIM_TESTS=1
 
 # Log the output of ReportEnvironmentInfo()
 ge-install-manager -fzZ 1>"$log_file" 2>>"$debug_log"
-
-# Log the output of ShowHelp and ShowUsage
-##ge-install-manager -hH >> "$log_file"
-
-# Log the output of checkforupdate
-##ge-install-manager -zu 1>>"$log_file" 2>>"$debug_log"
-
-# File count and disk usage and list installed versions
-##ge-install-manager -lS 1>>"$log_file" 2>>"$debug_log"
 
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
@@ -43,6 +34,15 @@ done < <(ge-install-manager -L) >>"$tmp_file"
 printf '\n\n%s\n%s\n\n%s\n%s\n\n' \
        "  Releases available:" "$(cat "$tmp_file")" \
        "  Installed releases:" "$(ge-install-manager -zl)" 1>>"$log_file" 2>>"$debug_log"
+
+# Log the output of ShowHelp and ShowUsage
+##ge-install-manager -hH >> "$log_file"
+
+# Log the output of checkforupdate
+##ge-install-manager -zu 1>>"$log_file" 2>>"$debug_log"
+
+# File count and disk usage and list installed versions
+##ge-install-manager -lS 1>>"$log_file" 2>>"$debug_log"
 
 Test1_UninstallDownloadInstallVerifyRemove () {
 
@@ -126,7 +126,11 @@ Test4_FileCountDiskUsage () {
         if ge-install-manager -zU; then
             if ge-install-manager -zN; then
                 if ge-install-manager -zi Proton-5.0-GE-1-no-mouse-coord; then
-                    echo "All tests succeeded"
+                    if ge-install-manager -zl; then
+                        if ge-install-manager -zV; then
+                            echo "All tests completed"
+                        fi
+                    fi
                 fi
             fi
         fi
