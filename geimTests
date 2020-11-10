@@ -19,28 +19,21 @@ trap 'CleanUp' EXIT
 # Disable color escape codes in script stderr verbose output
 export GEIM_TESTS=1
 
-##ge-install-manager -fD
-
-# Log the output of ReportEnvironmentInfo()
-##ge-install-manager -fzZ 2>/dev/null |& tee -a "$log_file"
-
-##ge-install-manager -S 1>"$log_file"
+ge-install-manager -fXD
 
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
-##while IFS= read -r; do
-##    REPLY=${REPLY%%[[:blank:]]*}
-    ##REPLY=${REPLY//Proton-}
-##    printf '%s\n' "$REPLY" >> "$tmp_file"
-##    ge-install-manager -zd "$REPLY" 2>"${debug_log}"
-##    ge-install-manager -zi "$REPLY" 2>"${debug_log}"
-##    ge-install-manager -zs "$REPLY" 2>"${debug_log}" 1>>"$log_file"
-##done < <(ge-install-manager -L | head -n1)
+GetReleasesList() {
+    while IFS= read -r; do
+        REPLY=${REPLY%%[[:blank:]]*}
+        REPLY=${REPLY//Proton-}
+        printf '%s\n' "$REPLY" >> "$tmp_file"
+    done < <(ge-install-manager -L)
+}
 
 ge-install-manager -zd "Proton-5.1-GE-1" 2>"${debug_log}"
 ge-install-manager -zi "Proton-5.1-GE-1" 2>"${debug_log}"
 ge-install-manager -zs "Proton-5.1-GE-1" 2>"${debug_log}" 1>>"$log_file"
-
 
 # shellcheck disable=SC2129
 [[ -f $tmp_file ]] && printf '%s\n%s\n\n' "Releases being checked:" "$(cat "$tmp_file")" >> "$log_file"
@@ -58,7 +51,15 @@ GroupTests() {
                 REPLY=${REPLY%'('*}
                 # Fix for 5.0-ge-1-no-mouse-coord
                 REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
-                ge-install-manager -n "$REPLY" | tee -a "$notes_log"
+                if ge-install-manager -R "$REPLY"; then
+                    if ge-install-manager -r "$REPLY"; then
+                        if ge-install-manager -i "$REPLY"; then
+                            if ge-install-manager -v "$REPLY"; then
+                                ge-install-manager -n "$REPLY" | tee -a "$notes_log"
+                            fi
+                        fi
+                    fi
+                fi
             }
         done < <(ge-install-manager -l)
 
