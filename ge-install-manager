@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2164/3521 SLOC (61%) [SLOC/Comment:2.46], 879 comments (24%) [S:95%,I:4%] [Comment/SLOC:0.41], 515 empty (14%)
+# 2162/3521 SLOC (61%) [SLOC/Comment:2.45], 881 comments (25%) [S:95%,I:4%] [Comment/SLOC:0.41], 515 empty (14%)
 
 ###############################################################################
 #                                                                             #
@@ -432,7 +432,7 @@ CleanUpVersion() {
     # $version must be set in the calling function
     [[ -z $version ]] && { ((g_verbose)) && vMsg "version is NULL" r; printf ''; return 1; }
 
-    ((g_verbose)) && vMsg "Before: \"$version\""
+    ##((g_verbose)) && vMsg "Before: \"$version\""
 
     # global remove spaces/tabs
     version=${version//[[:blank:]]}
@@ -453,7 +453,7 @@ CleanUpVersion() {
     version=${version//'-NO-MOUSE-COORD'/'-no-mouse-coord'}
     [[ $version = '5.0-GE-1' ]] && version='5.0-GE-1-no-mouse-coord'
 
-    ((g_verbose)) && vMsg "After: \"$version\""
+    ##((g_verbose)) && vMsg "After: \"$version\""
 
     return 0
 }
