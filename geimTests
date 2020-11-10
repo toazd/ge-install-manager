@@ -24,7 +24,7 @@ export GEIM_TESTS=1
 # Log the output of ReportEnvironmentInfo()
 ##ge-install-manager -fzZ 2>/dev/null |& tee -a "$log_file"
 
-ge-install-manager -S 1>"$log_file"
+##ge-install-manager -S 1>"$log_file"
 
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
@@ -32,18 +32,18 @@ while IFS= read -r; do
     REPLY=${REPLY%%[[:blank:]]*}
     ##REPLY=${REPLY//Proton-}
     printf '%s\n' "$REPLY" >> "$tmp_file"
-    ge-install-manager -zd "$REPLY" 2>"${debug_log}_1_download.log"
-    ge-install-manager -zi "$REPLY" 2>"${debug_log}_2_install.log"
-    ge-install-manager -zs "$REPLY" 2>"${debug_log}_3_reportsize.log" 1>>"$log_file"
+    ge-install-manager -zd "$REPLY" 2>"${debug_log}"
+    ge-install-manager -zi "$REPLY" 2>"${debug_log}"
+    ge-install-manager -zs "$REPLY" 2>"${debug_log}" 1>>"$log_file"
 done < <(ge-install-manager -L | head -n1)
 
 # shellcheck disable=SC2129
 printf '%s\n%s\n\n%s\n%s\n\n' \
-       "Releases available:" "$(cat "$tmp_file")" \
+       "Releases being checked:" "$(cat "$tmp_file")" \
        "Installed releases:" "$(ge-install-manager -l)" >> "$log_file"
 
 GroupTests() {
-    if ge-install-manager -zV 2>>"${debug_log}_4_verify.log"; then
+    if ge-install-manager -zV 2>>"${debug_log}"; then
         # List patch notes for each installed version
         while flag_installed=0 IFS= read -r; do
             [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
