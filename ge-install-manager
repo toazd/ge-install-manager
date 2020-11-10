@@ -3295,6 +3295,9 @@ VerifyGEInstall() {
     for node in "$g_install_path/Proton-"*; do
         [[ -d $node ]] && {
 
+            # Fix for Proton-5.0-GE-1-no-mouse-coord
+            [[ ${node##*/} = 'Proton-5.0-GE-1' ]] && node=${node//'Proton-5.0-GE-1'/'Proton-5.0-GE-1-no-mouse-coord'}
+
             # Verify that it is installed
             IsInstalled "${node##*/}" && {
 
