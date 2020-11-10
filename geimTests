@@ -22,9 +22,7 @@ export GEIM_TESTS=1
 ##ge-install-manager -fD
 
 # Log the output of ReportEnvironmentInfo()
-ge-install-manager -fzZ 2>/dev/null |& tee -a "$log_file"
-
-ge-install-manager -S |& tee -a "$log_file"
+##ge-install-manager -fzZ 2>/dev/null |& tee -a "$log_file"
 
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
@@ -57,6 +55,8 @@ GroupTests () {
                 ge-install-manager -n "$REPLY" | tee -a "$notes_log"
             }
         done < <(ge-install-manager -l |& tee -a "$log_file")
+
+        ge-install-manager -S |& tee -a "$log_file"
 
         printf '\n' >> "$log_file"
 
