@@ -31,9 +31,9 @@ while IFS= read -r; do
 done < <(ge-install-manager -L) >>"$tmp_file"
 
 # shellcheck disable=SC2129
-printf '\n\n%s\n%s\n\n%s\n%s\n\n' \
-       "  Releases available:" "$(cat "$tmp_file")" \
-       "  Installed releases:" "$(ge-install-manager -zl)" 1>>"$log_file" 2>>"$debug_log"
+printf '%s\n%s\n\n%s\n%s\n\n' \
+       "Releases available:" "$(cat "$tmp_file")" \
+       "Installed releases:" "$(ge-install-manager -zl)" 1>>"$log_file" 2>>"$debug_log"
 
 # Log the output of ShowHelp and ShowUsage
 ##ge-install-manager -hH >> "$log_file"
@@ -121,18 +121,27 @@ Test4_FileCountDiskUsage () {
 ##Test1_UninstallDownloadInstallVerifyRemove # Test1 runs Test2_Verify
 ##Test3_ReleaseNotes
 ##Test4_FileCountDiskUsage
-{
+GroupTests () {
     ##if ge-install-manager -zfD; then
-        if ge-install-manager -zU; then
-            if ge-install-manager -zN; then
-                if ge-install-manager -zi Proton-5.0-GE-1-no-mouse-coord; then
-                    if ge-install-manager -zl; then
-                        if ge-install-manager -zV; then
+        if ge-install-manager -zU 2>>"$debug_log"; then
+                if ge-install-manager -zi Proton-5.0-GE-1-no-mouse-coord 2>>"$debug_log"; then
+                        if ge-install-manager -zV 2>>"$debug_log"; then
+                            # List patch notes for each installed version
+                            while flag_installed=0 IFS= read -r; do
+                                [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
+                                [[ ${REPLY,,} == 'saved'* ]] && { flag_installed=0; continue; }
+                                ((flag_installed)) && {
+                                    REPLY=${REPLY//[[:blank:]]}
+                                    REPLY=${REPLY%'('*}
+                                    ge-install-manager -n "$REPLY" 1>>"$log_file" 2>>"$debug_log"
+                                }
+                            done < <(ge-install-manager -l | tee -a "$log_file")
+
                             echo "All tests completed"
                         fi
-                    fi
                 fi
-            fi
         fi
     ##fi
-} 2>>"$debug_log"
+}
+
+GroupTests

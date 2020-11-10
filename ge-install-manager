@@ -1530,7 +1530,7 @@ ListInstalledGEVersions() {
             ((i++))
             size_bytes=$(stat -c '%s' -- "$node")
             expected_size_bytes=$(QueryGEAttribute "${node##*/}" "size")
-            if ((size_bytes != expected_size_bytes)); then
+            if [[ -n $expected_size_bytes ]] && ((size_bytes != expected_size_bytes)); then
                 echo "  ${node##*/} (WARNING: Size [$size_bytes] is not the expected size [$expected_size_bytes])"
             else
                 IFS=$'\t' read -r -- saved_package_disk_usage path < <(du -h -- "$node")
