@@ -1812,16 +1812,16 @@ ParseConfigFile() {
 
     # Verbose report
     ((g_verbose)) && {
-        vMsg "Install path set to: $g_install_path" g
-        vMsg "Temp path set to: $g_temp_base_path" g
-        vMsg "Config path set to: $g_script_config_path" g # NOTE: config_path is currently not configurable
-        vMsg "Cache path set to: $g_script_cache_path" g
-        vMsg "g_command_rm set to: $g_command_rm" g
-        vMsg "g_latest_version_url set to: $g_latest_version_url" g
-        vMsg "g_releases_url set to: $g_releases_url" g
-        vMsg "g_file_latest_json set to: $g_file_latest_json" g
-        vMsg "g_file_script_raw set to: $g_file_script_raw" g
-        vMsg "g_file_releases_json set to: $g_file_releases_json" g
+        vMsg "Install path set to: ${g_install_path-}" g
+        vMsg "Temp path set to: ${g_temp_base_path-}" g
+        vMsg "Config path set to: ${g_script_config_path-}" g # NOTE: config_path is currently not configurable
+        vMsg "Cache path set to: ${g_script_cache_path-}" g
+        vMsg "g_command_rm set to: ${g_command_rm-}" g
+        vMsg "g_latest_version_url set to: ${g_latest_version_url-}" g
+        vMsg "g_releases_url set to: ${g_releases_url-}" g
+        vMsg "g_file_latest_json set to: ${g_file_latest_json-}" g
+        vMsg "g_file_script_raw set to: ${g_file_script_raw-}" g
+        vMsg "g_file_releases_json set to: ${g_file_releases_json-}" g
     }
 
     # Update global variables
