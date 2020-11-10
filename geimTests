@@ -19,6 +19,8 @@ trap 'CleanUp' EXIT
 # Disable color escape codes in script stderr verbose output
 export GEIM_TESTS=1
 
+##ge-install-manager -fD
+
 # Log the output of ReportEnvironmentInfo()
 ge-install-manager -fzZ 1>"$log_file" 2>/dev/null
 
@@ -28,6 +30,7 @@ while IFS= read -r; do
     REPLY=${REPLY%%[[:blank:]]*}
     ##REPLY=${REPLY//Proton-}
     printf '%s\n' "$REPLY" >> "$tmp_file"
+    ge-install-manager -zi "$REPLY" 2>>"$debug_log"
 done < <(ge-install-manager -L)
 
 # shellcheck disable=SC2129
@@ -36,28 +39,24 @@ printf '%s\n%s\n\n%s\n%s\n\n' \
        "Installed releases:" "$(ge-install-manager -l)" >> "$log_file"
 
 GroupTests () {
-    if ge-install-manager -zU 1>/dev/null 2>>"$debug_log"; then
-        if ge-install-manager -zi Proton-5.0-GE-1-no-mouse-coord 1>/dev/null 2>>"$debug_log"; then
-            if ge-install-manager -zV 1>/dev/null 2>>"$debug_log"; then
-                # List patch notes for each installed version
-                while flag_installed=0 IFS= read -r; do
-                    [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
-                    [[ ${REPLY,,} == 'saved'* ]] && { flag_installed=0; continue; }
-                    ((flag_installed)) && {
-                        # Remove extra info
-                        REPLY=${REPLY//[[:blank:]]}
-                        REPLY=${REPLY%'('*}
-                        # Fix for 5.0-ge-1-no-mouse-coord
-                        REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
-                        ge-install-manager -n "$REPLY"
-                    }
-                done < <(ge-install-manager -l | tee -a "$log_file")
+    if ge-install-manager -zV 2>>"$debug_log"; then
+        # List patch notes for each installed version
+        while flag_installed=0 IFS= read -r; do
+            [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
+            [[ ${REPLY,,} == 'saved'* ]] && { flag_installed=0; continue; }
+            ((flag_installed)) && {
+                # Remove extra info
+                REPLY=${REPLY//[[:blank:]]}
+                REPLY=${REPLY%'('*}
+                # Fix for 5.0-ge-1-no-mouse-coord
+                REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
+                ge-install-manager -n "$REPLY" | tee -a "$notes_log"
+            }
+        done < <(ge-install-manager -l | tee -a "$log_file")
 
-                printf '\n' >> "$log_file"
+        printf '\n' >> "$log_file"
 
-                echo "All tests completed"
-            fi
-        fi
+        echo "All tests completed"
     fi
 }
 
