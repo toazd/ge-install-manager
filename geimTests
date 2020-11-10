@@ -43,9 +43,8 @@ ge-install-manager -zs "Proton-5.1-GE-1" 2>"${debug_log}" 1>>"$log_file"
 
 
 # shellcheck disable=SC2129
-printf '%s\n%s\n\n%s\n%s\n\n' \
-       "Releases being checked:" "$(cat "$tmp_file")" \
-       "Installed releases:" "$(ge-install-manager -l)" >> "$log_file"
+[[ -f $tmp_file ]] && printf '%s\n%s\n\n' "Releases being checked:" "$(cat "$tmp_file")" >> "$log_file"
+printf '%s\n%s\n\n' "Installed releases:" "$(ge-install-manager -l)" >> "$log_file"
 
 GroupTests() {
     if ge-install-manager -zV 2>>"${debug_log}"; then
@@ -61,7 +60,7 @@ GroupTests() {
                 REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
                 ge-install-manager -n "$REPLY" | tee -a "$notes_log"
             }
-        done < <(ge-install-manager -l |& tee -a "$log_file")
+        done < <(ge-install-manager -l)
 
         ge-install-manager -S 1>>"$log_file"
 
