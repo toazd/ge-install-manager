@@ -471,7 +471,8 @@ CleanUpVersion() {
     version=${version//':'}
 
     # Fix for Proton-5.0-GE-1-no-mouse-coord
-    version=${version//-NO-MOUSE-COORD/-no-mouse-coord}
+    version=${version//'-NO-MOUSE-COORD'/'-no-mouse-coord'}
+    [[ $version = '5.0-GE-1' ]] && version='5.0-GE-1-no-mouse-coord'
 
     ((g_verbose)) && {
         vMsg "After: \"$version\""
@@ -1304,7 +1305,11 @@ IsInstalled() {
     [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
     # Fix for Proton-5.0-GE-1-no-mouse-coord.tar.gz
-    version=${version//'-NO-MOUSE-COORD'/'-no-mouse-coord'}
+    version=${version//'-NO-MOUSE-COORD'/}
+    version=${version//'-no-mouse-coord'}
+
+    version=${version//'Proton-'}
+    version=${version//'proton-'}
 
     ((g_verbose)) && vMsg "Checking for version $version at $g_install_path/Proton-${version}"
 
@@ -3258,7 +3263,7 @@ VerifyGEInstall() {
     local -a files_extracted \
              files_installed
 
-    CleanUpVersion
+    [[ -n $version ]] && CleanUpVersion
 
     # If g_temp_base_path = g_install_path
     # WARNING: Setting g_temp_base_path and g_install_path to the same path would cause
@@ -3318,7 +3323,7 @@ VerifyGEInstall() {
                 echo "Version $version is installed"
 
                 # Check for enough free space on the filesystem that contains tmp_path
-                IFS=$'\t' read -r -- expected_size_bytes path < <(du -bs -- "$g_install_path/Proton-${version}")
+                IFS=$'\t' read -r -- expected_size_bytes path < <(du -bs -- "$g_install_path/Proton-${version//-no-mouse-coord}")
                 temp_base_path_remaining_bytes=$(SpaceRemaining "$g_temp_base_path" "b")
 
                 ((g_verbose)) && {
