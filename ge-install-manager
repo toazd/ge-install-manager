@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2483/3790 SLOC (65%) [SLOC/Comment:3.01], 826 comments (21%) [S:95%,I:4%] [Comment/SLOC:0.33], 522 empty (13%)
+# 2419/3755 SLOC (64%) [SLOC/Comment:2.85], 849 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.35], 530 empty (14%)
 
 ###############################################################################
 #                                                                             #
@@ -3016,6 +3016,8 @@ ShowGEReleaseNotes() {
                 continue
             }
         }
+
+        ((flag_end)) && printf '\n'
 
         # If only showing a single version, break after all info for it has been printed
         if ((flag_end && ! flag_show_all_versions)); then
