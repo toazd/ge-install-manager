@@ -21,6 +21,7 @@ export GEIM_TESTS=1
 
 # Nuke previous state
 NukePreviousState() {
+    echo "Nuking previous state"
     rm -- *.log
     ge-install-manager -fXD
 }
