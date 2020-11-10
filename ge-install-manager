@@ -1194,7 +1194,8 @@ GetLatestGEVersion() {
 #                        extract to the install path.
 InstallGEVersion() {
 
-    local version=${1-}
+    local version=${1-} \
+          package_size=''
 
     [[ -z $version ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
@@ -1248,7 +1249,10 @@ InstallGEVersion() {
             echo "Using saved package: $g_install_path/Proton-${version}.tar.gz"
 
             # Check that the size of the package is the expected size
-            if (( $(stat -c '%s' -- "$g_install_path/Proton-${version}.tar.gz") != $(QueryGEAttribute "$version" "size") )); then
+            package_size=$(QueryGEAttribute "$version" "size")
+            [[ -z $package_size ]] && { ((g_verbose)) && vMsg "Unable to determine expected package size"; }
+
+            if [[ -n $package_size ]] && (( $(stat -c '%s' -- "$g_install_path/Proton-${version}.tar.gz") != package_size )); then
                 echo "Saved package is not the expected size, a new one will be downloaded"
                 if RemoveSavedPackage "$version"; then
                     echo "Removed package"
@@ -1679,17 +1683,17 @@ ParseConfigFile() {
         ((counter_config_line++))
 
         # Ignore lines that begin with a # (comments)
-        [[ $REPLY =~ ^#.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (#)"; continue; }
+        [[ $REPLY =~ ^#.*$ ]] && continue ##{ ((g_verbose)) && vMsg "Ignoring line $counter_config_line (#)"; continue; }
 
         # Ignore lines that contain one or more semi-colon ";". Anti-exploit measure.
-        [[ $REPLY =~ ^.*\;+.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (;)" y; continue; }
+        [[ $REPLY =~ ^.*\;+.*$ ]] && continue ##{ ((g_verbose)) && vMsg "Ignoring line $counter_config_line (;)" y; continue; }
 
         # Ignore lines containing potential escape sequences. Anti-exploit measure.
-        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (potential escape code)" y; continue; }
+        [[ $REPLY =~ ^.*\\[[:digit:]]+\[.*$ ]] && continue ##{ ((g_verbose)) && vMsg "Ignoring line $counter_config_line (potential escape code)" y; continue; }
 
         # Trim away inline comments
         if [[ $REPLY =~ ^.*#.*$ ]]; then
-            ((g_verbose)) && vMsg "Partially commented line $counter_config_line: $REPLY"
+            ##((g_verbose)) && vMsg "Partially commented line $counter_config_line: $REPLY"
             # remove the ' #' and everything to the right of it
             # NOTE: valid comments are preceded by at least one [[:blank:]]
             # BUG: this will mangle herestrings that contain comments
@@ -1697,13 +1701,13 @@ ParseConfigFile() {
         fi
 
         # Ignore lines that are empty
-        [[ -z $REPLY ]] && { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (empty)"; continue; }
+        [[ -z $REPLY ]] && continue ##{ ((g_verbose)) && vMsg "Ignoring line $counter_config_line (empty)"; continue; }
 
         # Ignore lines that don't contain exactly one = and also don't have characters on either side of the = sign.
         # If there are characters on either side of the = sign, they may not be spaces or tabs
-        [[ $REPLY =~ ^[^=[:blank:]]+=[^=[:blank:]]+$ ]] || { ((g_verbose)) && vMsg "Ignoring line $counter_config_line (improperly formatted)" y; continue; }
+        [[ $REPLY =~ ^[^=[:blank:]]+=[^=[:blank:]]+$ ]] || continue ##{ ((g_verbose)) && vMsg "Ignoring line $counter_config_line (improperly formatted)" y; continue; }
 
-        ((g_verbose)) && vMsg "Potentially valid config line ($counter_config_line): $REPLY" g
+        ##((g_verbose)) && vMsg "Potentially valid config line ($counter_config_line): $REPLY" g
 
         # Get the key (the characters to the left of the equals "=" sign)
         config_key=${REPLY%%=*}
@@ -1711,36 +1715,37 @@ ParseConfigFile() {
         # Get the value (the characters to the right of the equals "=" sign)
         config_value=${REPLY#*=}
 
-        ((g_verbose)) && vMsg "config line $counter_config_line - Key: $config_key Value: $config_value"
+        ##((g_verbose)) && vMsg "config line $counter_config_line - Key: $config_key Value: $config_value"
 
         # Expand any variables in the config using envsubst or eval
         # Skip expansion if the value doesn't contain one or more $
         if [[ $config_value =~ ^.+[$]+.+$ ]]; then
             if [[ $config_value =~ ^.+:[+-=?]{1}.+$ ]]; then
-                ((g_verbose)) && vMsg "Using 'eval' to expand config_value: $config_value" y
+                ##((g_verbose)) && vMsg "Using 'eval' to expand config_value: $config_value" y
                 config_value=$(eval printf '%s' "$config_value")
-                ((g_verbose)) && vMsg "config_value expanded to: $config_value"
+                ##((g_verbose)) && vMsg "config_value expanded to: $config_value"
             else
                 if command -v envsubst > /dev/null; then
-                    ((g_verbose)) && vMsg "Using 'envsubst' to expand config_value: $config_value"
+                    ##((g_verbose)) && vMsg "Using 'envsubst' to expand config_value: $config_value"
                     config_value=$(envsubst <<< "$config_value")
 
                     # If there is still a $ in config_value it contained a variable envsubst couldn't expand
                     [[ $config_value =~ ^.*\$+.*$ ]] && {
-                        ((g_verbose)) && vMsg "config_value still contains one or more $ after envsubst" y
+                        ##((g_verbose)) && vMsg "config_value still contains one or more $ after envsubst" y
                         config_value=$(eval printf '%s' "$config_value")
-                        ((g_verbose)) && vMsg "config_value expanded again with 'eval' to: $config_value"
+                        ##((g_verbose)) && vMsg "config_value expanded again with 'eval' to: $config_value"
                     }
-                    ((g_verbose)) && vMsg "config_value expanded to: $config_value"
+                    ##((g_verbose)) && vMsg "config_value expanded to: $config_value"
                 else
-                    ((g_verbose)) && vMsg "Command envsubst not available, using eval to expand config_value: $config_value" y
+                    ##((g_verbose)) && vMsg "Command envsubst not available, using eval to expand config_value: $config_value" y
                     config_value=$(eval printf '%s' "$config_value")
-                    ((g_verbose)) && vMsg "config_value expanded to: $config_value"
+                    #((g_verbose)) && vMsg "config_value expanded to: $config_value"
                 fi
             fi
         else
             # No $ were found, no expansion necessary
-            ((g_verbose)) && vMsg "Skipping expansion of config_value (no $ found): $config_value"
+            ##((g_verbose)) && vMsg "Skipping expansion of config_value (no $ found): $config_value"
+            :
         fi
 
         # Validate values for recognized keys and set global variables accordingly
@@ -1751,7 +1756,7 @@ ParseConfigFile() {
                 #       A value of NULL indicates a problem, error, or user chose manual configuration in which case
                 #       the value will remain auto.
                 [[ ${config_value,,} = "auto" ]] && {
-                    ((g_verbose)) && vMsg "$config_key is set to $config_value, Running DetectSteamInstallPath"
+                    ##((g_verbose)) && vMsg "$config_key is set to $config_value, Running DetectSteamInstallPath"
                     DetectSteamInstallPath
                     if [[ -n $g_override_default_install_path && ${g_override_default_install_path,,} != "auto" ]]; then
                         config_value=$g_override_default_install_path/compatibilitytools.d
@@ -1764,14 +1769,14 @@ ParseConfigFile() {
                 }
 
                 if [[ -d $config_value && -w $config_value ]]; then
-                    ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it" g
+                    ##((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it" g
                     g_install_path=$config_value
                     flag_update_install_path=1
                 else
-                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
+                    ##((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
                     if mkdir -p -- "$config_value" > /dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "Script has write permission to $config_value" g
+                            ##((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_install_path=$config_value
                         else
                             vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
@@ -1787,20 +1792,20 @@ ParseConfigFile() {
             ;;
             (cache_path)
                 if [[ -d $config_value && -w $config_value ]]; then
-                    ((g_verbose)) && {
+                    ##((g_verbose)) && {
                         # If cache_path would = g_install_path
-                        if [[ $config_value -ef $g_install_path ]]; then
-                            vMsg "cache_path is the same as g_install_path" y
-                        else
-                            vMsg "$config_value is a directory and the script has write permission to it" g
-                        fi
-                    }
+                    ##    if [[ $config_value -ef $g_install_path ]]; then
+                    ##        vMsg "cache_path is the same as g_install_path" y
+                    ##    else
+                    ##        vMsg "$config_value is a directory and the script has write permission to it" g
+                    ##    fi
+                    ##}
                     g_script_cache_path=$config_value
                 else
-                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
+                    ##((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
                     if mkdir -p -- "$config_value" > /dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "Script has write permission to $config_value" g
+                            ##((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_script_cache_path=$config_value
                         else
                             vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
@@ -1819,13 +1824,13 @@ ParseConfigFile() {
                     flag_failed=1
                 }
                 if [[ -d $config_value && -w $config_value ]]; then
-                    ((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it" g
+                    ##((g_verbose)) && vMsg "$config_value is a directory and the script has write permission to it" g
                     g_temp_base_path=$config_value
                 else
-                    ((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
+                    ##((g_verbose)) && vMsg "$config_value is not a valid path, attempting to create it" y
                     if mkdir -p -- "$config_value" > /dev/null; then
                         if [[ -w $config_value ]]; then
-                            ((g_verbose)) && vMsg "Script has write permission to $config_value" g
+                            ##((g_verbose)) && vMsg "Script has write permission to $config_value" g
                             g_temp_base_path=$config_value
                         else
                             vMsg "Invalid value for $config_key at line $counter_config_line: $config_value" r
@@ -2766,7 +2771,7 @@ SetupEnvironment() {
             count_failed=$(( count_failed + 1 ))
             continue
         }
-        ((g_verbose)) && vMsg "No alias found for $check_alias" g
+        ##((g_verbose)) && vMsg "No alias found for $check_alias" g
         count_success=$(( count_success + 1 ))
     done
     ((g_verbose)) && vMsg "Checked for $(( count_success + count_failed )) aliases"
@@ -3299,6 +3304,7 @@ VerifyGEInstall() {
 
     # For each saved package available, check each file in the package against the installed file
     for node in "$g_install_path"/Proton-${version:-*}.tar.gz; do
+        [[ -z $node ]] && continue
         [[ -f $node ]] && {
             version=${node##*/}
             CleanUpVersion

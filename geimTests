@@ -20,20 +20,20 @@ trap 'CleanUp' EXIT
 export GEIM_TESTS=1
 
 # Log the output of ReportEnvironmentInfo()
-ge-install-manager -fzZ 1>"$log_file" 2>>"$debug_log"
+ge-install-manager -fzZ 1>"$log_file" 2>/dev/null
 
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
 while IFS= read -r; do
     REPLY=${REPLY%%[[:blank:]]*}
     REPLY=${REPLY//Proton-}
-    printf '%s\n' "$REPLY"
-done < <(ge-install-manager -L) >>"$tmp_file"
+    printf '%s\n' "$REPLY" >> "$tmp_file"
+done < <(ge-install-manager -L)
 
 # shellcheck disable=SC2129
 printf '%s\n%s\n\n%s\n%s\n\n' \
        "Releases available:" "$(cat "$tmp_file")" \
-       "Installed releases:" "$(ge-install-manager -zl)" 1>>"$log_file" 2>>"$debug_log"
+       "Installed releases:" "$(ge-install-manager -l)" >> "$log_file"
 
 # Log the output of ShowHelp and ShowUsage
 ##ge-install-manager -hH >> "$log_file"
@@ -123,9 +123,9 @@ Test4_FileCountDiskUsage () {
 ##Test4_FileCountDiskUsage
 GroupTests () {
     ##if ge-install-manager -zfD; then
-        if ge-install-manager -zU 2>>"$debug_log"; then
-                if ge-install-manager -zi Proton-5.0-GE-1-no-mouse-coord 2>>"$debug_log"; then
-                        if ge-install-manager -zV 2>>"$debug_log"; then
+        if ge-install-manager -zU 2>> "$debug_log"; then
+                if ge-install-manager -zi Proton-5.0-GE-1-no-mouse-coord 2>> "$debug_log"; then
+                        if ge-install-manager -zV 2>> "$debug_log"; then
                             # List patch notes for each installed version
                             while flag_installed=0 IFS= read -r; do
                                 [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
@@ -133,7 +133,7 @@ GroupTests () {
                                 ((flag_installed)) && {
                                     REPLY=${REPLY//[[:blank:]]}
                                     REPLY=${REPLY%'('*}
-                                    ge-install-manager -n "$REPLY" 1>>"$log_file" 2>>"$debug_log"
+                                    ge-install-manager -n "$REPLY"
                                 }
                             done < <(ge-install-manager -l | tee -a "$log_file")
 
