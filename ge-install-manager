@@ -1810,6 +1810,11 @@ ParseConfigFile() {
 
     [[ -z ${g_script_cache_path-} ]] && { vMsg "Missing g_script_cache_path ($g_file_script_config)" r; return 1; }
 
+    # Update global variables
+    g_file_latest_json="$g_script_cache_path"/latest.json
+    g_file_script_raw=$g_script_cache_path/$SCRIPT_FULL_NAME.update
+    g_file_releases_json="$g_script_cache_path"/releases.json
+
     # Verbose report
     ((g_verbose)) && {
         vMsg "Install path set to: ${g_install_path-}" g
@@ -1823,11 +1828,6 @@ ParseConfigFile() {
         vMsg "g_file_script_raw set to: ${g_file_script_raw-}" g
         vMsg "g_file_releases_json set to: ${g_file_releases_json-}" g
     }
-
-    # Update global variables
-    g_file_latest_json="$g_script_cache_path"/latest.json
-    g_file_script_raw=$g_script_cache_path/$SCRIPT_FULL_NAME.update
-    g_file_releases_json="$g_script_cache_path"/releases.json
 
     return $(( flag_failed ? 1 : 0 ))
 }
