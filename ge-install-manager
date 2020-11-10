@@ -336,7 +336,7 @@ CheckRequirements() {
     while IFS= read -r --; do
         # Report the command path if it is found
         [[ ${REPLY,,} == *'is'* ]] && {
-            ((g_verbose)) && vMsg "$REPLY"
+            ##((g_verbose)) && vMsg "$REPLY"
             continue
         }
 
@@ -2921,18 +2921,18 @@ UpdateCachedGEReleases() {
 
     local flag_requesturl_failure=0
 
-    ((g_verbose)) && {
-        vMsg "g_latest_version_url: $g_latest_version_url"
-        vMsg "g_file_latest_json: $g_file_latest_json"
-    }
+    ##((g_verbose)) && {
+    ##    vMsg "g_latest_version_url: $g_latest_version_url"
+    ##    vMsg "g_file_latest_json: $g_file_latest_json"
+    ##}
 
     # Check the access time of the local file and if the interval has passed
     # call RequestURL to update the file (if the remote version is newer).
-    if CheckAccessTime "$g_file_latest_json" "$g_releases_update_interval"; then
-        if ! RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
-            flag_requesturl_failure=1
-        fi
-    fi
+    ##if CheckAccessTime "$g_file_latest_json" "$g_releases_update_interval"; then
+    ##    if ! RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
+    ##        flag_requesturl_failure=1
+    ##    fi
+    ##fi
 
     ((g_verbose)) && {
         vMsg "g_releases_url: $g_releases_url"
@@ -3096,12 +3096,12 @@ VerifyGEInstall() {
         [[ -f $node ]] && {
             version=${node##*/}
             CleanUpVersion
-            echo "Found a package for version $version"
+            ((g_verbose)) && vMsg "Found a package for version $version" g
             if ! IsInstalled "$version"; then
-                echo "Version $version is not installed"
+                ((g_verbose)) && vMsg "Version $version is not installed"
                 continue
             else
-                echo "Version $version is installed"
+                ((g_verbose)) && vMsg "Version $version is installed" g
 
                 # Check for enough free space on the filesystem that contains tmp_path
                 IFS=$'\t' read -r -- expected_size_bytes path < <(du -bs -- "$g_install_path/Proton-${version//-no-mouse-coord}")
