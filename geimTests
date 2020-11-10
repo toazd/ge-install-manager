@@ -22,7 +22,9 @@ export GEIM_TESTS=1
 ##ge-install-manager -fD
 
 # Log the output of ReportEnvironmentInfo()
-ge-install-manager -fzZ 1>"$log_file" 2>/dev/null
+ge-install-manager -fzZ 2>/dev/null |& tee -a "$log_file"
+
+ge-install-manager -S |& tee -a "$log_file"
 
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
@@ -30,7 +32,9 @@ while IFS= read -r; do
     REPLY=${REPLY%%[[:blank:]]*}
     ##REPLY=${REPLY//Proton-}
     printf '%s\n' "$REPLY" >> "$tmp_file"
+    ge-install-manager -zd "$REPLY" 2>>"$debug_log"
     ge-install-manager -zi "$REPLY" 2>>"$debug_log"
+    ge-install-manager -zs "$REPLY" 2>>"$debug_log"
 done < <(ge-install-manager -L)
 
 # shellcheck disable=SC2129
@@ -52,7 +56,7 @@ GroupTests () {
                 REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
                 ge-install-manager -n "$REPLY" | tee -a "$notes_log"
             }
-        done < <(ge-install-manager -l | tee -a "$log_file")
+        done < <(ge-install-manager -l |& tee -a "$log_file")
 
         printf '\n' >> "$log_file"
 

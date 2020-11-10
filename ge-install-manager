@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2419/3755 SLOC (64%) [SLOC/Comment:2.85], 849 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.35], 530 empty (14%)
+# 2424/3762 SLOC (64%) [SLOC/Comment:2.86], 849 comments (22%) [S:94%,I:5%] [Comment/SLOC:0.35], 532 empty (14%)
 
 ###############################################################################
 #                                                                             #
@@ -2607,7 +2607,7 @@ ReportGEDiskUsage() {
         if [[ -n $version ]]; then
 
             # Report the file count and disk usage for a specific version
-            path=$g_install_path/Proton-${version}
+            path=$g_install_path/Proton-${version//'5.0-GE-1-no-mouse-coord'/'5.0-GE-1'}
             if [[ -d $path ]]; then
                 disk_usage=$(du -sh -- "$path")
                 file_counter=$(find "$path" -type f | wc -l)
