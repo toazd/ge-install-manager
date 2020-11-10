@@ -19,7 +19,16 @@ trap 'CleanUp' EXIT
 # Disable color escape codes in script stderr verbose output
 export GEIM_TESTS=1
 
-ge-install-manager -fXD
+# Nuke previous state
+NukePreviousState() {
+    rm -- *.log
+    ge-install-manager -fXD
+}
+
+err_exit() {
+    echo "error"
+    exit 1
+}
 
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
@@ -30,10 +39,6 @@ GetReleasesList() {
         printf '%s\n' "$REPLY" >> "$tmp_file"
     done < <(ge-install-manager -L)
 }
-
-ge-install-manager -zd "Proton-5.1-GE-1" 2>"${debug_log}"
-ge-install-manager -zi "Proton-5.1-GE-1" 2>"${debug_log}"
-ge-install-manager -zs "Proton-5.1-GE-1" 2>"${debug_log}" 1>>"$log_file"
 
 # shellcheck disable=SC2129
 [[ -f $tmp_file ]] && printf '%s\n%s\n\n' "Releases being checked:" "$(cat "$tmp_file")" >> "$log_file"
@@ -55,10 +60,20 @@ GroupTests() {
                     if ge-install-manager -r "$REPLY"; then
                         if ge-install-manager -i "$REPLY"; then
                             if ge-install-manager -v "$REPLY"; then
-                                ge-install-manager -n "$REPLY" | tee -a "$notes_log"
+                                if ! ge-install-manager -n "$REPLY" | tee -a "$notes_log"; then
+                                    err_exit
+                                fi
+                            else
+                                err_exit
                             fi
+                        else
+                            err_exit
                         fi
+                    else
+                        err_exit
                     fi
+                else
+                    err_exit
                 fi
             }
         done < <(ge-install-manager -l)
@@ -70,7 +85,25 @@ GroupTests() {
         sync -- *.log
 
         echo "All tests completed"
+    else
+        exit 1
     fi
 }
 
+[[ $1 == 'nuke' ]] && NukePreviousState
+
+# Test with a small version
+if ge-install-manager -zd "Proton-5.1-GE-1" 2>"${debug_log}"; then
+    if ge-install-manager -zi "Proton-5.1-GE-1" 2>"${debug_log}"; then
+        if ! ge-install-manager -zs "Proton-5.1-GE-1" 2>"${debug_log}" 1>>"$log_file"; then
+            err_exit
+        fi
+    else
+        err_exit
+    fi
+else
+    err_exit
+fi
+
+# Run GroupTests()
 GroupTests
