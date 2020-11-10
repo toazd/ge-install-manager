@@ -32,10 +32,10 @@ while IFS= read -r; do
     REPLY=${REPLY%%[[:blank:]]*}
     ##REPLY=${REPLY//Proton-}
     printf '%s\n' "$REPLY" >> "$tmp_file"
-    ge-install-manager -zd "$REPLY" 2>>"$debug_log"
-    ge-install-manager -zi "$REPLY" 2>>"$debug_log"
-    ge-install-manager -zs "$REPLY" 2>>"$debug_log"
-done < <(ge-install-manager -L)
+    ge-install-manager -zd "$REPLY" 2>>"${debug_log}_1_download.log"
+    ge-install-manager -zi "$REPLY" 2>>"${debug_log}_2_install.log"
+    ge-install-manager -zs "$REPLY" 2>>"${debug_log}_3_reportsize.log"
+done < <(ge-install-manager -L | head -n1)
 
 # shellcheck disable=SC2129
 printf '%s\n%s\n\n%s\n%s\n\n' \
@@ -43,7 +43,7 @@ printf '%s\n%s\n\n%s\n%s\n\n' \
        "Installed releases:" "$(ge-install-manager -l)" >> "$log_file"
 
 GroupTests () {
-    if ge-install-manager -zV 2>>"$debug_log"; then
+    if ge-install-manager -zV 2>>"${debug_log}_4_verify.log"; then
         # List patch notes for each installed version
         while flag_installed=0 IFS= read -r; do
             [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
