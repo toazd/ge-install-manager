@@ -1263,14 +1263,14 @@ IsInstalled() {
     version=${version//'Proton-'}
     version=${version//'proton-'}
 
-    ((g_verbose)) && vMsg "Checking for \"$version\" at \"$g_install_path/Proton-${version}\""
+    ##((g_verbose)) && vMsg "Checking for \"$version\" at \"$g_install_path/Proton-${version}\""
 
     if [[ -d $g_install_path/Proton-${version} ]]; then
 
         # NOTE: versioning within the file version (inside an installed package path) is not consistent
         while IFS= read -r -- || [[ -n $REPLY ]]; do
             if [[ -n $REPLY ]]; then
-                ##((g_verbose)) && vMsg "$g_install_path/Proton-${version}/version contains $version" g
+                ((g_verbose)) && vMsg "Found $version" g
                 return 0
             else
                 ##((g_verbose)) && vMsg "version file not found for Proton-${version} at $g_install_path/Proton-${version}/version" r
@@ -1278,7 +1278,7 @@ IsInstalled() {
             fi
         done < "$g_install_path/Proton-${version}/version"
     else
-        ((g_verbose)) && vMsg "Version $version not found" y
+        ##((g_verbose)) && vMsg "Version $version not found" y
         return 1
     fi
 

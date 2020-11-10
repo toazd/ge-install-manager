@@ -28,14 +28,19 @@ export GEIM_TESTS=1
 
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
-while IFS= read -r; do
-    REPLY=${REPLY%%[[:blank:]]*}
+##while IFS= read -r; do
+##    REPLY=${REPLY%%[[:blank:]]*}
     ##REPLY=${REPLY//Proton-}
-    printf '%s\n' "$REPLY" >> "$tmp_file"
-    ge-install-manager -zd "$REPLY" 2>"${debug_log}"
-    ge-install-manager -zi "$REPLY" 2>"${debug_log}"
-    ge-install-manager -zs "$REPLY" 2>"${debug_log}" 1>>"$log_file"
-done < <(ge-install-manager -L | head -n1)
+##    printf '%s\n' "$REPLY" >> "$tmp_file"
+##    ge-install-manager -zd "$REPLY" 2>"${debug_log}"
+##    ge-install-manager -zi "$REPLY" 2>"${debug_log}"
+##    ge-install-manager -zs "$REPLY" 2>"${debug_log}" 1>>"$log_file"
+##done < <(ge-install-manager -L | head -n1)
+
+ge-install-manager -zd "Proton-5.1-GE-1" 2>"${debug_log}"
+ge-install-manager -zi "Proton-5.1-GE-1" 2>"${debug_log}"
+ge-install-manager -zs "Proton-5.1-GE-1" 2>"${debug_log}" 1>>"$log_file"
+
 
 # shellcheck disable=SC2129
 printf '%s\n%s\n\n%s\n%s\n\n' \
