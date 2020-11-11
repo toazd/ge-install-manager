@@ -1993,10 +1993,10 @@ QueryGEAttribute() {
     fi
 
     [[ -f $g_file_releases_json ]] && {
-        ((g_verbose)) && {
-            vMsg "Checking $g_file_releases_json"
-            vMsg "For $key of version $version"
-        }
+        ##((g_verbose)) && {
+        ##    vMsg "Checking $g_file_releases_json"
+        ##    vMsg "For $key of version $version"
+        ##}
 
         value=$(QueryJSONAttribute "$g_file_releases_json" "$version" "$key")
         ((g_verbose)) && vMsg "QueryJSONAttribute returned: \"$value\"" y
@@ -2006,10 +2006,10 @@ QueryGEAttribute() {
     ((${CHECK_LATEST:-0})) && {
         # If value is still empty/NULL check g_file_latest_json
         if [[ -z $value ]] && [[ -f $g_file_latest_json ]]; then
-            ((g_verbose)) && {
-                vMsg "Checking $g_file_latest_json"
-                vMsg "For $key of version $version"
-            }
+            ##((g_verbose)) && {
+            ##    vMsg "Checking $g_file_latest_json"
+            ##    vMsg "For $key of version $version"
+            ##}
 
             # Search g_file_latest_json
             value=$(QueryJSONAttribute "$g_file_latest_json" "$version" "$key")
@@ -2088,7 +2088,7 @@ QueryJSONAttribute() {
             [[ $REPLY =~ ^.*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
                 flag_version_found=1
                 ##line_version_found=$counter_lines
-                ((g_verbose)) && vMsg "name match: $counter_lines"
+                ((g_verbose)) && vMsg "name match L${counter_lines}"
                 continue
             }
         }
@@ -2101,7 +2101,7 @@ QueryJSONAttribute() {
             [[ ${REPLY,,} =~ ^.*\"size\":[[:blank:]]*[[:digit:]]+.*$ ]] && {
                 flag_size_found=1
                 ##line_size_found=$counter_lines
-                ((g_verbose)) && vMsg "size match: $counter_lines"
+                ((g_verbose)) && vMsg "size match: L${counter_lines}"
                 # Remove all characters that are not digits
                 value_size_bytes=${REPLY//[!0-9]/}
                 continue
@@ -2116,7 +2116,7 @@ QueryJSONAttribute() {
             [[ $REPLY =~ ^.*\"browser_download_url\":[[:blank:]]*\".*Proton-${version}\.tar\.gz\".*$ ]] && {
                 ##flag_browserurl_found=1
                 ##line_browserurl_found=$counter_lines
-                ((g_verbose)) && vMsg "browser_download_url match: $counter_lines"
+                ((g_verbose)) && vMsg "browser_download_url match L${counter_lines}"
                 REPLY=${REPLY//[[:space:]]} # Remove all spaces/tabs
                 REPLY=${REPLY/#*\"browser_download_url\":\"} # Trim the unneeded left side
                 value_browser_url=${REPLY%%\"*} # Trim the unneeded right side
@@ -2840,9 +2840,10 @@ ShowGEReleaseNotes() {
 SpaceRemaining() {
 
     local file_system=${1-} \
-          binary_prefix=${2-}
+          binary_prefix=${2-} \
 
-    local -i power_of=0
+    local -i power_of=0 \
+             space_remaining=0
 
     [[ -z $file_system || -z $binary_prefix ]] && { ((g_verbose)) && vMsg "Parameter error (NULL)" r; return 1; }
 
@@ -2850,18 +2851,20 @@ SpaceRemaining() {
 
     case ${binary_prefix,,} in
         (b|byte|bytes) power_of=0 ;;
-        (k|kibi|kibibyte) power_of=1 ;;
-        (m|mebi|mebibyte) power_of=2 ;;
-        (g|gibi|gibibyte) power_of=3 ;;
-        (t|tebi|tebibyte) power_of=4 ;;
-        (p|pebi|pebibyte) power_of=5 ;;
-        (e|exbi|exbibyte) power_of=6 ;;
+        (k|kib|kibi|kibibyte) power_of=1 ;;
+        (m|mib|mebi|mebibyte) power_of=2 ;;
+        (g|gib|gibi|gibibyte) power_of=3 ;;
+        (t|tib|tebi|tebibyte) power_of=4 ;;
+        (p|pib|pebi|pebibyte) power_of=5 ;;
+        (e|eib|exbi|exbibyte) power_of=6 ;;
     esac
 
-    ((g_verbose)) && vMsg "Checking $file_system"
-
     # NOTE: stat --cached=never not available on Ubuntu 20.04.1 LTS
-    printf '%s' "$(( ($(stat -L -c '%s' -f -- "$file_system") * $(stat -L -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"
+    printf -v space_remaining '%s' "$(( ($(stat -L -c '%s' -f -- "$file_system") * $(stat -L -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"
+
+    ((g_verbose)) && vMsg "$space_remaining $binary_prefix remaining on $file_system"
+
+    printf '%s' "$space_remaining"
 
     return
 }
