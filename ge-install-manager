@@ -1810,16 +1810,16 @@ ParseConfigFile() {
 
     # Verbose report
     ((g_verbose)) && {
-        vMsg "Install path set to: ${g_install_path-}" g
-        vMsg "Temp path set to: ${g_temp_base_path-}" g
-        vMsg "Config path set to: ${g_script_config_path-}" g # NOTE: config_path is currently not configurable
-        vMsg "Cache path set to: ${g_script_cache_path-}" g
-        vMsg "g_command_rm set to: ${g_command_rm-}" g
-        vMsg "g_latest_version_url set to: ${g_latest_version_url-}" g
-        vMsg "g_releases_url set to: ${g_releases_url-}" g
-        vMsg "g_file_latest_json set to: ${g_file_latest_json-}" g
-        vMsg "g_file_script_raw set to: ${g_file_script_raw-}" g
-        vMsg "g_file_releases_json set to: ${g_file_releases_json-}" g
+        vMsg "Install path set to: ${g_install_path-}" y
+        vMsg "Temp path set to: ${g_temp_base_path-}" y
+        vMsg "Config path set to: ${g_script_config_path-}" y # NOTE: config_path is currently not configurable
+        vMsg "Cache path set to: ${g_script_cache_path-}" y
+        vMsg "g_command_rm set to: ${g_command_rm-}" y
+        vMsg "g_latest_version_url set to: ${g_latest_version_url-}" y
+        vMsg "g_releases_url set to: ${g_releases_url-}" y
+        vMsg "g_file_latest_json set to: ${g_file_latest_json-}" y
+        vMsg "g_file_script_raw set to: ${g_file_script_raw-}" y
+        vMsg "g_file_releases_json set to: ${g_file_releases_json-}" y
     }
 
     return $(( flag_failed ? 1 : 0 ))
@@ -2847,13 +2847,13 @@ SpaceRemaining() {
     [[ ! -d $file_system ]] && { ((g_verbose)) && vMsg "Parameter error (not a directory)" r; return 1; }
 
     case ${binary_prefix,,} in
-        (b|byte|bytes) power_of=0 ;;
-        (k|kib|kibi|kibibyte) power_of=1 ;;
-        (m|mib|mebi|mebibyte) power_of=2 ;;
-        (g|gib|gibi|gibibyte) power_of=3 ;;
-        (t|tib|tebi|tebibyte) power_of=4 ;;
-        (p|pib|pebi|pebibyte) power_of=5 ;;
-        (e|eib|exbi|exbibyte) power_of=6 ;;
+        (b|byte|bytes) power_of=0; binary_prefix='bytes'; ;;
+        (k|kib|kibi|kibibyte) power_of=1; binary_prefix='KiB' ;;
+        (m|mib|mebi|mebibyte) power_of=2; binary_prefix='MiB' ;;
+        (g|gib|gibi|gibibyte) power_of=3; binary_prefix='GiB' ;;
+        (t|tib|tebi|tebibyte) power_of=4; binary_prefix='TiB' ;;
+        (p|pib|pebi|pebibyte) power_of=5; binary_prefix='PiB' ;;
+        (e|eib|exbi|exbibyte) power_of=6; binary_prefix='EiB' ;;
     esac
 
     # NOTE: stat --cached=never not available on Ubuntu 20.04.1 LTS
