@@ -3350,13 +3350,13 @@ Main() {
     # basic requirements and report if any are not found
     if [[ ${1-unset} = 'unset' || -z $1 ]] || [[ ${#1} -eq 2 && $1 = '-z' ]]; then
 
-        ((g_verbose)) && {
-            if IsSteamRunning; then
-                vMsg "Steam is running"
-            else
-                vMsg "Steam is not running"
-            fi
-        }
+        ##((g_verbose)) && {
+        ##    if IsSteamRunning; then
+        ##        vMsg "Steam is running"
+        ##    else
+        ##        vMsg "Steam is not running"
+        ##    fi
+        ##}
 
         CheckRequirements # Print any required commands that are not found
         ShowHelp
