@@ -82,8 +82,8 @@ GroupTests() {
             REPLY=${REPLY%'('*}
             # Fix for 5.0-ge-1-no-mouse-coord
             REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
-            if ge-install-manager -zR "$REPLY" 2>>"$debug_log"; then
-                if ge-install-manager -zr "$REPLY" 2>>"$debug_log"; then
+            if ge-install-manager -zR "$REPLY" 1>>"$log_file" 2>>"$debug_log"; then
+                if ge-install-manager -zr "$REPLY" 1>>"$log_file" 2>>"$debug_log"; then
                     if ge-install-manager -zi "$REPLY" 2>>"$debug_log"; then
                         if ge-install-manager -zv "$REPLY" 2>>"$debug_log"; then
                             if ! ge-install-manager -zn "$REPLY"  2>>"$debug_log" | tee -a "$notes_log"; then
