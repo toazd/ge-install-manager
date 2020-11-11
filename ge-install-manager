@@ -338,7 +338,7 @@ CheckRequirements() {
     while IFS= read -r --; do
         # Report the command path if it is found
         [[ ${REPLY,,} == *'is'* ]] && {
-            ((g_verbose)) && vMsg "$REPLY"
+            ((g_verbose)) && vMsg "$REPLY" y
             continue
         }
 
@@ -2081,7 +2081,7 @@ QueryJSONAttribute() {
             [[ $REPLY =~ ^.*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
                 flag_version_found=1
                 ##line_version_found=$counter_lines
-                ((g_verbose)) && vMsg "name match L${counter_lines}"
+                ((g_verbose)) && vMsg "name match: $counter_lines"
                 continue
             }
         }
@@ -2094,7 +2094,7 @@ QueryJSONAttribute() {
             [[ ${REPLY,,} =~ ^.*\"size\":[[:blank:]]*[[:digit:]]+.*$ ]] && {
                 flag_size_found=1
                 ##line_size_found=$counter_lines
-                ((g_verbose)) && vMsg "size match: L${counter_lines}"
+                ((g_verbose)) && vMsg "size match: $counter_lines"
                 # Remove all characters that are not digits
                 value_size_bytes=${REPLY//[!0-9]/}
                 continue
@@ -2109,7 +2109,7 @@ QueryJSONAttribute() {
             [[ $REPLY =~ ^.*\"browser_download_url\":[[:blank:]]*\".*Proton-${version}\.tar\.gz\".*$ ]] && {
                 ##flag_browserurl_found=1
                 ##line_browserurl_found=$counter_lines
-                ((g_verbose)) && vMsg "browser_download_url match L${counter_lines}"
+                ((g_verbose)) && vMsg "browser_download_url match: $counter_lines"
                 REPLY=${REPLY//[[:space:]]} # Remove all spaces/tabs
                 REPLY=${REPLY/#*\"browser_download_url\":\"} # Trim the unneeded left side
                 value_browser_url=${REPLY%%\"*} # Trim the unneeded right side
@@ -2970,26 +2970,25 @@ UpdateGEVersion() {
         elif ((g_force)); then
             # NOTE: InstallGEVersion also verifys that force mode is active
             if InstallGEVersion "$g_latest_version"; then
-                echo "Update succeeded"
+                echo "Update to $g_latest_version succeeded"
             else
-                echo "Update failed"
+                echo "Update to $g_latest_version failed"
                 return 1
             fi
         # Latest version is not installed
         else
             echo "The latest version $g_latest_version is not installed"
             if InstallGEVersion "$g_latest_version"; then
-                echo "Update succeeded"
-                IsSteamRunning && echo "Restart Steam to use the new version"
+                echo "Update to $g_latest_version succeeded"
             else
-                echo "Update failed"
+                echo "Update to $g_latest_version failed"
                 return 1
             fi
         fi
     else
         # GetLatestGEVersionInfo failed
         ((g_verbose)) && vMsg "UpdateCachedGEReleases returned failure status" y
-        echo "Update failed"
+        echo "Update to $g_latest_version failed"
         return 1
     fi
 
