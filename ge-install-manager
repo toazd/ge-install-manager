@@ -2521,11 +2521,15 @@ RequestURL() {
 
                 # If IsJSONminified returns success and the data type is json, run the
                 # unminify script on the file.
-                if IsJSONminified "$file_temp" && [[ ${data_type,,} == *'json'* ]]; then
-                    if ! ReformatJSONUsingSed "$file_temp"; then
-                        ((g_verbose)) && vMsg "ReformatJSONUsingSed returned failure" r
-                        return 1
+                if [[ ${data_type,,} == *'json'* ]]; then
+                    if IsJSONminified "$file_temp"; then
+                        if ! ReformatJSONUsingSed "$file_temp"; then
+                            ((g_verbose)) && vMsg "ReformatJSONUsingSed returned failure" r
+                            return 1
+                        fi
                     fi
+                else
+                    ((g_verbose)) && vMsg "Data type is not JSON"
                 fi
 
                 # If the local file already exists, create a backup first
