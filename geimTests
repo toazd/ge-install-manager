@@ -41,30 +41,52 @@ GetReleasesList() {
     done < <(ge-install-manager -L)
 }
 
+InstallSmallRelease() {
+    if ge-install-manager -zd "Proton-5.1-GE-1" 2>"${debug_log}"; then
+        if ge-install-manager -zi "Proton-5.1-GE-1" 2>"${debug_log}"; then
+            if ! ge-install-manager -zs "Proton-5.1-GE-1" 2>"${debug_log}" 1>>"$log_file"; then
+                err_exit
+            fi
+        else
+            err_exit
+        fi
+    else
+        err_exit
+    fi
+}
+
+InstallAllReleases() {
+    GetReleasesList
+    while IFS= read -r; do
+        [[ -z $REPLY ]] && continue
+        ge-install-manager -zi "$REPLY" 2>>"$debug_log"
+    done < "$tmp_file"
+}
+
+VerifyAll() {
+    ge-install-manager -zV 2>>"${debug_log}"
+}
+
 # shellcheck disable=SC2129
 [[ -f $tmp_file ]] && printf '%s\n%s\n\n' "Releases being checked:" "$(cat "$tmp_file")" >> "$log_file"
 printf '%s\n%s\n\n' "Installed releases:" "$(ge-install-manager -l)" >> "$log_file"
 
 GroupTests() {
-    if ge-install-manager -zV 2>>"${debug_log}"; then
-        # List patch notes for each installed version
-        while flag_installed=0 IFS= read -r; do
-            [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
-            [[ ${REPLY,,} == 'saved'* ]] && { flag_installed=0; continue; }
-            ((flag_installed)) && {
-                # Remove extra info
-                REPLY=${REPLY//[[:blank:]]}
-                REPLY=${REPLY%'('*}
-                # Fix for 5.0-ge-1-no-mouse-coord
-                REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
-                if ge-install-manager -R "$REPLY"; then
-                    if ge-install-manager -r "$REPLY"; then
-                        if ge-install-manager -i "$REPLY"; then
-                            if ge-install-manager -v "$REPLY"; then
-                                if ! ge-install-manager -n "$REPLY" | tee -a "$notes_log"; then
-                                    err_exit
-                                fi
-                            else
+    # List patch notes for each installed version
+    while flag_installed=0 IFS= read -r || [[ -n $REPLY ]]; do
+        [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
+        [[ ${REPLY,,} == 'saved'* ]] && { flag_installed=0; continue; }
+        ((flag_installed)) && {
+            # Remove extra info
+            REPLY=${REPLY//[[:blank:]]}
+            REPLY=${REPLY%'('*}
+            # Fix for 5.0-ge-1-no-mouse-coord
+            REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
+            if ge-install-manager -R "$REPLY"; then
+                if ge-install-manager -r "$REPLY"; then
+                    if ge-install-manager -i "$REPLY"; then
+                        if ge-install-manager -v "$REPLY"; then
+                            if ! ge-install-manager -n "$REPLY" | tee -a "$notes_log"; then
                                 err_exit
                             fi
                         else
@@ -76,35 +98,24 @@ GroupTests() {
                 else
                     err_exit
                 fi
-            }
-        done < <(ge-install-manager -l)
+            else
+                err_exit
+            fi
+        }
+    done < <(ge-install-manager -l)
 
-        ge-install-manager -S 1>>"$log_file"
+    ge-install-manager -S 1>>"$log_file"
 
-        printf '\n' >> "$log_file"
+    printf '\n' >> "$log_file"
 
-        sync -- *.log
+    sync -- *.log
 
-        echo "All tests completed"
-    else
-        exit 1
-    fi
+    echo "All tests completed"
 }
 
 [[ $1 == 'nuke' ]] && NukePreviousState
-
-# Test with a small version
-if ge-install-manager -zd "Proton-5.1-GE-1" 2>"${debug_log}"; then
-    if ge-install-manager -zi "Proton-5.1-GE-1" 2>"${debug_log}"; then
-        if ! ge-install-manager -zs "Proton-5.1-GE-1" 2>"${debug_log}" 1>>"$log_file"; then
-            err_exit
-        fi
-    else
-        err_exit
-    fi
-else
-    err_exit
-fi
+[[ $1 == 'full' ]] && InstallAllReleases
+[[ -z $1 ]] && InstallSmallRelease
 
 # Run GroupTests()
 GroupTests
