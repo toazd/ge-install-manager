@@ -68,8 +68,8 @@ VerifyAll() {
 }
 
 # shellcheck disable=SC2129
-[[ -f $tmp_file ]] && printf '%s\n%s\n\n' "Releases being checked:" "$(cat "$tmp_file")" >> "$log_file"
-printf '%s\n%s\n\n' "Installed releases:" "$(ge-install-manager -l)" >> "$log_file"
+[[ -f $tmp_file && $(stat -c '%s' "$tmp_file") -gt 0 ]] && printf '%s\n%s\n\n' "ge-install-manager -L:" "$(cat "$tmp_file")" >> "$log_file"
+printf '\n%s\n\n' "$(ge-install-manager -l)" >> "$log_file"
 
 GroupTests() {
     # List patch notes for each installed version
