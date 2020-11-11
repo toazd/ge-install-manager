@@ -42,9 +42,9 @@ GetReleasesList() {
 }
 
 InstallSmallRelease() {
-    if ge-install-manager -zd "Proton-5.1-GE-1" 2>"${debug_log}"; then
-        if ge-install-manager -zi "Proton-5.1-GE-1" 2>"${debug_log}"; then
-            if ! ge-install-manager -zs "Proton-5.1-GE-1" 2>"${debug_log}" 1>>"$log_file"; then
+    if ge-install-manager -zd "Proton-5.1-GE-1" 2>>"${debug_log}"; then
+        if ge-install-manager -zi "Proton-5.1-GE-1" 2>>"${debug_log}"; then
+            if ! ge-install-manager -zs "Proton-5.1-GE-1" 2>>"${debug_log}" 1>>"$log_file"; then
                 err_exit
             fi
         else
@@ -113,8 +113,8 @@ GroupTests() {
     echo "All tests completed"
 }
 
-[[ $1 == 'nuke' ]] && NukePreviousState
-[[ $1 == 'full' ]] && InstallAllReleases
+[[ $1 = 'nuke' ]] && NukePreviousState
+[[ $1 = 'full' ]] && InstallAllReleases
 [[ -z $1 ]] && InstallSmallRelease
 
 # Run GroupTests()
