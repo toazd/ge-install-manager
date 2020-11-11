@@ -2923,11 +2923,11 @@ UpdateCachedGEReleases() {
 
     # Check the access time of the local file and if the interval has passed
     # call RequestURL to update the file (if the remote version is newer).
-    ##if CheckAccessTime "$g_file_latest_json" "$g_releases_update_interval"; then
-    ##    if ! RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
-    ##        flag_requesturl_failure=1
-    ##    fi
-    ##fi
+    if CheckAccessTime "$g_file_latest_json" "$g_releases_update_interval"; then
+        if ! RequestURL "$g_latest_version_url" "$g_file_latest_json"; then
+            flag_requesturl_failure=1
+        fi
+    fi
 
     ##((g_verbose)) && {
     ##    vMsg "g_releases_url: $g_releases_url"
