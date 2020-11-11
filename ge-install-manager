@@ -2860,7 +2860,7 @@ SpaceRemaining() {
     esac
 
     # NOTE: stat --cached=never not available on Ubuntu 20.04.1 LTS
-    printf -v space_remaining '%s' "$(( ($(stat -L -c '%s' -f -- "$file_system") * $(stat -L -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"
+    space_remaining="$(( ($(stat -L -c '%s' -f -- "$file_system") * $(stat -L -c '%a' -f -- "$file_system")) / ( 1024 ** power_of ) ))"
 
     ((g_verbose)) && vMsg "$space_remaining $binary_prefix remaining on $file_system"
 
