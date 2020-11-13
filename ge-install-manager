@@ -1047,30 +1047,24 @@ ExtractGEPackage() {
 # NOTE: Valid input length range 1-32767 (default: 10)
 GenerateRandomAlphaNumericString() {
 
-    local list \
-          character \
-          result='' # NOTE: Must be initialized as NULL
+    local char_list="abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
+          char \
+          result=''
 
-    local -i length=${1:-10} \
-             i=1
-
-    list=$(printf '%s' {a..z}{0..9}{A..Z}) || return 1
+    local -i length=${1:-10}
 
     # If the length requested is outside sane upper and lower bounds, reset it
     (( length < 1 )) && length=1
     (( length > 32767 )) && length=32767
 
     # Loop length times
-    for (( i=1; i<=length; i++ )); do
+    while [[ ${#result} -lt $length ]];
+    do
+        # Randomly choose one offset of length one from char_list
+        char=${char_list:$((RANDOM%62)):1}
 
-        # Randomly choose one offset of length one from list
-        character=${list:$RANDOM%${#list}:1}
-
-        # Randomly invert the case
-        (( RANDOM % 2 )) && character=${character~}
-
-        # Concatenate result and character
-        result=${result}${character}
+        # Concatenate result and char
+        result=${result}${char}
 
     done
 
