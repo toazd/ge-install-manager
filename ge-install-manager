@@ -41,7 +41,6 @@ declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager' # CheckFor
 declare -gr CHECK_LATEST=0
 declare -gr CURL_HEADER_CONTENT_TYPE='Content-Type: application/json'
 declare -gr CURL_HEADER_GITHUB_MEDIATYPE='Accept: application/vnd.github.v3.text+json'
-# shellcheck disable=SC2034
 declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
 declare -gr TEMP_PREFIX=${SCRIPT_FULL_NAME}.tmp.
 # NOTE: Script global variables are all prefixed with g_
@@ -347,7 +346,7 @@ CheckRequirements() {
             REPLY=${REPLY#*:} # remove script_name:
             REPLY=${REPLY#*:} # remove lineno:
             # Remove a leading space if found
-            [[ ${REPLY:0:1} = [[:blank:]] ]] && REPLY=${REPLY/#[[:blank:]]}
+            [[ ${REPLY:0:1} = [[:space:]] ]] && REPLY=${REPLY/#[[:space:]]}
 
             # Remove all but the current command
             cur_cmd=${REPLY#*": "}
@@ -433,7 +432,7 @@ CleanUpVersion() {
     ((g_verbose)) && vMsg "Before: \"$version\""
 
     # global remove spaces/tabs
-    version=${version//[[:blank:]]}
+    version=${version//[[:space:]]}
 
     # global upper case
     version=${version^^}
@@ -1101,7 +1100,7 @@ GetLatestGEVersion() {
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name": "Proton-5.9-GE-5-ST.tar.gz"
-            [[ $REPLY =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
+            [[ $REPLY =~ ^[[:space:]]*\"name\":[[:space:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
                 REPLY=${REPLY%\"*}
                 version=${REPLY##*\"}
                 ##((g_verbose)) && vMsg "version: $version"
@@ -1376,7 +1375,7 @@ ListAvailableGEVersions() {
             # "html_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
             # "html_url":  "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
             # "html_url":   "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST",
-            if [[ $line_releases =~ ^[[:blank:]]*\"html_url\":[[:blank:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]]; then
+            if [[ $line_releases =~ ^[[:space:]]*\"html_url\":[[:space:]]*\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]]; then
                 flag_url_found=1
                 line_releases=${line_releases%\"*}
                 value_release_notes_url=${line_releases##*\"}
@@ -1389,7 +1388,7 @@ ListAvailableGEVersions() {
             # "name":"Proton-5.9-GE-5-ST.tar.gz"
             #         "name": "Proton-5.9-GE-5-ST.tar.gz",
             # "name": "Proton-5.9-GE-5-ST.tar.gz"
-            [[ $line_releases =~ ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
+            [[ $line_releases =~ ^[[:space:]]*\"name\":[[:space:]]*\"Proton-.*\.tar\.gz\".*$ ]] && {
                 line_releases=${line_releases%.tar.gz*}
                 line_releases=${line_releases#*Proton-}
                 if ((flag_url_found)); then
@@ -1632,9 +1631,9 @@ ParseConfigFile() {
         # Trim away inline comments
         if [[ $REPLY =~ ^.*#.*$ ]]; then
             # remove the ' #' and everything to the right of it
-            # NOTE: valid comments are preceded by at least one [[:blank:]]
+            # NOTE: valid comments are preceded by at least one [[:space:]]
             # BUG: this will mangle herestrings that contain comments
-            REPLY=${REPLY%%[[:blank:]]#*}
+            REPLY=${REPLY%%[[:space:]]#*}
         fi
 
         # Ignore lines that are empty
@@ -2072,9 +2071,9 @@ QueryJSONAttribute() {
         #         "name": "Proton-5.9-GE-5-ST.tar.gz",
         # "name":"Proton-5.9-GE-5-ST.tar.gz"
         ((! flag_version_found)) && {
-            [[ $REPLY =~ ^.*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
+            [[ $REPLY =~ ^.*\"name\":[[:space:]]*\"Proton-${version}\.tar\.gz\".*$ ]] && {
                 flag_version_found=1
-                ##line_version_found=$counter_lines
+                ##((g_verbose)) && vMsg "REPLY: $REPLY"
                 ((g_verbose)) && vMsg "name match: $counter_lines"
                 continue
             }
@@ -2085,12 +2084,19 @@ QueryJSONAttribute() {
         #         "size": 406721946,
         # "size":406721946
         ((flag_version_found && ! flag_size_found)) && {
-            [[ ${REPLY,,} =~ ^.*\"size\":[[:blank:]]*[[:digit:]]+.*$ ]] && {
+            [[ ${REPLY,,} =~ ^.*\"size\":[[:space:]]*[[:digit:]]+.*$ ]] && {
                 flag_size_found=1
                 ##line_size_found=$counter_lines
-                ((g_verbose)) && vMsg "size match: $counter_lines"
-                # Remove all characters that are not digits
-                value_size_bytes=${REPLY//[!0-9]/}
+                ((g_verbose)) && {
+                    vMsg "size match: $counter_lines"
+                    vMsg "line: $REPLY"
+                }
+                REPLY=${REPLY//[[:space:]]}
+                REPLY=${REPLY#*'size":'}
+                REPLY=${REPLY%%','*}
+                ##((g_verbose)) && vMsg "REPLY: $REPLY"
+                value_size_bytes=${REPLY//[!0-9]/} # Remove all characters that are not digits
+                ##((g_verbose)) && vMsg "value_size_bytes: $value_size_bytes"
                 continue
             }
         }
@@ -2100,13 +2106,15 @@ QueryJSONAttribute() {
         #         "browser_download_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"
         # "browser_download_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/5.9-GE-5-ST/Proton-5.9-GE-5-ST.tar.gz"}],"tarball_url":"https://api.github.com/repos/GloriousEggroll/proton-ge-custom/tarball/5.9-GE-5-ST"
         ((flag_version_found && flag_size_found)) && {
-            [[ $REPLY =~ ^.*\"browser_download_url\":[[:blank:]]*\".*Proton-${version}\.tar\.gz\".*$ ]] && {
+            [[ $REPLY =~ ^.*\"browser_download_url\":[[:space:]]*\".*Proton-${version}\.tar\.gz\".*$ ]] && {
                 ##flag_browserurl_found=1
                 ##line_browserurl_found=$counter_lines
                 ((g_verbose)) && vMsg "browser_download_url match: $counter_lines"
+                ##((g_verbose)) && vMsg "REPLY: $REPLY"
                 REPLY=${REPLY//[[:space:]]} # Remove all spaces/tabs
                 REPLY=${REPLY/#*\"browser_download_url\":\"} # Trim the unneeded left side
                 value_browser_url=${REPLY%%\"*} # Trim the unneeded right side
+                ##((g_verbose)) && vMsg "value_browser_url: $value_browser_url"
                 break
             }
         }
@@ -2228,7 +2236,7 @@ RemoveGEInstallPath() {
     disk_usage=$(du -sh -- "$g_install_path" 2>/dev/null)
 
     if ($g_command_rm -r -- "$g_install_path"); then
-        echo "Removed $g_install_path (${disk_usage%%[[:blank:]]*})"
+        echo "Removed $g_install_path (${disk_usage%%[[:space:]]*})"
         ##((g_verbose)) && vMsg "Recreating install path at $g_install_path"
 
         # Re-create the g_install_path in case a requested subsequent script function needs it
@@ -2413,7 +2421,7 @@ ReportGEDiskUsage() {
             printf "  Path: %s\n  Files: %s\n  Disk usage: %s\n" \
                    "$g_install_path" \
                    "$file_counter" \
-                   "${disk_usage%%[[:blank:]]*}"
+                   "${disk_usage%%[[:space:]]*}"
         else
             ##((g_verbose)) && vMsg "Path: $g_install_path" y
             echo "Version $version not found"
@@ -2433,7 +2441,7 @@ ReportGEDiskUsage() {
             printf "  Path: %s\n  Files: %s\n  Disk usage: %s\n" \
                    "$path" \
                    "$file_counter" \
-                   "${disk_usage%%[[:blank:]]*}"
+                   "${disk_usage%%[[:space:]]*}"
         else
             ##((g_verbose)) && vMsg "Path: $path" y
             echo "Version $version not found"
@@ -2477,8 +2485,8 @@ RequestURL() {
 
     ##((g_verbose)) && vMsg "Checking remote file against $file_local"
 
-    ##-H "$CURL_HEADER_USER_AGENT" \
     if curl -sz "$file_local" \
+            -H "$CURL_HEADER_USER_AGENT" \
             -H "$CURL_HEADER_CONTENT_TYPE" \
             -H "$CURL_HEADER_GITHUB_MEDIATYPE" \
             -L "$requested_url" \
@@ -2731,10 +2739,10 @@ ShowGEReleaseNotes() {
         # "html_url":"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
         # "html_url":  "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST"
         # "html_url":   "https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/5.9-GE-5-ST",
-        [[ ${line_releases//[[:blank:]]} =~ ^.*\"html_url\":\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
+        [[ ${line_releases//[[:space:]]} =~ ^.*\"html_url\":\"https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/.*$ ]] && {
             flag_url_found=1
             ##((g_verbose)) && vMsg "URL match ($line_counter): $line_releases"
-            line_releases=${line_releases//[[:blank:]]}
+            line_releases=${line_releases//[[:space:]]}
             line_releases=${line_releases//'",'}
             value_release_notes_url=${line_releases/#*'"html_url":"'}
             continue
@@ -2745,13 +2753,13 @@ ShowGEReleaseNotes() {
         #         "name": "Proton-5.9-GE-5-ST.tar.gz",
         # "name": "Proton-5.9-GE-5-ST.tar.gz"
         ((flag_url_found)) && {
-            #((g_verbose)) && vMsg "Checking regex: ^[[:blank:]]*\"name\":[[:blank:]]*\"Proton-${version}\.tar\.gz\".*$"
-            [[ ${line_releases//[[:blank:]]} =~ ^.*\"name\":\"Proton-${version}\.tar\.gz\".*$ ]] && {
+            #((g_verbose)) && vMsg "Checking regex: ^[[:space:]]*\"name\":[[:space:]]*\"Proton-${version}\.tar\.gz\".*$"
+            [[ ${line_releases//[[:space:]]} =~ ^.*\"name\":\"Proton-${version}\.tar\.gz\".*$ ]] && {
                 ((version_counter++))
                 flag_version_found=1
                 ((g_verbose)) && vMsg "Version match ($line_counter): $line_releases"
                 flag_url_found=0
-                line_releases=${line_releases//[[:blank:]]}
+                line_releases=${line_releases//[[:space:]]}
                 line_releases=${line_releases/#*'"name":"'}
                 line_releases=${line_releases//'",'}
                 line_releases=${line_releases//'.tar.gz'}
@@ -2763,9 +2771,9 @@ ShowGEReleaseNotes() {
         ((flag_version_found)) && {
 
             # "body_text":"7-28-2020:
-            [[ ${line_releases//[[:blank:]]} =~ ^.*\"body_text\":\".*$ ]] && {
+            [[ ${line_releases//[[:space:]]} =~ ^.*\"body_text\":\".*$ ]] && {
 
-                [[ ${line_releases//[[:blank:]]} == *\" ]] && { ((g_verbose)) && vMsg "body_text end marker found: $line_counter"; flag_end=1; }
+                [[ ${line_releases//[[:space:]]} == *\" ]] && { ((g_verbose)) && vMsg "body_text end marker found: $line_counter"; flag_end=1; }
 
                 ##((g_verbose)) && vMsg "body_text before ($line_counter): $line_releases"
 
@@ -2779,7 +2787,7 @@ ShowGEReleaseNotes() {
                 ((flag_end)) && line_releases=${line_releases%\"*}
 
                 # Remove leading spaces
-                while [[ ${line_releases:0:1} = [[:blank:]] ]]; do
+                while [[ ${line_releases:0:1} = [[:space:]] ]]; do
                     line_releases=${line_releases:1}
                 done
 
@@ -2879,7 +2887,7 @@ UninstallScript() {
     if ((g_force)); then
         # g_script_cache_path
         if ($g_command_rm -rf -- "$g_script_cache_path"); then
-            echo "Removed $g_script_cache_path (${cache_size%[[:blank:]]*})"
+            echo "Removed $g_script_cache_path (${cache_size%[[:space:]]*})"
         else
             vMsg "Failed to remove $g_script_cache_path" r
             flag_failed=1
@@ -2887,7 +2895,7 @@ UninstallScript() {
 
         # g_script_config_path
         if ($g_command_rm -rf -- "$g_script_config_path"); then
-            echo "Removed $g_script_config_path (${config_size%[[:blank:]]*})"
+            echo "Removed $g_script_config_path (${config_size%[[:space:]]*})"
         else
             vMsg "Failed to remove $g_script_config_path" r
             flag_failed=1
