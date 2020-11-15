@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 # misc-bash/script-sloc ge-install-manager:
-# 2160/3516 SLOC (61%) [SLOC/Comment:2.46], 879 comments (25%) [S:95%,I:4%] [Comment/SLOC:0.41], 514 empty (14%)
+# 2165/3521 SLOC (61%) [SLOC/Comment:2.45], 882 comments (25%) [S:95%,I:4%] [Comment/SLOC:0.41], 511 empty (14%)
 
 ###############################################################################
 #                                                                             #
@@ -34,7 +34,7 @@ set -huo pipefail
 
 # Initialize global variables
 # NOTE: Script constants (read only variables) are all upper-case
-declare -gr SCRIPT_VERSION='0.7.7'
+declare -gr SCRIPT_VERSION=0.7.7
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr SCRIPT_CODENAME='Cochrane Bonaventure'
 declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager' # CheckForScriptUpdate
@@ -63,7 +63,7 @@ declare -g g_remove_version
 declare -g g_remove_saved_version
 declare -g g_report_version
 declare -g g_script_cache_path # Configuration file: cache_path
-declare -g g_temp_base_path='/tmp' # Configuration file: temp_path
+declare -g g_temp_base_path=/tmp # Configuration file: temp_path
 declare -g g_verify_version
 declare -g g_show_release_notes_version
 declare -gi g_check_update=0
@@ -2466,8 +2466,6 @@ ReportGEDiskUsage() {
 #          1 (Failure) Curl returned failure, the server responded "Not Found" or
 #                      Github API request rate limit exceeded, or a failure occured
 #                      trying to copy the temporary file to the specified file.
-# BUG: If you request a URL that returns data with <=1 newline and it is not JSON
-#      formatted the output may be mangled by ReformatJSONUsingSed.
 RequestURL() {
 
     local requested_url=${1-} \
