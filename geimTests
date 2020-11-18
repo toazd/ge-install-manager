@@ -34,7 +34,8 @@ err_exit() {
 # Get a list of the available releases
 # Parse ge-install-manager -L output into a tmp file
 GetReleasesList() {
-    while IFS= read -r; do
+    while IFS= read -r
+    do
         REPLY=${REPLY%%[[:blank:]]*}
         REPLY=${REPLY//Proton-}
         printf '%s\n' "$REPLY" >> "$tmp_file"
@@ -42,9 +43,12 @@ GetReleasesList() {
 }
 
 InstallSmallRelease() {
-    if ge-install-manager -zd "Proton-5.1-GE-1" 2>>"${debug_log}"; then
-        if ge-install-manager -zi "Proton-5.1-GE-1" 2>>"${debug_log}"; then
-            if ! ge-install-manager -zs "Proton-5.1-GE-1" 2>>"${debug_log}" 1>>"$log_file"; then
+    if ge-install-manager -zd "Proton-5.1-GE-1" 2>>"${debug_log}"
+    then
+        if ge-install-manager -zi "Proton-5.1-GE-1" 2>>"${debug_log}"
+        then
+            if ! ge-install-manager -zs "Proton-5.1-GE-1" 2>>"${debug_log}" 1>>"$log_file"
+            then
                 err_exit
             fi
         else
@@ -57,7 +61,8 @@ InstallSmallRelease() {
 
 InstallAllReleases() {
     GetReleasesList
-    while IFS= read -r; do
+    while IFS= read -r
+    do
         [[ -z $REPLY ]] && continue
         ge-install-manager -zi "$REPLY" 2>>"$debug_log"
     done < "$tmp_file"
@@ -69,24 +74,30 @@ VerifyAll() {
 
 # shellcheck disable=SC2129
 [[ -f $tmp_file && $(stat -c '%s' "$tmp_file") -gt 0 ]] && printf '%s\n%s\n\n' "ge-install-manager -L:" "$(cat "$tmp_file")" >> "$log_file"
-printf '\n%s\n\n' "$(ge-install-manager -l)" >> "$log_file"
+printf '%s\n\n' "$(ge-install-manager -l)" >> "$log_file"
 
 GroupTests() {
     # List patch notes for each installed version
-    while flag_installed=0 IFS= read -r || [[ -n $REPLY ]]; do
-        [[ ${REPLY,,} == 'installed'* ]] && { flag_installed=1; continue; }
-        [[ ${REPLY,,} == 'saved'* ]] && { flag_installed=0; continue; }
-        ((flag_installed)) && {
+    while IFS= read -r || [[ -n $REPLY ]]
+    do
+        [[ $REPLY != *'.tar.gz'* && $REPLY == *'Proton-'* ]] && {
             # Remove extra info
             REPLY=${REPLY//[[:blank:]]}
             REPLY=${REPLY%'('*}
             # Fix for 5.0-ge-1-no-mouse-coord
             REPLY=${REPLY//'5.0-GE-1'/'5.0-GE-1-no-mouse-coord'}
-            if ge-install-manager -zR "$REPLY" 1>>"$log_file" 2>>"$debug_log"; then
-                if ge-install-manager -zr "$REPLY" 1>>"$log_file" 2>>"$debug_log"; then
-                    if ge-install-manager -zi "$REPLY" 2>>"$debug_log"; then
-                        if ge-install-manager -zv "$REPLY" 2>>"$debug_log"; then
-                            if ! ge-install-manager -zn "$REPLY"  2>>"$debug_log" | tee -a "$notes_log"; then
+            if ge-install-manager -zR "$REPLY" 1>>"$log_file" 2>>"$debug_log"
+            then
+                if ge-install-manager -zr "$REPLY" 1>>"$log_file" 2>>"$debug_log"
+                then
+                    if ge-install-manager -zi "$REPLY" 2>>"$debug_log"
+                    then
+                        if ge-install-manager -zv "$REPLY" 2>>"$debug_log"
+                        then
+                            if ge-install-manager -zn "$REPLY"  2>>"$debug_log" | tee -a "$notes_log"
+                            then
+                                echo "All tests succeeded"
+                            else
                                 err_exit
                             fi
                         else
