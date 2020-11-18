@@ -1,8 +1,10 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-if [[ -f ge-install-manager ]]; then
-    [[ -w $PWD ]] || { echo "No write access to $PWD"; exit 1; }
-    if ctags --language-force=Sh --sort=no --kinds-Sh='{function}' ge-install-manager; then
+if [ -r ge-install-manager ]
+then
+    [ -w "$PWD" ] || { echo "No write access to $PWD"; exit 1; }
+    if ctags --language-force=Sh --sort=no --kinds-Sh='{function}' ge-install-manager
+    then
         echo "ctags returned success"
     else
         echo "ctags returned >0"
