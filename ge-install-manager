@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
-# misc-bash/script-sloc ge-install-manager:
-# 2388/3728 SLOC (64%) [SLOC/Comment:2.71], 880 comments (23%) [S:95%,I:4%] [Comment/SLOC:0.37], 497 empty (13%)
-
 ###############################################################################
 #                                                                             #
 #      Toazd 2020 Unlicense https://unlicense.org/                            #
@@ -12,24 +9,19 @@
 #        https://github.com/GloriousEggroll/proton-ge-custom                  #
 #                                                                             #
 ###############################################################################
-
 # -e  Exit immediately if a command exits with a non-zero status.
 set +e # WARNING: DO NOT set -e
-
 # -h Remember the location of commands as they are looked up. Default is on.
 # -u Treat unset variables as an error when substituting. Default is off.
 # -o pipefail The return value of a pipeline is the status of the last command
 #             to exit with a non-zero status, or zero if no command exited with
 #             a non-zero status. Default is off.
 set -huo pipefail
-
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
-#
-# TODO: Install function (currently automatic if any main function is used)
-# TODO: Replace getopts with a custom parser
-# TODO: support for using jq in addition to sed
-#
+#   -Install function (currently automatic if any main function is used)
+#   -Replace getopts with a custom parser
+#   -support for using jq in addition to sed
 ###############################################################################
 
 # Initialize global variables
