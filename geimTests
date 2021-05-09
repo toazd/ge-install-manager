@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+#
+# This script is used to automate some testing of geim (ge-install-manager)
+#
 
 tmp_file=/tmp/geimTests.proton-ge-custom.releases
 log_file=geimLog_$(date '+%F_%T').log
