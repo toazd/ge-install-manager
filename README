@@ -1,36 +1,17 @@
 Basic installation:
-(the script can be renamed and does not have to be in /usr/local/sbin)
-NOTE: You may need to install git to use this method
-      $ mkdir -p ~/github
-      $ cd ~/github
-      $ git clone https://github.com/toazd/ge-install-manager.git
-      $ cd ge-install-manager
-      $ chmod +x ge-install-manager
-      $ sudo ln -s "$(realpath ge-install-manager)" /usr/local/sbin/ge-install-manager
-      $ ge-install-manager -U (check for and install the latest version)
-
-Update:
-      $ cd ~/github/ge-install-manager
-      $ git pull
+      Download ge-install-manager and create a symlink to it.
+      Run ge-install-manager -L to list releases available to install.
+      Run ge-install-manager -i <version> to install (eg. 5.9-GE-ST-8).
+NOTE: If your PATH includes .local/bin a symlink will be auto-created to the script
+      if it doesn't exist.
 
 NOTE: After installing Steam, you will need to run it at least once before
       this script will detect that it is installed.
 
 NOTE: Ubuntu users - you may need to install curl (sudo apt install curl -y).
 
-NOTE: If you have less than 3GB of system RAM you may need to edit tmp_path
-      in the configuration file and set it to a path with at least ~1.2GB free. How much
-      free space you need depends on which Proton-ge-custom version you want to install and
-      which script functions you want to use (install and verify use tmp_path for temporary files).
-      The default path used is /tmp which is typically set to half of your system RAM by
-      default.
-
-      The script will check for all required commands and then notify you
+NOTE: The script will check for all required commands and then notify you
       if any are not found.
-
-NOTE: The script will check for an updated version of itself when either update
-      function is used (-u or -U). Auto-update of the script is currently
-      not supported.
 
 Distributions tested so far: Arch, Artix, Fedora Workstation, Gentoo, Manjaro, Manjaro XFCE, MX Linux,
                              Linux Mint, Linux Mint Debian Edition, Pop OS, Ubuntu
@@ -61,9 +42,8 @@ Help:
                       Combined with -v, -V will be ignored
     -v <version>  - Verify <version> using its saved package
     -d <version>  - Download and save the package for <version>
-    -D            - Remove all files created by this script excluding saved packages
-                      and proton-ge-custom installations (uninstall)
-                      For a complete uninstall, use -fXD.
+    -D            - Remove cache and config files created by this script
+                      To also remove all proton-ge-custom installations, use -XD.
     -x            - Remove all saved packages
     -X            - Remove the entire install path
                       NOTE: Saved packages are currently stored in the installation path

@@ -99,13 +99,13 @@ declare -g g_color_reset='\033[m'
 }
 
 ###############################################################################
-# Purpose: Print the help text to stdout
+# Purpose: Print the help text to stderr
 # Input:   None
 # Output:  None
 # Return:  Always 0
 ShowHelp() {
 
-    cat <<HELP_HEREDOC
+    cat <<HELP_HEREDOC 1>&2
 
     $SCRIPT_FULL_NAME  v$SCRIPT_VERSION "$SCRIPT_CODENAME"
 
@@ -134,9 +134,8 @@ ShowHelp() {
                       Combined with -v, -V will be ignored
     -v <version>  - Verify <version> using its saved package
     -d <version>  - Download and save the package for <version>
-    -D            - Remove all files created by this script excluding saved packages
-                      and proton-ge-custom installations (uninstall)
-                      For a complete uninstall, use -fXD.
+    -D            - Remove cache and config files created by this script
+                      To also remove all proton-ge-custom installations, use -XD.
     -x            - Remove all saved packages
     -X            - Remove the entire install path
                       NOTE: Saved packages are currently stored in the installation path
@@ -151,13 +150,13 @@ HELP_HEREDOC
 }
 
 ###############################################################################
-# Purpose: Print the usage text to stdout
+# Purpose: Print the usage text to stderr
 # Input:  None
 # Output: None
 # Return: Always 0
 ShowUsage() {
 
-     cat <<USAGE_HEREDOC
+     cat <<USAGE_HEREDOC 1>&2
 Usage:
 
   - Acceptable formats for <version>:
@@ -3457,14 +3456,32 @@ vMsg() {
 #          1 (Failure) A called function returned failure (>0)
 Main() {
 
+    local caller=${0:-}
+
     # Do not run as root
-    (( $(id -u) )) || { echo "This script requires non-root effective permissions"; exit 1; }
+    if (( ! $(id -u) )) || [[ $EUID -eq 0 ]]
+    then
+        echo "This script requires non-root effective permissions"
+        exit 1
+    fi
 
     # Parse script parameters and arguments, set global variables
-    ParseParameters "$@" || { ((g_verbose)) && vMsg "ParseParameters returned failure status"; exit 1; }
+    if ! ParseParameters "$@"
+    then
+        ((g_verbose)) && vMsg "ParseParameters returned failure status"
+        exit 1
+    fi
 
     # Report if verbose mode is enabled
     ((g_verbose)) && vMsg "$SCRIPT_FULL_NAME v$SCRIPT_VERSION verbose mode enabled" g
+
+    # Create a symlink in ~/.local/bin if it is part of PATH and doesn't exist already
+    if [[ $caller != *'bin'* && $PATH == *'.local/bin'* && ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" ]]
+    then
+        mkdir -p "$HOME/.local/bin"
+        printf '%s\n' "Creating symlink to script at $HOME/.local/bin/$SCRIPT_FULL_NAME"
+        ln -s "$(realpath "$caller")" "$HOME/.local/bin/$SCRIPT_FULL_NAME"
+    fi
 
     # If no parameters were supplied, show help
     # If -z was supplied report some basic information
@@ -3472,14 +3489,6 @@ Main() {
     # basic requirements and report if any are not found
     if [[ ${1-unset} = 'unset' || -z $1 ]] || [[ ${#1} -eq 2 && $1 = '-z' ]]
     then
-        ##((g_verbose)) && {
-        ##    if IsSteamRunning; then
-        ##        vMsg "Steam is running"
-        ##    else
-        ##        vMsg "Steam is not running"
-        ##    fi
-        ##}
-
         CheckRequirements # Print any required commands that are not found
         ShowHelp
         exit 0
