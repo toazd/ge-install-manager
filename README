@@ -1,3 +1,7 @@
+Just in case you were wondering why someone would go to such great lengths to create such
+a project it is becuase this project serves as a learning resource while practicing
+Bash scripting.
+
 Basic installation:
       Download ge-install-manager and create a symlink to it.
       Run ge-install-manager -L to list releases available to install.
