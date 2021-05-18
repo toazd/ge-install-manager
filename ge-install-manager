@@ -9,6 +9,16 @@
 #        https://github.com/GloriousEggroll/proton-ge-custom                  #
 #                                                                             #
 ###############################################################################
+#                                                                             #
+# “The fact that we live at the bottom of a deep gravity well,                #
+#  on the surface of a gas covered planet going around a nuclear              #
+#  fireball 90 million miles away and think this to be normal is              #
+#  obviously some indication of how skewed our perspective tends to be.”      #
+#                                                                             #
+#  ― Douglas Adams, The Salmon of Doubt: Hitchhiking the Galaxy One Last Time #
+#                                                                             #
+###############################################################################
+
 # -e  Exit immediately if a command exits with a non-zero status.
 set +e # WARNING: DO NOT set -e
 
@@ -3525,33 +3535,69 @@ Main() {
         exit 1
     fi
 
-    # Ask to create a symlink in ~/.local/bin if it is part of PATH and doesn't exist already
-    # If the user chooses no, create an empty file "nolocalbin" in g_script_cache_path to ensure we don't ask again
-    if [[ $caller != *'bin'* && $PATH == *'.local/bin'* && ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" && ! -e $g_script_cache_path/nolocalbin ]]
+    # Ask to create a symlink in ~/.local/bin or /usr/local/sbin if it is part of PATH and doesn't exist already
+    # If the user chooses no, create an empty file "nolocalbin"/"nolocalsbin" in g_script_cache_path to ensure we don't ask again
+    if [[ $caller != *'bin'* ]] && [[ ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" || ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" ]]
     then
-        while :
-        do
-            read -rp "Would you like to create a symlink to this script ($(realpath "$0")) at $HOME/.local/bin/$SCRIPT_FULL_NAME? " </dev/tty
-            case ${REPLY,,} in
-                (y|yes)
-                    mkdir -p "$HOME/.local/bin"
-                    if ln -s "$(realpath "$caller")" "$HOME/.local/bin/$SCRIPT_FULL_NAME"
-                    then
-                        printf '%s\n' "Symlink created successfully"
-                    else
-                        printf '%s\n' "Symlink creation failed"
-                    fi
-                    break
-                ;;
-                (n|no)
-                    touch "$g_script_cache_path"/nolocalbin
-                    break
-                ;;
-                (*)
-                    printf '%s\n' "Enter (y)es or (n)o"
-                ;;
-            esac
-        done
+        # ~/.local/bin
+        if [[ $PATH == *'.local/bin'* && ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" && ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" && ! -e "$g_script_cache_path"/nolocalbin ]]
+        then
+            while :
+            do
+                read -rp "Would you like to create a symlink to this script ($(realpath "$0")) at $HOME/.local/bin/$SCRIPT_FULL_NAME? " </dev/tty
+                case ${REPLY,,} in
+                    (y|yes)
+                        mkdir -p "$HOME/.local/bin"
+                        if ln -s "$(realpath "$caller")" "$HOME/.local/bin/$SCRIPT_FULL_NAME"
+                        then
+                            printf '%s\n' "Symlink created successfully"
+                        else
+                            printf '%s\n' "Symlink creation failed"
+                        fi
+                        break
+                    ;;
+                    (n|no)
+                        if touch "$g_script_cache_path"/nolocalbin
+                        then
+                            printf '%s\n' "You will not be asked again. Removing $g_script_cache_path/nolocalbin or running the uninstall function (-D) will reset this."
+                        fi
+                        break
+                    ;;
+                    (*)
+                        printf '%s\n' "Enter (y)es or (n)o"
+                    ;;
+                esac
+            done
+        fi
+
+        # /usr/local/sbin
+        if [[ $PATH == *'usr/local/sbin'* && ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" && ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" && ! -e "$g_script_cache_path"/nolocalsbin ]]
+        then
+            while :
+            do
+                read -rp "Would you like to create a symlink to this script ($(realpath "$0")) at /usr/local/sbin/$SCRIPT_FULL_NAME (this will require sudo)? " </dev/tty
+                case ${REPLY,,} in
+                    (y|yes)
+                        mkdir -p "$HOME/.local/bin"
+                        if sudo ln -s "$(realpath "$caller")" "/usr/local/sbin/$SCRIPT_FULL_NAME"
+                        then
+                            printf '%s\n' "Symlink created successfully"
+                        else
+                            printf '%s\n' "Symlink creation failed"
+                        fi
+                        break
+                    ;;
+                    (n|no)
+                        touch "$g_script_cache_path"/nolocalsbin
+                        printf '%s\n' "You will not be asked again. Removing $g_script_cache_path/nolocalsbin or running the uninstall function (-D) will reset this."
+                        break
+                    ;;
+                    (*)
+                        printf '%s\n' "Enter (y)es or (n)o"
+                    ;;
+                esac
+            done
+        fi
     fi
 
     # If -u and/or -U are used, check for a script update and report

@@ -1,3 +1,7 @@
+ge-install-manager is a helper script with the
+primary purpose of making managing your installations of
+Proton-ge-custom (https://github.com/GloriousEggroll/proton-ge-custom) a breeze.
+
 Basic installation:
       Download ge-install-manager and create a symlink to it.
       Run ge-install-manager -L to list releases available to install.
