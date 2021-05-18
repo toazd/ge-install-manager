@@ -11,12 +11,14 @@
 ###############################################################################
 # -e  Exit immediately if a command exits with a non-zero status.
 set +e # WARNING: DO NOT set -e
+
 # -h Remember the location of commands as they are looked up. Default is on.
 # -u Treat unset variables as an error when substituting. Default is off.
 # -o pipefail The return value of a pipeline is the status of the last command
 #             to exit with a non-zero status, or zero if no command exited with
 #             a non-zero status. Default is off.
 set -huo pipefail
+
 ###############################################################################
 # "Things that would be nice, but aren't required for main features" list
 #   -Install function (currently automatic if any main function is used)
@@ -26,13 +28,13 @@ set -huo pipefail
 
 # Initialize global variables
 # NOTE: Script constants (read only variables) are all upper-case
-declare -gr SCRIPT_VERSION=0.7.7
+declare -gr SCRIPT_VERSION=0.7.8
 declare -gr SCRIPT_FULL_NAME=${0##*/}
-declare -gr SCRIPT_CODENAME='Cochrane Bonaventure'
-declare -gr PROJECT_URL='https://github.com/toazd/ge-install-manager' # CheckForScriptUpdate
+declare -gr SCRIPT_CODENAME="Cochrane Bonaventure" # The Bonaventure (10281NCC), according to Montgomery Scott, "was the first ship to have warp drive installed."
+declare -gr PROJECT_URL="https://github.com/toazd/ge-install-manager" # CheckForScriptUpdate
 declare -gr CHECK_LATEST=0
-declare -gr CURL_HEADER_CONTENT_TYPE='Content-Type: application/json'
-declare -gr CURL_HEADER_GITHUB_MEDIATYPE='Accept: application/vnd.github.v3.text+json'
+declare -gr CURL_HEADER_CONTENT_TYPE="Content-Type: application/json"
+declare -gr CURL_HEADER_GITHUB_MEDIATYPE="Accept: application/vnd.github.v3.text+json"
 declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_VERSION"
 declare -gr TEMP_PREFIX=${SCRIPT_FULL_NAME}.tmp.
 # NOTE: Script global variables are all prefixed with g_
@@ -40,8 +42,8 @@ declare -g g_command_rm # Configuration file: rm_command
 declare -g g_download_version
 declare -g g_file_latest_json
 declare -g g_file_releases_json
-declare -g g_script_raw_url='https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager'
-declare -g g_file_script_raw=''
+declare -g g_script_raw_url="https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager"
+declare -g g_file_script_raw=""
 declare -g g_script_config_path=${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME
 declare -g g_file_script_config=$g_script_config_path/$SCRIPT_FULL_NAME.conf
 declare -g g_file_sed_unminify_script=$g_script_config_path/unminify-JSON.sed
@@ -49,7 +51,7 @@ declare -g g_install_path # Configuration file: install_path
 declare -g g_install_version
 declare -g g_latest_version
 declare -g g_latest_version_url # Configuration file: latest_version_url
-declare -g g_override_default_install_path=''
+declare -g g_override_default_install_path=""
 declare -g g_releases_url # Configuration file: releases_url
 declare -g g_remove_version
 declare -g g_remove_saved_version
@@ -84,18 +86,20 @@ declare -gi g_list_available_versions=0
 declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
 declare -gi g_uninstall_script=0
+declare -gi g_script_update_check=0
+
 # Bash escape sequences
 # https://www.shellcheck.net/wiki/SC2034
 # shellcheck disable=SC2034
 {
-declare -g g_color_red='\033[1;31m'
-declare -g g_color_green='\033[1;32m'
-declare -g g_color_yellow='\033[1;33m'
-declare -g g_color_blue='\033[1;34m'
-declare -g g_color_magenta='\033[1;35m'
-declare -g g_color_cyan='\033[1;36m'
-declare -g g_color_white='\033[1;37m'
-declare -g g_color_reset='\033[m'
+declare -g g_color_red="\033[1;31m"
+declare -g g_color_green="\033[1;32m"
+declare -g g_color_yellow="\033[1;33m"
+declare -g g_color_blue="\033[1;34m"
+declare -g g_color_magenta="\033[1;35m"
+declare -g g_color_cyan="\033[1;36m"
+declare -g g_color_white="\033[1;37m"
+declare -g g_color_reset="\033[m"
 }
 
 ###############################################################################
@@ -268,6 +272,8 @@ CheckAccessTime() {
 CheckForScriptUpdate() {
 
     local -i local_script_size_bytes=0 remote_script_size_bytes=0
+
+    (( g_script_update_check )) || return 0
 
     ((g_verbose)) && vMsg "Checking $g_file_script_raw"
     if CheckAccessTime "$g_file_script_raw" "$g_script_update_interval"
@@ -3551,11 +3557,16 @@ Main() {
     # If -u and/or -U are used, check for a script update and report
     if ((g_check_update || g_update))
     then
-        if CheckForScriptUpdate
+        if (( g_script_update_check ))
         then
-            ((g_verbose)) && vMsg "The latest version of the script is running" g
+            if CheckForScriptUpdate
+            then
+                ((g_verbose)) && vMsg "The latest version of the script is running" g
+            else
+                echo "There is a script update available ($PROJECT_URL)"
+            fi
         else
-            echo "There is a script update available ($PROJECT_URL)"
+            ((g_verbose)) && vMsg "Script update skipped due to global config g_script_update_check" y
         fi
     fi
 

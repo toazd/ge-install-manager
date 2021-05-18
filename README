@@ -1,13 +1,10 @@
-Just in case you were wondering why someone would go to such great lengths to create such
-a project it is becuase this project serves as a learning resource while practicing
-Bash scripting.
-
 Basic installation:
       Download ge-install-manager and create a symlink to it.
       Run ge-install-manager -L to list releases available to install.
       Run ge-install-manager -i <version> to install (eg. 5.9-GE-ST-8).
-NOTE: If your PATH includes .local/bin a symlink will be auto-created to the script
-      if it doesn't exist.
+
+NOTE: If your PATH includes .local/bin the script will ask if you want
+      a symlink created to it (a function other than help/usage must be invoked).
 
 NOTE: After installing Steam, you will need to run it at least once before
       this script will detect that it is installed.
@@ -20,6 +17,10 @@ NOTE: The script will check for all required commands and then notify you
 Distributions tested so far: Arch, Artix, Fedora Workstation, Gentoo, Manjaro, Manjaro XFCE, MX Linux,
                              Linux Mint, Linux Mint Debian Edition, Pop OS, Ubuntu
 Shells tested so far: GNU Bash v5.0.18, v5.0.17, Zsh v5.8
+
+Just in case you were wondering why someone would go to such great lengths to create such
+a project it is because this project serves as a learning resource while practicing
+Bash scripting.
 
 Help:
 
