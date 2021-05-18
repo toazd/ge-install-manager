@@ -8,7 +8,7 @@ Basic installation:
 
 Quick installation:
       Ensure the current working path is where you want ge-install-manager installed and then run:
-      bash -c '$(curl -sL 'https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager' -o ge-install-manager; chmod +x ge-install-manager; ./ge-install-manager)'
+      CURL=curl; bash -c "$(eval $CURL -sL 'https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager' -o ge-install-manager; chmod +x ge-install-manager; ./ge-install-manager)"
       
 NOTE: After installing Steam, you will need to run it at least once before
       this script will detect that it is installed.
