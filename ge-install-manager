@@ -404,30 +404,33 @@ CleanUp() {
     # If SIGINT was caught, attempt to prevent the cleanup from being interupted
     ((g_flag_sigint_caught)) && trap '' ABRT CHLD FPE INT QUIT TERM TSTP USR1 USR2 TRAP CONT HUP
 
-    for node in "$g_temp_base_path/$TEMP_PREFIX"*
-    do
-        # Paths
-        if [[ -d $node ]]
-        then
-            if rm -fr -- "$node" > /dev/null
+    if [[ $g_verbose -eq 0 ]]
+    then
+        for node in "$g_temp_base_path/$TEMP_PREFIX"*
+        do
+            # Paths
+            if [[ -d $node ]]
             then
-                ((g_verbose)) && vMsg "Removed temporary path: $node" g
-            else
-                vMsg "Failed to remove temporary path: $node" r
+                if rm -fr -- "$node" > /dev/null
+                then
+                    ((g_verbose)) && vMsg "Removed temporary path: $node" g
+                else
+                    vMsg "Failed to remove temporary path: $node" r
+                fi
             fi
-        fi
 
-        # Files
-        if [[ -f $node ]]
-        then
-            if rm -f -- "$node" > /dev/null
+            # Files
+            if [[ -f $node ]]
             then
-                ((g_verbose)) && vMsg "Removed temporary file: $node" g
-            else
-                vMsg "Failed to remove temporary file: $node" r
+                if rm -f -- "$node" > /dev/null
+                then
+                    ((g_verbose)) && vMsg "Removed temporary file: $node" g
+                else
+                    vMsg "Failed to remove temporary file: $node" r
+                fi
             fi
-        fi
-    done
+        done
+    fi
 
     # Handle the received SIGINT properly by terminating the script/process group with SIGINT
     if ((g_flag_sigint_caught))
