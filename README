@@ -6,6 +6,10 @@ Basic installation:
       Download ge-install-manager and run ./ge-install-manager -L to list releases available to install.
       Run ge-install-manager -i <version> to install (eg. 5.9-GE-ST-8).
 
+Quick installation:
+      Ensure the current working path is where you want ge-install-manager installed and then run:
+      bash -c '$(curl -sL 'https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager' -o ge-install-manager; chmod +x ge-install-manager; ./ge-install-manager)'
+      
 NOTE: After installing Steam, you will need to run it at least once before
       this script will detect that it is installed.
 
