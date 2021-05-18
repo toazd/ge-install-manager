@@ -3031,6 +3031,22 @@ UninstallScript() {
             vMsg "Failed to remove $g_script_config_path" r
             flag_failed=1
         fi
+
+        # Remove symlinks to this script
+        if [[ -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" ]]
+        then
+            if rm -f -- "$HOME/.local/bin/$SCRIPT_FULL_NAME"
+            then
+                printf '%s\n' "Removed dead symlink at $HOME/.local/bin/$SCRIPT_FULL_NAME"
+            fi
+        fi
+        if [[ -e "/usr/local/sbin/$SCRIPT_FULL_NAME" ]]
+        then
+            if sudo rm -if -- "/usr/local/sbin/$SCRIPT_FULL_NAME"
+            then
+                printf '%s\n' "Removed dead symlink at /usr/local/sbin/$SCRIPT_FULL_NAME"
+            fi
+        fi
     else
         vMsg "Force mode must be enabled for this feature" y
     fi
