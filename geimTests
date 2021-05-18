@@ -129,7 +129,7 @@ GroupTests() {
 
 [[ $1 = 'nuke' ]] && NukePreviousState
 [[ $1 = 'full' ]] && InstallAllReleases
-[[ -z $1 ]] && InstallSmallRelease
+#[[ -z $1 ]] && InstallSmallRelease
 
 # Run GroupTests()
 GroupTests
