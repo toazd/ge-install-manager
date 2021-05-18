@@ -713,9 +713,6 @@ END_OF_SED_SCRIPT
             vMsg "Failed to create sed script at $g_file_sed_unminify_script" r
             return 1
         fi
-    else
-        ##((g_verbose)) && vMsg "sed script already exists at g_file_sed_unminify_script and is the expected size ($g_size_bytes_sed_unminify_script bytes)" g
-        :
     fi
 
     return 0
@@ -3560,7 +3557,7 @@ Main() {
 
     # Ask to create a symlink in ~/.local/bin or /usr/local/sbin if it is part of PATH and doesn't exist already
     # If the user chooses no, create an empty file "nolocalbin"/"nolocalsbin" in g_script_cache_path to ensure we don't ask again
-    if [[ $caller != *'bin'* ]] && [[ ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" || ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" ]]
+    if [[ $caller != *'bin'*"$SCRIPT_FULL_NAME" ]] && [[ ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" || ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" ]]
     then
         # ~/.local/bin
         if [[ $PATH == *'.local/bin'* && ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" && ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" && ! -e "$g_script_cache_path"/nolocalbin ]]
