@@ -3475,14 +3475,6 @@ Main() {
     # Report if verbose mode is enabled
     ((g_verbose)) && vMsg "$SCRIPT_FULL_NAME v$SCRIPT_VERSION verbose mode enabled" g
 
-    # Create a symlink in ~/.local/bin if it is part of PATH and doesn't exist already
-    if [[ $caller != *'bin'* && $PATH == *'.local/bin'* && ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" ]]
-    then
-        mkdir -p "$HOME/.local/bin"
-        printf '%s\n' "Creating symlink to script at $HOME/.local/bin/$SCRIPT_FULL_NAME"
-        ln -s "$(realpath "$caller")" "$HOME/.local/bin/$SCRIPT_FULL_NAME"
-    fi
-
     # If no parameters were supplied, show help
     # If -z was supplied report some basic information
     # Enables invoking the script with only -z (eg. "ge-install-manager -z") to check
@@ -3525,6 +3517,35 @@ Main() {
         fi
     else
         exit 1
+    fi
+
+    # Ask to create a symlink in ~/.local/bin if it is part of PATH and doesn't exist already
+    # If the user chooses no, create an empty file "nolocalbin" in g_script_cache_path to ensure we don't ask again
+    if [[ $caller != *'bin'* && $PATH == *'.local/bin'* && ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" && ! -e $g_script_cache_path/nolocalbin ]]
+    then
+        while :
+        do
+            read -rp "Would you like to create a symlink to this script ($(realpath "$0")) at $HOME/.local/bin/$SCRIPT_FULL_NAME? " </dev/tty
+            case ${REPLY,,} in
+                (y|yes)
+                    mkdir -p "$HOME/.local/bin"
+                    if ln -s "$(realpath "$caller")" "$HOME/.local/bin/$SCRIPT_FULL_NAME"
+                    then
+                        printf '%s\n' "Symlink created successfully"
+                    else
+                        printf '%s\n' "Symlink creation failed"
+                    fi
+                    break
+                ;;
+                (n|no)
+                    touch "$g_script_cache_path"/nolocalbin
+                    break
+                ;;
+                (*)
+                    printf '%s\n' "Enter (y)es or (n)o"
+                ;;
+            esac
+        done
     fi
 
     # If -u and/or -U are used, check for a script update and report
