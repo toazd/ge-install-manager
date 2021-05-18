@@ -3038,6 +3038,8 @@ UninstallScript() {
             if rm -f -- "$HOME/.local/bin/$SCRIPT_FULL_NAME"
             then
                 printf '%s\n' "Removed dead symlink at $HOME/.local/bin/$SCRIPT_FULL_NAME"
+            else
+                printf '%s\n' "Removal of dead symlink at $HOME/.local/bin/$SCRIPT_FULL_NAME failed. Manual removal required."
             fi
         fi
         if [[ -e "/usr/local/sbin/$SCRIPT_FULL_NAME" ]]
@@ -3045,6 +3047,8 @@ UninstallScript() {
             if sudo rm -if -- "/usr/local/sbin/$SCRIPT_FULL_NAME"
             then
                 printf '%s\n' "Removed dead symlink at /usr/local/sbin/$SCRIPT_FULL_NAME"
+            else
+                printf '%s\n' "Removal of dead symlink at /usr/local/sbin/$SCRIPT_FULL_NAME failed. Manual removal required."
             fi
         fi
     else
