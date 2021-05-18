@@ -3,8 +3,7 @@ primary purpose of making managing your installations of
 Proton-ge-custom (https://github.com/GloriousEggroll/proton-ge-custom) a breeze.
 
 Basic installation:
-      Download ge-install-manager and create a symlink to it.
-      Run ge-install-manager -L to list releases available to install.
+      Download ge-install-manager and run ./ge-install-manager -L to list releases available to install.
       Run ge-install-manager -i <version> to install (eg. 5.9-GE-ST-8).
 
 NOTE: If your PATH includes .local/bin the script will ask if you want
