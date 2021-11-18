@@ -2334,7 +2334,7 @@ RemoveGEInstallPath() {
 
     disk_usage=$(du -sh -- "$g_install_path" 2>/dev/null)
 
-    if ($g_command_rm -r -- "$g_install_path")
+    if ($g_command_rm -rf -- "$g_install_path")
     then
         echo "Removed $g_install_path (${disk_usage%%[[:space:]]*})"
         ##((g_verbose)) && vMsg "Recreating install path at $g_install_path"
