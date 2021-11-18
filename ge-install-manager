@@ -38,7 +38,7 @@ set -huo pipefail
 
 # Initialize global variables
 # NOTE: Script constants (read only variables) are all upper-case
-declare -gr SCRIPT_VERSION=0.7.8
+declare -gr SCRIPT_VERSION=0.7.9
 declare -gr SCRIPT_FULL_NAME=${0##*/}
 declare -gr SCRIPT_CODENAME="Cochrane Bonaventure" # The Bonaventure (10281NCC), according to Montgomery Scott, "was the first ship to have warp drive installed."
 declare -gr PROJECT_URL="https://github.com/toazd/ge-install-manager" # CheckForScriptUpdate
@@ -97,6 +97,7 @@ declare -gi g_show_release_notes=0
 declare -gi g_show_all_release_notes=0
 declare -gi g_uninstall_script=0
 declare -gi g_script_update_check=0
+declare -gi g_automated_mode=0
 
 # Bash escape sequences
 # https://www.shellcheck.net/wiki/SC2034
@@ -143,18 +144,21 @@ ShowHelp() {
                       Combined with -U, -u will be ignored
     -i <version>  - Download and install <version>
     -R <version>  - Remove installed <version>
-    -r <version>  - Remove saved package <version>
+    -r <version>  - Remove saved package <version> (proton-ge tarball)
     -V            - Verify each installation using its saved package
                       Combined with -v, -V will be ignored
     -v <version>  - Verify <version> using its saved package
     -d <version>  - Download and save the package for <version>
     -D            - Remove cache and config files created by this script
                       To also remove all proton-ge-custom installations, use -XD.
-    -x            - Remove all saved packages
+    -x            - Remove all saved packages (proton-ge tarballs)
     -X            - Remove the entire install path
                       NOTE: Saved packages are currently stored in the installation path
     -f            - Force install, upgrade, or remove
                       Combined with -U and/or -i, remove saved package and download a new copy
+    -A            - Automated mode (skip/disable certain prompts)
+                      Skips prompting to edit a newly created config file
+                      Skips prompt for creating a symlink to the script
     -z            - Enable verbose output mode (to stderr)
                       Format: (calling line)[function trace]: message
 
@@ -816,10 +820,7 @@ DetectSteamInstallPath () {
     # Prefer to use the symlink if two paths were found and one is a link to the other
     elif ((${#valid_paths[@]} == 1)) || [[ ${#valid_paths[@]} -eq 2 && ${valid_paths[0]} -ef ${valid_paths[1]} ]]
     then
-        printf '%s\n%s\n%s\n' \
-               "Steam install path detected as ${valid_paths[0]}" \
-               "If that path is incorrect, then change install_path in the configuration file" \
-               "(default: ${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME/$SCRIPT_FULL_NAME.conf)"
+        printf '%s\n' "Steam install path detected as ${valid_paths[0]}"
         g_override_default_install_path=${valid_paths[0]}
 
     # Multiple paths detected with or without the Steam home link pointing to one of them
@@ -1303,7 +1304,7 @@ IsInstalled() {
 
     ((g_verbose)) && vMsg "Checking $version at $g_install_path/Proton-${version}"
 
-    if [[ -d $g_install_path/Proton-${version} ]]
+    if [[ -d $g_install_path/Proton-${version} ]] && [[ -f "$g_install_path/Proton-${version}/version" ]]
     then
         # NOTE: versioning within the file version (inside an installed package path) is not consistent
         while IFS= read -r -- || [[ -n $REPLY ]]
@@ -1624,7 +1625,7 @@ ParseConfigFile() {
         then
             ##((g_verbose)) && vMsg "CreateDefaultConfigFile returned success" g
             echo "Default configuration created at $g_file_script_config"
-            if [[ -n ${EDITOR-} ]] && ((! ${GEIM_TESTS:-0}))
+            if (( ! g_automated_mode )) && [[ -n ${EDITOR-} ]] && ((! ${GEIM_TESTS:-0}))
             then
                 ##((g_verbose)) && vMsg "EDITOR is set to: $EDITOR"
                 while :
@@ -1898,7 +1899,7 @@ ParseConfigFile() {
 #          >0 (The end of options was encountered or an error occurred.)
 ParseParameters() {
     OPTERR=1 # make sure it's on
-    while getopts 'zZThHflLn:NSs:i:d:DR:r:xuUXv:V' sOPT
+    while getopts 'zZThHflLn:NSs:i:d:DR:r:xuUXv:VA' sOPT
     do
         case "$sOPT" in
             (h)
@@ -1992,6 +1993,9 @@ ParseParameters() {
             (v)
                 g_verify=1
                 g_verify_version=$OPTARG
+            ;;
+            (A)
+                g_automated_mode=1
             ;;
             (":"|"?") return 1 ;;
         esac
@@ -3037,9 +3041,9 @@ UninstallScript() {
         then
             if rm -f -- "$HOME/.local/bin/$SCRIPT_FULL_NAME"
             then
-                printf '%s\n' "Removed dead symlink at $HOME/.local/bin/$SCRIPT_FULL_NAME"
+                printf '%s\n' "Removed symlink at $HOME/.local/bin/$SCRIPT_FULL_NAME"
             else
-                printf '%s\n' "Removal of dead symlink at $HOME/.local/bin/$SCRIPT_FULL_NAME failed. Manual removal required."
+                printf '%s\n' "Removal of symlink at $HOME/.local/bin/$SCRIPT_FULL_NAME failed. Manual removal required."
             fi
         fi
         if [[ -e "/usr/local/sbin/$SCRIPT_FULL_NAME" ]]
@@ -3555,9 +3559,9 @@ Main() {
         exit 1
     fi
 
-    # Ask to create a symlink in ~/.local/bin or /usr/local/sbin if it is part of PATH and doesn't exist already
+    # Ask to create a symlink in ~/.local/bin or /usr/local/sbin if automated mode is off, it is part of PATH, and it doesn't exist already
     # If the user chooses no, create an empty file "nolocalbin"/"nolocalsbin" in g_script_cache_path to ensure we don't ask again
-    if [[ $caller != *'bin'*"$SCRIPT_FULL_NAME" ]] && [[ ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" || ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" ]]
+    if (( ! g_automated_mode )) && [[ $caller != *'bin'*"$SCRIPT_FULL_NAME" ]] && [[ ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" || ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" ]]
     then
         # ~/.local/bin
         if [[ $PATH == *'.local/bin'* && ! -e "$HOME/.local/bin/$SCRIPT_FULL_NAME" && ! -e "/usr/local/sbin/$SCRIPT_FULL_NAME" && ! -e "$g_script_cache_path"/nolocalbin ]]
