@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
-###############################################################################
-#                                                                             #
-#      Toazd 2020 Unlicense https://unlicense.org/                            #
-#                                                                             #
-#      GloriousEggroll proton-ge-custom installation manager                  #
-#       Manage proton-ge-custom installations                                 #
-#        https://github.com/GloriousEggroll/proton-ge-custom                  #
-#                                                                             #
-###############################################################################
-#                                                                             #
-# “The fact that we live at the bottom of a deep gravity well,                #
-#  on the surface of a gas covered planet going around a nuclear              #
-#  fireball 90 million miles away and think this to be normal is              #
-#  obviously some indication of how skewed our perspective tends to be.”      #
-#                                                                             #
-#  ― Douglas Adams, The Salmon of Doubt: Hitchhiking the Galaxy One Last Time #
-#                                                                             #
-###############################################################################
+#
+# repo:bash-misc/script-sloc ge-install-manager:
+# 2618/3782 SLOC (69%) [SLOC/Comment:3.30], 793 comments (20%) [S:95%,I:4%] [Comment/SLOC:0.30], 405 empty (10%)
+################################################################################
+#                                                                              #
+#      Toazd 2020 Unlicense https://unlicense.org/                             #
+#                                                                              #
+#      GloriousEggroll proton-ge-custom installation manager                   #
+#      Easily manage proton-ge-custom installations                            #
+#        https://github.com/GloriousEggroll/proton-ge-custom                   #
+#                                                                              #
+################################################################################
+#                                                                              #
+# "A common mistake that people make when trying to design something           #
+# completely foolproof is to underestimate the ingenuity of complete fools."   #
+#                                                                              #
+#                   ~Douglas Adams, The Hitchhiker's Guide to the Galaxy       #
+#                                                                              #
+################################################################################
 
 # -e  Exit immediately if a command exits with a non-zero status.
 set +e # WARNING: DO NOT set -e
@@ -29,12 +30,12 @@ set +e # WARNING: DO NOT set -e
 #             a non-zero status. Default is off.
 set -huo pipefail
 
-###############################################################################
+################################################################################
 # "Things that would be nice, but aren't required for main features" list
 #   -Install function (currently automatic if any main function is used)
 #   -Replace getopts with a custom parser
 #   -support for using jq in addition to sed
-###############################################################################
+################################################################################
 
 # Initialize global variables
 # NOTE: Script constants (read only variables) are all upper-case
@@ -113,7 +114,7 @@ declare -g g_color_white="\033[1;37m"
 declare -g g_color_reset="\033[m"
 }
 
-###############################################################################
+################################################################################
 # Purpose: Print the help text to stderr
 # Input:   None
 # Output:  None
@@ -167,7 +168,7 @@ HELP_HEREDOC
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Print the usage text to stderr
 # Input:  None
 # Output: None
@@ -240,7 +241,7 @@ USAGE_HEREDOC
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Check the access time of a specified file and determine whether the
 #          specified interval has elapsed.
 # Input:   1 (required) File to check
@@ -276,7 +277,7 @@ CheckAccessTime() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Compare and report if the size of the remote version of this script
 #          does not match the size of the local version of this script.
 # Input:   None
@@ -322,7 +323,7 @@ CheckForScriptUpdate() {
     return $(( (local_script_size_bytes != remote_script_size_bytes) ? 1 : 0 ))
 }
 
-###############################################################################
+################################################################################
 # Purpose: Check for minimum required external commands for basic functionality
 #          and report if any are missing.
 # Input:   None
@@ -395,7 +396,7 @@ CheckRequirements() {
     return $(( flag_failed ? 1 : 0 ))
 }
 
-###############################################################################
+################################################################################
 # Purpose: Remove any temporary files/paths created by the script
 # Input:   None
 # Output:  None
@@ -445,7 +446,7 @@ CleanUp() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: When invoked, "clean" a version string stored in the variable version.
 # Input:   None
 # Output:  None
@@ -482,7 +483,7 @@ CleanUpVersion() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Backup a file/path in tar.gz format supporting upto a configurable
 #          number (n) of backups with a basename (sans extension) suffix of _n.
 #          The newest backup is the lowest index (n) and the oldest backup is
@@ -597,7 +598,7 @@ CreateBackup() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: If g_file_script_config is not found, create a default
 # Input:   None
 # Output:  None
@@ -684,7 +685,7 @@ DEFAULT_CONFIG
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: If the sed script g_file_sed_unminify_script is not found or it's size
 #          in bytes does not match an expected value, create/overwrite it
 # Input:   None
@@ -722,7 +723,7 @@ END_OF_SED_SCRIPT
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Attempt to auto-detect the Steam installation path and set the
 #          global variable g_override_default_install_path to it. That variable
 #          is then read by ParseConfigFile to set g_install_path in the config
@@ -877,7 +878,7 @@ DetectSteamInstallPath () {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Using curl, download a proton-ge-custom release package to a
 #          temporary path and if the download size matches the expected size
 #          copy it to g_install_path
@@ -1025,7 +1026,7 @@ DownloadGEPackage() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Extract a Proton-ge-custom package (.tar.gz) to g_install path or
 #          optionally to a specified path.
 # Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
@@ -1076,7 +1077,7 @@ ExtractGEPackage() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Generate a pseudo-random alphanumeric string using only Bash
 # Input:   1 (optional) An integer indicating the length of the sequence to generate
 # Output:  A string containing the generated alphanumeric sequence (stdout)
@@ -1110,7 +1111,7 @@ GenerateRandomAlphaNumericString() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Set the global variable g_latest_version to the latest version
 #          which is retrieved from the name member of the assets object in
 #          the local file g_file_latest_json.
@@ -1160,7 +1161,7 @@ GetLatestGEVersion() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Install a requested proton-ge-custom release version or install the
 #          latest version. If g_force=1 and a saved package exists for the
 #          requested version the package will be removed and a new one will be
@@ -1283,7 +1284,7 @@ InstallGEVersion() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Check if a version is installed
 # Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
@@ -1325,7 +1326,7 @@ IsInstalled() {
     # NOTE: Do not return 0 here
 }
 
-###############################################################################
+################################################################################
 # Purpose: Detect if a specified JSON file is minified or not.
 # Input:   1 (required) A JSON file
 # Output:  None
@@ -1360,7 +1361,7 @@ IsJSONminified() {
     return $(( (counter_lines <= 1) ? 0 : 1 ))
 }
 
-###############################################################################
+################################################################################
 # Purpose: Check if Steam is running
 # Input:   None
 # Output:  None
@@ -1396,7 +1397,7 @@ IsSteamRunning() {
     return $(( flag_found_steam ? 0 : 1 ))
 }
 
-###############################################################################
+################################################################################
 # Purpose: Parse g_file_releases_json and print all the versions that are
 #          are available to install.
 # Input:   None
@@ -1490,7 +1491,7 @@ ListAvailableGEVersions() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Print the currently installed Proton-ge-custom versions, saved
 #          packages, and their individual disk usage to stdout.
 # Input:   None
@@ -1551,7 +1552,7 @@ ListInstalledGEVersions() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Bash only primitive replacement for mktemp (file version)
 # Input:   None
 # Output:  A string containing a path and file with no trailing newline (stdout)
@@ -1574,7 +1575,7 @@ MkTempFile() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Bash only primitive replacement for mktemp (path version)
 # Input:   None
 # Output:  A string containing a path with no trailing newline (stdout)
@@ -1597,7 +1598,7 @@ MkTempPath() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Parse the config file set in the global variable g_file_script_config,
 #          validate recognized key/value pairs and then set/reset global
 #          variables accordingly.
@@ -1889,7 +1890,7 @@ ParseConfigFile() {
     return $(( flag_failed ? 1 : 0 ))
 }
 
-###############################################################################
+################################################################################
 # Purpose: Parse command line parameters using getopts and set global variables
 #          according to what was requested.
 # Input:   1 (required) "$@" (all script positional parameters)
@@ -2002,7 +2003,7 @@ ParseParameters() {
     done
 }
 
-###############################################################################
+################################################################################
 # Purpose: Provide a function to test new features and/or changes independent
 #          of the rest of the script.
 # Input:   None
@@ -2040,7 +2041,7 @@ ProvingGrounds() {
 
 }
 
-###############################################################################
+################################################################################
 # Purpose: A wrapper for QueryJSONAttribute that provides a single function call
 #          to retrieve values from keys/attributes in both g_file_latest_json and
 #          g_file_releases_json.
@@ -2107,7 +2108,7 @@ QueryGEAttribute() {
     return 1
 }
 
-###############################################################################
+################################################################################
 # Purpose: Retrieve a supported attribute value from a specified JSON file
 # Input:   1 (required) JSON file
 #          2 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
@@ -2239,7 +2240,7 @@ QueryJSONAttribute() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Run sed using the script g_file_sed_unminify_script (generated by the
 #          function CreateSedUnminifyJSONscript) on a specified file.
 # Input:   1 (required) A JSON file (minified and not minified are both supported)
@@ -2279,7 +2280,7 @@ ReformatJSONUsingSed() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Remove all saved packages in g_install_path
 # Input:   None
 # Output:  None
@@ -2324,7 +2325,7 @@ RemoveAllSavedPackages() {
     return $(( failure_counter ? 1 : 0 ))
 }
 
-###############################################################################
+################################################################################
 # Purpose: Remove g_install_path
 # Input:   None
 # Output:  None
@@ -2357,7 +2358,7 @@ RemoveGEInstallPath() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Remove an installed Proton-ge-custom version
 # Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
@@ -2402,7 +2403,7 @@ RemoveGEVersion() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Remove a saved package for a specified Proton-ge-custom version
 # Input:   1 (required) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
@@ -2445,7 +2446,7 @@ RemoveSavedPackage() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Provide a basic diagnostic tool that reports environment information.
 # Input:   None
 # Output:  None
@@ -2502,7 +2503,7 @@ ReportEnvironmentInfo() {
     exit 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Print the disk usage and file count for g_install_path and/or a
 #          specified version to stdout.
 # Input:   1 (optional) Proton-ge-custom version (in one of the acceptable formats described in usage)
@@ -2559,7 +2560,7 @@ ReportGEDiskUsage() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Use curl -z to request a specified URL. If the remote URL has an mtime
 #          newer than the specified file, write the response to a temporary file.
 #          Check the temporary file for basic response errors and if none are found
@@ -2671,7 +2672,7 @@ RequestURL() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Ensure critical paths exist and that the script has the required
 #          permissions to each of them. Additionally, in case the shebang is
 #          changed from /usr/bin/env bash, aliases for commands used by the
@@ -2830,7 +2831,7 @@ SetupEnvironment() {
     return $(( flag_failed ? 1 : 0 ))
 }
 
-###############################################################################
+################################################################################
 # Purpose: Print release notes (body_text) for a specified version or all versions
 # Input:   1 (optional) Proton-ge-custom version (in one of the acceptable formats described in usage)
 # Output:  None
@@ -2960,7 +2961,7 @@ ShowGEReleaseNotes() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Given a file/path (filesystem) and a unit (binary prefix), use stat
 #          to calculate the remaining space on a filesystem by multiplying
 #          the filesystem block size by the number of remaining blocks and
@@ -3002,7 +3003,7 @@ SpaceRemaining() {
     return
 }
 
-###############################################################################
+################################################################################
 # Purpose: Remove g_script_cache_path g_script_config_path
 # Input:   None
 # Output:  None
@@ -3064,7 +3065,7 @@ UninstallScript() {
 }
 
 
-###############################################################################
+################################################################################
 # Purpose: Call the RequestURL function to update both g_file_latest_json and
 #          g_file_releases_json if the remote versions are newer and a
 #          configurable interval has passed.
@@ -3116,7 +3117,7 @@ UpdateCachedGEReleases() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Check for the latest version and if it is not installed install it
 #          If force mode is active and the latest version is already installed,
 #          it will first be removed and then re-installed.
@@ -3164,7 +3165,7 @@ UpdateGEVersion() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Verify all installed versions or a specified version by comparing
 #          each file from the saved package to the installed file and report
 #          the number of files that match, are missing, and don't match to stdout.
@@ -3422,7 +3423,7 @@ VerifyGEInstall() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Print a supplied message to stderr and prefix that message with the
 #          line number that called this function followed by a function trace
 #          that excludes "main". Similar to the caller Bash built-in.
@@ -3488,7 +3489,7 @@ vMsg() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Supervise and control the flow of the script depending on how it was invoked
 # Input:   1 (required) "$@" (all command line positional parameters)
 # Output:  None
@@ -3759,18 +3760,24 @@ Main() {
     return 0
 }
 
-###############################################################################
+################################################################################
 # Purpose: Run the function CleanUp on SIGEXIT
 #          Save the exit status of the last executed command before invoking
 #          the CleanUp function and exit with that status instead.
 trap 'g_real_exit_status=$?; CleanUp; exit $g_real_exit_status' EXIT
 
-###############################################################################
+################################################################################
 # Purpose: Run the function CleanUp if the process group received SIGINT
 #          This needs to be a seperate trap to properly handle SIGINT.
 trap 'g_flag_sigint_caught=1; CleanUp' INT
 
-###############################################################################
+################################################################################
 # Call the function Main and pass it all of the positional parameters
 
 Main "$@"
+
+# "The last ever dolphin message was misinterpreted as a surprisingly
+#  sophisticated attempt to do a double-backwards-somersault through a hoop
+#  whilst whistling the ‘Star Spangled Banner’, but in fact the message was
+#  this: So long and thanks for all the fish."
+#                      ~Douglas Adams, The Hitchhiker's Guide to the Galaxy
