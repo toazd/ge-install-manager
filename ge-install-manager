@@ -50,27 +50,27 @@ declare -gr CURL_HEADER_USER_AGENT="User-Agent: toazd/$SCRIPT_FULL_NAME/$SCRIPT_
 declare -gr TEMP_PREFIX=${SCRIPT_FULL_NAME}.tmp.
 # NOTE: Script global variables are all prefixed with g_
 declare -g g_command_rm # Configuration file: rm_command
-declare -g g_download_version
-declare -g g_file_latest_json
-declare -g g_file_releases_json
+declare -g g_download_version=""
+declare -g g_file_latest_json=""
+declare -g g_file_releases_json=""
 declare -g g_script_raw_url="https://raw.githubusercontent.com/toazd/ge-install-manager/master/ge-install-manager"
 declare -g g_file_script_raw=""
 declare -g g_script_config_path=${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_FULL_NAME
 declare -g g_file_script_config=$g_script_config_path/$SCRIPT_FULL_NAME.conf
 declare -g g_file_sed_unminify_script=$g_script_config_path/unminify-JSON.sed
-declare -g g_install_path # Configuration file: install_path
-declare -g g_install_version
-declare -g g_latest_version
-declare -g g_latest_version_url # Configuration file: latest_version_url
+declare -g g_install_path="" # Configuration file: install_path
+declare -g g_install_version=""
+declare -g g_latest_version=""
+declare -g g_latest_version_url="" # Configuration file: latest_version_url
 declare -g g_override_default_install_path=""
-declare -g g_releases_url # Configuration file: releases_url
-declare -g g_remove_version
-declare -g g_remove_saved_version
-declare -g g_report_version
-declare -g g_script_cache_path # Configuration file: cache_path
+declare -g g_releases_url="" # Configuration file: releases_url
+declare -g g_remove_version=""
+declare -g g_remove_saved_version=""
+declare -g g_report_version=""
+declare -g g_script_cache_path="" # Configuration file: cache_path
 declare -g g_temp_base_path=/tmp # Configuration file: temp_path
-declare -g g_verify_version
-declare -g g_show_release_notes_version
+declare -g g_verify_version=""
+declare -g g_show_release_notes_version=""
 declare -gi g_check_update=0
 declare -gi g_verbose=0
 declare -gi g_download=0
