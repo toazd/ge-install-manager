@@ -2,7 +2,7 @@
 # vim: set ft=shell nowrap expandtab shiftwidth=4 tabstop=4 smarttab softtabstop=0
 #
 # repo:bash-misc/script-sloc ge-install-manager:
-# 2618/3782 SLOC (69%) [SLOC/Comment:3.30], 793 comments (20%) [S:95%,I:4%] [Comment/SLOC:0.30], 405 empty (10%)
+# 2615/3776 SLOC (69%) [SLOC/Comment:3.30], 793 comments (21%) [S:95%,I:4%] [Comment/SLOC:0.30], 402 empty (10%)
 ################################################################################
 #                                                                              #
 #      Toazd 2020 Unlicense https://unlicense.org/                             #
@@ -252,7 +252,6 @@ USAGE_HEREDOC
 CheckAccessTime() {
 
     local -i current_seconds=0 last_check_seconds=0 interval=${2:-0}
-
     local file=${1-}
 
     # If the file doesn't exist, return success (it needs to be created)
@@ -335,9 +334,7 @@ CheckForScriptUpdate() {
 CheckRequirements() {
 
     local cur_cmd=''
-
     local -i flag_failed=0 flag_apt=0 flag_pacman=0 flag_dnf=0
-
     local -a required_commands=(curl sed tar gzip stat wc touch file)
 
     # Detect package managers for basic missing command advice
@@ -749,9 +746,7 @@ END_OF_SED_SCRIPT
 DetectSteamInstallPath () {
 
     local check_path
-
     local -i i=0
-
     local -a valid_paths=()
     local -a search_paths=("$HOME/.steam/root" \
                            "${XDG_DATA_HOME:-$HOME/.local/share/Steam}" \
@@ -2289,7 +2284,6 @@ ReformatJSONUsingSed() {
 RemoveAllSavedPackages() {
 
     local package
-
     local -i success_counter=0 failure_counter=0
 
     ##((g_verbose)) && vMsg "Install path: $g_install_path"
