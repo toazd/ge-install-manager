@@ -459,16 +459,13 @@ CleanUpVersion() {
     # global remove spaces/tabs
     version=${version//[[:space:]]}
 
-    # global upper case
-    version=${version^^}
+    # anchored left, remove the string "Proton-" and anything to the left of it
+    version=${version//'Proton-'}
 
-    # anchored left, remove a single "PROTON-" and anything to the left of it
-    version=${version//'PROTON-'}
+    # anchored right, remove the string ".tar.gz" and anything to the right of it
+    version=${version//'.tar.gz'*}
 
-    # anchored right, remove a single ".TAR.GZ" and anything to the right of it
-    version=${version//'.TAR.GZ'*}
-
-    # Remove any :
+    # Remove any and all colons
     version=${version//':'}
 
     # Fix for Proton-5.0-GE-1-no-mouse-coord
@@ -2125,6 +2122,10 @@ QueryJSONAttribute() {
 
     local file_json=${1-} version=${2-} key=${3-} value_browser_url=''
     local -i counter_lines=0 flag_version_found=0 flag_size_found=0 value_size_bytes=0
+
+    ((g_verbose)) && vMsg "File:      $file_json"
+    ((g_verbose)) && vMsg "Version:   $version"
+    ((g_verbose)) && vMsg "Attribute: $key"
 
     # If the number of parameters is not exactly three, the second parameter is not a regular file, or any of the three parameters are empty
     if [[ $# -ne 3 ]] || [[ ! -f $file_json ]] || [[ -z $file_json || -z $version || -z $key ]]
