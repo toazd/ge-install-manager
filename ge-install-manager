@@ -456,11 +456,14 @@ CleanUpVersion() {
 
     ((g_verbose)) && vMsg "Before: \"$version\""
 
-    # global remove spaces/tabs
+    # Remove spaces/tabs
     version=${version//[[:space:]]}
 
+    # Convert all characters to lower-case
+    version=${version,,}
+
     # anchored left, remove the string "Proton-" and anything to the left of it
-    version=${version//'Proton-'}
+    version=${version//'proton-'}
 
     # anchored right, remove the string ".tar.gz" and anything to the right of it
     version=${version//'.tar.gz'*}
@@ -468,8 +471,11 @@ CleanUpVersion() {
     # Remove any and all colons
     version=${version//':'}
 
+    # Replace ge with GE
+    version=${version//'-ge-'/'-GE-'}
+
     # Fix for Proton-5.0-GE-1-no-mouse-coord
-    version=${version//'-NO-MOUSE-COORD'/'-no-mouse-coord'}
+    #version=${version//'-NO-MOUSE-COORD'/'-no-mouse-coord'}
     [[ $version = '5.0-GE-1' ]] && version='5.0-GE-1-no-mouse-coord'
 
     ((g_verbose)) && vMsg "After: \"$version\""
@@ -2123,9 +2129,7 @@ QueryJSONAttribute() {
     local file_json=${1-} version=${2-} key=${3-} value_browser_url=''
     local -i counter_lines=0 flag_version_found=0 flag_size_found=0 value_size_bytes=0
 
-    ((g_verbose)) && vMsg "File:      $file_json"
-    ((g_verbose)) && vMsg "Version:   $version"
-    ((g_verbose)) && vMsg "Attribute: $key"
+    ((g_verbose)) && vMsg "File:      $file_json" && vMsg "Version:   $version" && vMsg "Attribute: $key"
 
     # If the number of parameters is not exactly three, the second parameter is not a regular file, or any of the three parameters are empty
     if [[ $# -ne 3 ]] || [[ ! -f $file_json ]] || [[ -z $file_json || -z $version || -z $key ]]
@@ -2370,7 +2374,7 @@ RemoveGEVersion() {
     # Define the path that will be removed
     remove_path=$g_install_path/Proton-${version}
 
-    ##((g_verbose)) && { vMsg "Requested version: $version"; vMsg "remove_path: $remove_path"; }
+    ((g_verbose)) && { vMsg "Requested version: $version"; vMsg "remove_path: $remove_path"; }
 
     # Remove the path if it exists
     if [[ -d $remove_path ]]
