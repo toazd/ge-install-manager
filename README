@@ -1,3 +1,16 @@
+NOTE: On February 27th, 2022 the naming scheme for Proton-GE was changed enough
+that this script is no longer compatible with both the old and the new naming schemes. I currently
+do not have the time or motivation to do the substantial overhaul of this script that would be necessary
+to bring it up to date. This project has long since served its purpose of being a learning resource for me
+to learn Bash scripting and it was a lot of fun while it lasted. I started a new career which does not involve computing
+roughly 6 months ago (8/31/21) and since then I no longer use Steam or Proton-GE for entertainment or otherwise.
+Because the future of this project is unknown I will be archiving it after this last commit.
+Please do not expect this script to be updated any time soon, if at all.
+Please do not depend on this script for anything important.
+Thank you and good luck!
+
+
+
 ge-install-manager is a helper script with the
 primary purpose of making managing your installations of
 Proton-ge-custom (https://github.com/GloriousEggroll/proton-ge-custom) a breeze.
